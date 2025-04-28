@@ -1,4 +1,54 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
+    // 滚动效果
+    const header = document.querySelector('header');
+    const heroSection = document.querySelector('.hero');
+    const avatarSection = document.querySelector('.avatar-section');
+    
+    // 获取头像部分的初始位置和大小
+    let heroSectionTop;
+    let avatarSectionTop;
+    
+    // 页面加载后更新位置信息
+    function updatePositions() {
+        heroSectionTop = heroSection.offsetTop;
+        avatarSectionTop = avatarSection.offsetTop;
+        
+        // 页面加载时也检查滚动位置
+        const scrollPosition = window.scrollY;
+        if (scrollPosition > 100) {
+            header.classList.add('scrolled');
+        }
+    }
+    
+    // 页面加载和窗口调整时更新位置
+    window.addEventListener('load', updatePositions);
+    window.addEventListener('resize', updatePositions);
+    
+    // 监听滚动事件
+    window.addEventListener('scroll', () => {
+        const scrollPosition = window.scrollY;
+        
+        // 当滚动超过头像部分时，显示导航栏头像
+        if (scrollPosition > 100) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
+        }
+        
+        // 为了性能优化，使用requestAnimationFrame
+        if (!window.requestAnimationFrame) return;
+        
+        // 如果已经有等待执行的动画帧，则取消
+        if (window.scrollAnimationFrame) {
+            window.cancelAnimationFrame(window.scrollAnimationFrame);
+        }
+        
+        // 请求新的动画帧
+        window.scrollAnimationFrame = window.requestAnimationFrame(() => {
+            // 在这里添加可能的额外动画效果
+        });
+    });
+    
     // 初始化各个功能
     initLanguageToggle();
     initScrollAnimation();

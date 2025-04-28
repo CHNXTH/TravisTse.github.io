@@ -71,6 +71,36 @@ nav {
 .logo {
   font-size: 21px;
   font-weight: 600;
+  transition: opacity 0.3s ease;
+}
+
+/* 添加导航栏头像样式 */
+.nav-avatar-container {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.nav-avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  margin-right: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.nav-logo-text {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* 当页面滚动时显示导航头像和文字 */
+.scrolled .nav-avatar-container {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .nav-center {
@@ -592,6 +622,12 @@ footer p {
     margin-top: 10px;
   }
   
+  /* 调整移动端的导航栏头像显示 */
+  .nav-avatar-container {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  
   .timeline::before {
     left: 60px;
   }
@@ -661,4 +697,47 @@ footer p {
     height: 55px;
     font-size: 24px;
   }
+}
+
+/* 头像部分样式 */
+.avatar-section {
+    padding: 30px 0;
+    text-align: center;
+    transition: transform 0.5s ease;
+}
+
+.avatar-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.5s ease;
+}
+
+.avatar-outer-circle {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6e8efb, #a777e3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    transition: all 0.5s ease;
+}
+
+.avatar-inner-circle {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: white;
+    border: 4px solid white;
+    transition: all 0.5s ease;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: all 0.5s ease;
 } 
