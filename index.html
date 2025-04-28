@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travis Tse</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Travis Tse</div>
+            <div class="nav-center">
+                <ul class="nav-links">
+                    <li><a href="#education" class="nav-link">Education</a></li>
+                    <li><a href="#experience" class="nav-link">Experience</a></li>
+                    <li><a href="#papers" class="nav-link">Papers</a></li>
+                    <li><a href="#awards" class="nav-link">Awards</a></li>
+                    <li><a href="#footprints" class="nav-link">Footprints</a></li>
+                    <li><a href="#social" class="nav-link">Connect</a></li>
+                </ul>
+            </div>
+            <div class="nav-right">
+                <button id="language-toggle" aria-label="Switch Language">
+                    <span class="lang-text">中文</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <div class="sidebar">
+        <ul>
+            <li><a href="#education" class="sidebar-link">Education</a></li>
+            <li><a href="#experience" class="sidebar-link">Experience</a></li>
+            <li><a href="#papers" class="sidebar-link">Papers</a></li>
+            <li><a href="#awards" class="sidebar-link">Awards</a></li>
+            <li><a href="#footprints" class="sidebar-link">Footprints</a></li>
+            <li><a href="#social" class="sidebar-link">Connect</a></li>
+        </ul>
+    </div>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <h1 class="name" data-en="Travis Tse" data-zh="谢堂华 Travis Tse">Travis Tse</h1>
+                <div class="contact-info">
+                    <p>23 Years Old | <a href="tel:15698010160">15698010160</a> | <a href="mailto:chnxth@gmail.com">chnxth@gmail.com</a></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="education" class="section">
+            <div class="container">
+                <h2 class="section-title">Education</h2>
+                <div class="education-item">
+                    <div class="education-header">
+                        <h3>City University of Hong Kong</h3>
+                        <p class="education-meta">QS Ranking: 62</p>
+                    </div>
+                    <p class="education-details">College of Innovation | MSc in Venture Creation (Offer Received)</p>
+                </div>
+                <div class="divider"></div>
+                <div class="education-item">
+                    <div class="education-header">
+                        <h3>East China University of Science and Technology</h3>
+                        <p class="education-meta">Top 211 (Cross-Major Admission)</p>
+                    </div>
+                    <p class="education-details">School of Design | Design (Intelligent Product Interaction Design)</p>
+                    <p class="education-time">2025.09 - 2028.06</p>
+                    <p class="education-research">Research Focus: Intelligent Product Design, Industrial Design Engineering, AIGC Design, Large Model Training, Service Design</p>
+                </div>
+                <div class="divider"></div>
+                <div class="education-item">
+                    <div class="education-header">
+                        <h3>Shandong Jianzhu University</h3>
+                        <p class="education-meta">National First-Class Undergraduate Program / SoftScience Evaluation A</p>
+                    </div>
+                    <p class="education-details">School of Architecture and Urban Planning | Architecture (Green Building Design Direction)</p>
+                    <p class="education-time">2021.09 - 2025.06</p>
+                    <p class="education-stats">GPA: 3.91/5 | Rank: 2/159</p>
+                    <p class="education-awards">Awards: National Scholarship (1‰), First-Class Outstanding Student Scholarship (1%), Outstanding Student Pacesetter (1%), etc. Total of 12 national awards, 25 provincial awards, 6 university-level awards</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="experience" class="section section-background">
+            <div class="container">
+                <h2 class="section-title">Work Experience</h2>
+                <div class="experience-item">
+                    <div class="experience-logo">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c5/Ikea_logo.svg" alt="IKEA Logo">
+                    </div>
+                    <div class="experience-content">
+                        <div class="experience-header">
+                            <h3>IKEA China - Digital Innovation Center (IKEA Digital Hub)</h3>
+                            <p class="experience-meta">Shanghai | Global Product Collage (GPC) Team | Product Manager, Interaction Designer</p>
+                            <p class="experience-time">2024.07 - 2024.12</p>
+                        </div>
+                        <ul class="experience-details">
+                            <li>Used Agile tools like Jira to organize requirements documentation, daily operations, UI design reviews, and front-end/back-end development coordination for IKEA's Global Product Collage and Fastdesign whole-house design tools</li>
+                            <li>Led the deployment of PPT templates for 20 countries: accumulated requirements from IKEA designers in more than 20 countries globally and coordinated with backend development to launch customized templates worldwide. User efficiency in creating PPTs improved by 40%</li>
+                            <li>Led the launch of the indoor panorama module: conducted AB testing, analyzed user needs and feedback data, optimized product functions and user interface, improving user satisfaction by 15%</li>
+                            <li>AI design tool prototype: led the completion of Global Product Collage 2D to 3D design</li>
+                            <li>Collaborated to complete IKEA offline store AR shopping prototype design: produced high-quality panoramic views and AR demonstrations, enhancing user immersion and interactive experience in the design process</li>
+                            <li>Collaborated to launch Fastdesign living room module functionality</li>
+                            <li>Assisted CV algorithm engineers in completing image segmentation model training</li>
+                            <li>Led the addition of independent replacement functionality for Ikea Panorama Editor</li>
+                            <li>Led the addition of object axis replication functionality for Global Product Collage</li>
+                            <li>Led the optimization of Global Product Collage panoramic image download functionality</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="experience-item">
+                    <div class="experience-logo">
+                        <img src="https://img.icons8.com/color/240/000000/geography--v1.png" alt="Smart Site360 Logo">
+                    </div>
+                    <div class="experience-content">
+                        <div class="experience-header">
+                            <h3>Smart Site360 Mini Program</h3>
+                            <p class="experience-meta">Project Lead, Product Manager, UX Designer</p>
+                            <p class="experience-time">2024.05 - 2025.05</p>
+                        </div>
+                        <ul class="experience-details">
+                            <li>Conducted user research in multiple architectural colleges, uncovering pain points in large-scale site research during early architectural design stages: low efficiency, repetitive work, and difficulty maintaining objective conclusions</li>
+                            <li>Designed a mini program that integrates text, audio, image, and video collection functions and combines them with basic GIS information of the site through geographic coordinates for integrated analysis</li>
+                            <li>The analysis process leverages large language models, LDA topic modeling, and computer vision technology to improve research efficiency and reduce variations in research conclusions due to designers' subjectivity</li>
+                            <li>Project received provincial-level university student innovation and entrepreneurship training program approval, obtained software copyright, and applied for one invention patent (first author)</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="experience-item">
+                    <div class="experience-logo">
+                        <img src="https://img.icons8.com/color/240/000000/brick-wall.png" alt="Matconstruct Logo">
+                    </div>
+                    <div class="experience-content">
+                        <div class="experience-header">
+                            <h3>Matconstruct Mini Program</h3>
+                            <p class="experience-meta">Project Lead, Product Manager, UX Designer</p>
+                            <p class="experience-time">2023.05 - 2023.09</p>
+                        </div>
+                        <ul class="experience-details">
+                            <li>Conducted in-depth semi-structured interviews with architecture students across different grades and building construction and materials course teachers to analyze the pain points caused by the neglect of materials in architectural education, leading to disconnections between teaching and practical work</li>
+                            <li>Generated user personas based on user needs and developed a mini program with material data visualization, AR material construction, and large language model-assisted material design specification Q&A features to address pain points of teachers and students</li>
+                            <li>Optimized the interface design of material detail pages through A/B testing, improving the readability and aesthetics of material performance visualization layouts while reducing accidental touches</li>
+                            <li>Completed small-scale testing of the project within the school, effectively improving students' understanding of building materials, facilitating their smooth transition into design institute work after graduation</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="experience-item">
+                    <div class="experience-logo">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo">
+                    </div>
+                    <div class="experience-content">
+                        <div class="experience-header">
+                            <h3>Google China Developer Conference</h3>
+                            <p class="experience-meta">Shanghai | Gemini AI</p>
+                            <p class="experience-time">2025.04</p>
+                        </div>
+                        <ul class="experience-details">
+                            <li>Conducted in-depth semi-structured interviews with architecture students across different grades and building construction and materials course teachers to analyze the pain points caused by the neglect of materials in architectural education</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="papers" class="section">
+            <div class="container">
+                <h2 class="section-title">Papers & Patents</h2>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">2024.11</div>
+                        <div class="timeline-content">
+                            <h3><a href="https://cdac2024.cn/Assets/userfiles/sys_eb538c1c-65ff-4e82-8e6a-a1ef01127fed/files/article/05/QW221.pdf" class="paper-link" target="_blank">Research on Interactive Service System Design for Traditional Village Cultural Heritage under the Background of "Cultural Innovation"</a></h3>
+                            <p>Travis Tse, Jiang Wang. 2024 Computational Design Academic Forum Annual Conference Proceedings [C]. Tongji University Press</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2024.12</div>
+                        <div class="timeline-content">
+                            <h3>Intelligent Interactive Service Design Empowering Rural Cultural Revitalization</h3>
+                            <p>Travis Tse. Research on the Reconstruction of Cultural Heritage Resources in Sandefan Village, Jinan Based on Grounded Theory and Topic Modeling, "Qingrun Award" Undergraduate Thesis Competition</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2024.06</div>
+                        <div class="timeline-content">
+                            <h3>A Mobile APP-based Urban Planning System</h3>
+                            <p>Travis Tse. Invention Patent (Under Review)</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2025.02</div>
+                        <div class="timeline-content">
+                            <h3>SmartSite360 Data-assisted Decision-making System</h3>
+                            <p>Travis Tse et al. Software Copyright</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="awards" class="section section-background">
+            <div class="container">
+                <h2 class="section-title">Awards</h2>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">2021.12</div>
+                        <div class="timeline-content">
+                            <h3>National Scholarship (1‰)</h3>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2024.06</div>
+                        <div class="timeline-content">
+                            <h3>First Prize in the VR Workshop for Science and Art Practice at the National University Student Art Exhibition and Performance</h3>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2023.05</div>
+                        <div class="timeline-content">
+                            <h3>Special Prize (2) and First Prize in the National College Student Green Building Design Competition</h3>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2023.12</div>
+                        <div class="timeline-content">
+                            <h3>Third Prize in the Qingrun Award National College Student Thesis Competition</h3>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2024.08</div>
+                        <div class="timeline-content">
+                            <h3>First, Second, and Third Prizes in the China Good Ideas National Digital Art Design Competition</h3>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2023.08</div>
+                        <div class="timeline-content">
+                            <h3>Second Prize (3) in the "Future Designer" National College Digital Art Design Competition</h3>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2023.05</div>
+                        <div class="timeline-content">
+                            <h3>Third Prize in the National College Student English Competition</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="footprints" class="section">
+            <div class="container">
+                <h2 class="section-title">My Footprints</h2>
+                <div id="map-container">
+                    <div id="world-map"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="social" class="section section-background">
+            <div class="container">
+                <h2 class="section-title">Connect With Me</h2>
+                <div class="social-icons">
+                    <a href="https://www.instagram.com/travis_tse?igsh=MXJ1cDhnMzNnNmZjeg==" target="_blank" class="social-icon" aria-label="Instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.behance.net/xth4" target="_blank" class="social-icon" aria-label="Behance">
+                        <i class="fab fa-behance"></i>
+                    </a>
+                    <a href="https://github.com/CHNXTH" target="_blank" class="social-icon" aria-label="GitHub">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="https://www.pinterest.com/chn_xth/" target="_blank" class="social-icon" aria-label="Pinterest">
+                        <i class="fab fa-pinterest"></i>
+                    </a>
+                    <a href="https://www.youtube.com/@travis_tse" target="_blank" class="social-icon" aria-label="YouTube">
+                        <i class="fab fa-youtube"></i>
+                    </a>
+                    <a href="https://www.xiaohongshu.com/user/profile/61e427e700000000210278b4?xsec_token=YBnTAfHJJl1IXa3dY1sz7kDi1uYG3BH-33H4lvbumqWKc%3D&xsec_source=app_share&xhsshare=CopyLink&appuid=61e427e700000000210278b4&apptime=1745851935&share_id=edfaa2d4cb9a49fb9e9b4f05f48bea37&share_channel=copy_link" target="_blank" class="social-icon" aria-label="小红书">
+                        <i class="fas fa-book-open"></i>
+                    </a>
+                    <a href="https://v.douyin.com/plS45kcJQPo/" target="_blank" class="social-icon" aria-label="抖音">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Travis Tse. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html> 
