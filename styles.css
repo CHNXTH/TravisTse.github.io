@@ -922,9 +922,33 @@ footer p {
 
 .social-icon:hover {
   transform: translateY(-8px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 20px var(--card-shadow);
   color: var(--accent-color);
   opacity: 1;
+}
+
+/* 自定义小红书图标样式 */
+.custom-icon {
+  width: 40px;  /* 放大到原来的一倍 */
+  height: 40px; /* 放大到原来的一倍 */
+  object-fit: contain;
+  /* 确保在亮色模式下保持原色 */
+  filter: none;
+  transition: all 0.3s ease;
+}
+
+/* 自定义项目图标样式 */
+.custom-project-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+  transition: all 0.3s ease;
+}
+
+/* 鼠标悬停在小红书图标上时的效果（亮色模式） */
+.social-icon:hover .custom-icon {
+  filter: invert(37%) sepia(74%) saturate(7482%) hue-rotate(336deg) brightness(100%) contrast(101%);
 }
 
 .social-icon .fa-instagram:hover {
@@ -1336,5 +1360,20 @@ footer p {
   /* 特殊调整黑暗模式的脚注元素 */
   .timeline-item:not(:last-child)::after {
     background-color: var(--divider-color);
+  }
+  
+  /* 深色模式下将小红书SVG图标变为白色 */
+  .custom-icon {
+    filter: brightness(0) invert(1); /* 使SVG变为白色 */
+  }
+  
+  /* 深色模式下项目图标处理 */
+  .custom-project-icon {
+    filter: brightness(0) invert(1); /* 使PNG变为白色 */
+  }
+  
+  /* 深色模式下鼠标悬停时变为小红书红色 */
+  .social-icon:hover .custom-icon {
+    filter: invert(37%) sepia(74%) saturate(7482%) hue-rotate(336deg) brightness(100%) contrast(101%);
   }
 } 
