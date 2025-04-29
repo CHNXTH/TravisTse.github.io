@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let heroSectionTop;
     let avatarSectionTop;
     
+    // 检测深色模式
+    checkDarkMode();
+    
+    // 监听系统深色模式变化
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', checkDarkMode);
+    
     // 页面加载后更新位置信息
     function updatePositions() {
         heroSectionTop = heroSection.offsetTop;
@@ -17,6 +23,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const scrollPosition = window.scrollY;
         if (scrollPosition > 100) {
             header.classList.add('scrolled');
+        }
+    }
+    
+    // 检测系统深色模式并适配
+    function checkDarkMode() {
+        const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark-mode');
+            // 调整地图颜色和组件（如果需要）
+            updateMapForDarkMode(true);
+        } else {
+            document.documentElement.classList.remove('dark-mode');
+            updateMapForDarkMode(false);
+        }
+    }
+    
+    // 更新地图深色模式（如果地图已初始化）
+    function updateMapForDarkMode(isDark) {
+        // 如果地图已经初始化，则更新其颜色
+        const worldMap = d3.select('#world-map svg');
+        if (!worldMap.empty()) {
+            if (isDark) {
+                worldMap.selectAll('path.country')
+                    .attr('fill', getComputedStyle(document.documentElement).getPropertyValue('--country-fill').trim())
+                    .attr('stroke', getComputedStyle(document.documentElement).getPropertyValue('--country-stroke').trim());
+                
+                worldMap.selectAll('.footprint')
+                    .attr('fill', getComputedStyle(document.documentElement).getPropertyValue('--footprint-color').trim());
+            } else {
+                worldMap.selectAll('path.country')
+                    .attr('fill', getComputedStyle(document.documentElement).getPropertyValue('--country-fill').trim())
+                    .attr('stroke', getComputedStyle(document.documentElement).getPropertyValue('--country-stroke').trim());
+                
+                worldMap.selectAll('.footprint')
+                    .attr('fill', getComputedStyle(document.documentElement).getPropertyValue('--footprint-color').trim());
+            }
         }
     }
     
@@ -604,12 +646,15 @@ function initWorldMap() {
     const width = document.getElementById('map-container').offsetWidth;
     const height = 600;
     
+    // 判断当前是否为深色模式
+    const isDarkMode = document.documentElement.classList.contains('dark-mode');
+    
     // 创建SVG元素
     const svg = d3.select('#world-map')
         .append('svg')
         .attr('width', width)
         .attr('height', height)
-        .attr('style', 'background-color: #F5F5F7'); // 设置海洋背景色为F5F5F7
+        .attr('style', `background-color: ${getComputedStyle(document.documentElement).getPropertyValue('--light-gray')}`);
     
     // 创建地图组
     const g = svg.append('g');
@@ -659,6 +704,11 @@ function initWorldMap() {
         { name: "荷兰代尔夫特", location: [4.3571, 52.0116], intensity: 4 }
     ];
     
+    // 获取CSS变量的值
+    const countryFill = getComputedStyle(document.documentElement).getPropertyValue('--country-fill').trim();
+    const countryStroke = getComputedStyle(document.documentElement).getPropertyValue('--country-stroke').trim();
+    const footprintColor = getComputedStyle(document.documentElement).getPropertyValue('--footprint-color').trim();
+    
     // 加载世界地图数据
     d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
         .then(data => {
@@ -672,8 +722,8 @@ function initWorldMap() {
                 .append('path')
                 .attr('d', path)
                 .attr('class', 'country')
-                .attr('fill', '#d1d1d1') // 保持陆地颜色为D1D1D1
-                .attr('stroke', '#F4F4F4') // 国家边界线颜色修改为F4F4F4
+                .attr('fill', countryFill)
+                .attr('stroke', countryStroke)
                 .attr('stroke-width', 0.5);
             
             // 添加足迹点 - 使用简单的蓝色圆点
@@ -684,7 +734,7 @@ function initWorldMap() {
                 .attr('cx', d => projection(d.location)[0])
                 .attr('cy', d => projection(d.location)[1])
                 .attr('r', d => Math.sqrt(d.intensity) * 2) // 较小的半径
-                .attr('fill', '#0066ff') // 蓝色
+                .attr('fill', footprintColor) // 使用CSS变量定义的颜色
                 .attr('fill-opacity', 0.8)
                 .attr('stroke', '#ffffff')
                 .attr('stroke-width', 0.5)
