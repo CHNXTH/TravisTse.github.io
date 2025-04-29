@@ -690,54 +690,84 @@ main {
   padding-left: 20px;
 }
 
-.timeline::before {
+/* Timeline 部分公共样式 */
+.timeline-section {
+  position: relative;
+}
+
+.timeline-section .timeline {
+  position: relative;
+  max-width: 800px;
+  margin: 0 auto;
+  padding-left: 20px;
+}
+
+/* 垂直时间线样式 */
+.timeline-section .timeline::before {
   content: '';
   position: absolute;
   width: 2px;
-  background-color: var(--divider-color);
+  background-color: #d2d2d7;
   top: 0;
   bottom: 0;
   left: 120px;
   margin-left: -1px;
+  z-index: 1;
 }
 
+/* 确保时间线始终在内容下面延伸到底部 */
+.timeline-section .container {
+  position: relative;
+  padding-bottom: 20px;
+}
+
+/* 时间线项目样式修改为纵向布局 */
 .timeline-item {
   position: relative;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
   display: flex;
+  flex-direction: column;
+  padding-left: 120px;
 }
 
+/* 时间日期样式 */
 .timeline-date {
-  width: 120px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
   text-align: right;
-  padding-right: 25px;
-  color: var(--secondary-color);
-  font-size: 16px;
-  position: relative;
-  flex-shrink: 0;
-  font-weight: 500;
+  color: #0033A0;
+  font-size: 18px;
+  font-weight: 600;
+  padding-right: 30px;
+  line-height: 24px;
 }
 
+/* 蓝色小圆点样式 */
 .timeline-date::after {
   content: '';
   position: absolute;
-  width: 12px;
-  height: 12px;
-  right: -6px;
-  background-color: var(--accent-color);
+  width: 16px;
+  height: 16px;
+  right: -8px;
+  top: 4px;
+  background-color: #0033A0;
   border-radius: 50%;
-  top: 5px;
-  transition: all 0.3s ease;
-  z-index: 2;
+  z-index: 5;
+  transform: translateX(0);
 }
 
+/* 移除悬停放大效果以保持居中 */
 .timeline-item:hover .timeline-date::after {
-  transform: scale(1.2);
+  transform: none;
 }
 
+/* 内容区域样式 */
 .timeline-content {
-  flex-grow: 1;
-  padding-left: 25px;
+  padding-left: 20px;
+  position: relative;
+  z-index: 2;
 }
 
 .timeline-content h3 {
@@ -746,24 +776,14 @@ main {
   margin-bottom: 5px;
 }
 
-.paper-link {
-  color: inherit;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  padding: 2px 4px;
-  border-radius: 4px;
+/* Papers部分特殊样式 */
+#papers.timeline-section .timeline-date::after {
+  background-color: #0033A0;
 }
 
-.paper-link:hover {
-  background-color: var(--accent-color);
-  color: white;
-  opacity: 1;
-}
-
-.timeline-content p {
-  color: var(--secondary-color);
-  font-size: 16px;
-  font-weight: 450;
+/* Awards部分特殊样式 */
+#awards.timeline-section .timeline-date::after {
+  background-color: #0033A0;
 }
 
 /* Map */
@@ -947,7 +967,7 @@ footer p {
 
 @media (max-width: 768px), (min-width: 1400px) and (min-resolution: 1.5dppx) {
   .timeline {
-    padding-left: 30px;
+    padding-left: 40px;
   }
   
   .timeline::before {
@@ -957,6 +977,7 @@ footer p {
   .timeline-item {
     flex-direction: column;
     margin-left: 10px;
+    padding-bottom: 10px;
   }
   
   .timeline-date {
@@ -964,12 +985,18 @@ footer p {
     text-align: left;
     padding-left: 0;
     padding-right: 0;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    margin-top: 5px;
   }
   
   .timeline-date::after {
     left: -30px;
     right: auto;
+    transform: translateX(-50%);
+  }
+  
+  .timeline-item:hover .timeline-date::after {
+    transform: translateX(-50%) scale(1.2);
   }
   
   .timeline-content {
@@ -978,7 +1005,7 @@ footer p {
   }
 }
 
-/* 增加小尺寸屏幕的优化 */
+/* 移动端特定的时间线调整 */
 @media (max-width: 480px) {
   nav {
     padding: 0 15px;
@@ -1019,6 +1046,54 @@ footer p {
   
   .skill-name {
     font-size: 12px;
+  }
+  
+  .timeline {
+    padding-left: 35px;
+  }
+  
+  .timeline::before {
+    left: 15px;
+  }
+  
+  .timeline-date {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  
+  .timeline-date::after {
+    left: -25px;
+    width: 10px;
+    height: 10px;
+    transform: translateX(-50%);
+  }
+  
+  .timeline-item:hover .timeline-date::after {
+    transform: translateX(-50%) scale(1.2);
+  }
+  
+  .timeline-content h3 {
+    font-size: 18px;
+  }
+  
+  .timeline-content p {
+    font-size: 14px;
+  }
+  
+  /* 确保足够的内容间距 */
+  .timeline-item {
+    margin-bottom: 25px;
+  }
+  
+  /* 提升内容和日期的分隔感 */
+  .timeline-item:not(:last-child)::after {
+    content: '';
+    display: block;
+    height: 1px;
+    background-color: var(--divider-color);
+    opacity: 0.5;
+    width: 100%;
+    margin-top: 20px;
   }
 }
 
@@ -1065,4 +1140,109 @@ footer p {
     height: 50px;
     font-size: 24px;
   }
+}
+
+/* 高分辨率设备下的时间线调整 */
+@media (min-resolution: 1.25dppx) {
+  .timeline-date::after {
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9);
+  }
+  
+  .timeline::before {
+    width: 3px;
+  }
+}
+
+/* 大屏幕高分辨率设备下调整时间线 */
+@media (min-width: 1600px) and (min-resolution: 1.5dppx) {
+  .timeline {
+    max-width: 900px;
+  }
+  
+  .timeline-content {
+    padding-left: 35px;
+  }
+  
+  .timeline-date {
+    padding-right: 35px;
+  }
+  
+  .timeline-date::after {
+    width: 14px;
+    height: 14px;
+    right: -7px;
+    transform: translateX(50%);
+  }
+  
+  .timeline-item:hover .timeline-date::after {
+    transform: translateX(50%) scale(1.2);
+  }
+  
+  .timeline-content h3 {
+    font-size: 22px;
+  }
+}
+
+/* 移动端样式调整 */
+@media (max-width: 768px) {
+  .timeline-section .timeline::before {
+    left: 80px;
+  }
+  
+  .timeline-item {
+    padding-left: 80px;
+  }
+  
+  .timeline-date {
+    width: 60px;
+    font-size: 16px;
+    padding-right: 25px;
+  }
+  
+  .timeline-content {
+    padding-left: 15px;
+  }
+}
+
+/* 更小屏幕的调整 */
+@media (max-width: 480px) {
+  .timeline-section .timeline::before {
+    left: 70px;
+  }
+  
+  .timeline-item {
+    padding-left: 70px;
+  }
+  
+  .timeline-date {
+    width: 50px;
+    font-size: 14px;
+    padding-right: 25px;
+  }
+  
+  .timeline-date::after {
+    width: 14px;
+    height: 14px;
+    right: -7px;
+  }
+}
+
+.paper-link {
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.paper-link:hover {
+  background-color: #0033A0;
+  color: white;
+  opacity: 1;
+}
+
+.timeline-content p {
+  color: var(--secondary-color);
+  font-size: 16px;
+  font-weight: 450;
 } 
