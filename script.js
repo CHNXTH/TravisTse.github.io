@@ -52,9 +52,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化各个功能
     initLanguageToggle();
     initScrollAnimation();
-    initSidebarHighlight();
+    initNavHighlight();
     initWorldMap();
+    initSearchFeature();
+    initMobileScrollSelector();
+    addLanguageIcon();
+    
+    // 为hero部分添加背景图
+    const heroBg = document.createElement('div');
+    heroBg.className = 'hero-bg';
+    heroBg.style.backgroundImage = "url('assets/images/background.jpg')";
+    document.querySelector('.hero').prepend(heroBg);
+    
+    // 重组hero区域布局
+    reorganizeHeroLayout();
 });
+
+// 重组hero区域布局
+function reorganizeHeroLayout() {
+    const heroContainer = document.querySelector('.hero .container');
+    const avatarContainer = document.querySelector('.avatar-container');
+    const nameElement = document.querySelector('.name');
+    const contactInfo = document.querySelector('.contact-info');
+    
+    // 创建新的hero内容容器
+    const heroContent = document.createElement('div');
+    heroContent.className = 'hero-content';
+    
+    // 创建个人信息容器
+    const heroInfo = document.createElement('div');
+    heroInfo.className = 'hero-info';
+    
+    // 创建位置信息
+    const locationInfo = document.createElement('div');
+    locationInfo.className = 'location-info';
+    locationInfo.innerHTML = '<i class="fas fa-map-marker-alt"></i>Shanghai';
+    
+    // 重组结构
+    heroInfo.appendChild(nameElement.cloneNode(true));
+    heroInfo.appendChild(locationInfo);
+    heroInfo.appendChild(contactInfo.cloneNode(true));
+    
+    // 将头像和信息容器添加到hero内容容器
+    heroContent.appendChild(avatarContainer);
+    heroContent.appendChild(heroInfo);
+    
+    // 清空原容器并添加新结构
+    heroContainer.innerHTML = '';
+    heroContainer.appendChild(heroContent);
+}
 
 // 语言切换功能
 function initLanguageToggle() {
@@ -62,7 +108,7 @@ function initLanguageToggle() {
     const langText = languageToggle.querySelector('.lang-text');
     const nameElement = document.querySelector('.name');
     
-    // 定义英文和中文的内容映射
+    // 定义英文, 简体中文和繁体中文的内容映射
     const translations = {
         'en': {
             // 导航
@@ -71,7 +117,7 @@ function initLanguageToggle() {
             'nav_papers': 'Papers',
             'nav_awards': 'Awards',
             'nav_footprints': 'Footprints',
-            'lang_toggle': '中文',
+            'lang_toggle': '简体中文',
             
             // 章节标题
             'section_education': 'Education',
@@ -127,16 +173,19 @@ function initLanguageToggle() {
             
             // 论文
             'paper_title_1': 'Research on Interactive Service System Design for Traditional Village Cultural Heritage under the Background of "Cultural Innovation"',
-            'paper_authors_1': 'Travis Tse, Jiang Wang. 2024 Computational Design Academic Forum Annual Conference Proceedings [C]. Tongji University Press'
+            'paper_authors_1': 'Travis Tse, Jiang Wang. 2024 Computational Design Academic Forum Annual Conference Proceedings [C]. Tongji University Press',
+            
+            // 位置
+            'location': 'Shanghai'
         },
-        'zh': {
+        'zh-CN': {
             // 导航
             'nav_education': '教育经历',
             'nav_experience': '工作经历',
             'nav_papers': '论文',
             'nav_awards': '奖项',
             'nav_footprints': '足迹',
-            'lang_toggle': 'English',
+            'lang_toggle': '繁體中文',
             
             // 章节标题
             'section_education': '教育背景',
@@ -192,7 +241,78 @@ function initLanguageToggle() {
             
             // 论文
             'paper_title_1': '"文化双创"背景下传统村落文化遗产交互服务系统设计研究',
-            'paper_authors_1': '谢堂华, 王江. 2024计算性设计学术论坛年会论文集[C]. 同济大学出版社'
+            'paper_authors_1': '谢堂华, 王江. 2024计算性设计学术论坛年会论文集[C]. 同济大学出版社',
+            
+            // 位置
+            'location': '上海'
+        },
+        'zh-TW': {
+            // 導航
+            'nav_education': '教育經歷',
+            'nav_experience': '工作經歷',
+            'nav_papers': '論文',
+            'nav_awards': '獎項',
+            'nav_footprints': '足跡',
+            'lang_toggle': 'English',
+            
+            // 章節標題
+            'section_education': '教育背景',
+            'section_experience': '工作與實習經歷',
+            'section_papers': '論文與專利',
+            'section_awards': '獲獎經歷',
+            'section_footprints': '我的足跡',
+            'section_social': '社交媒體',
+            
+            // 教育經歷
+            'education_cityu': '香港城市大學',
+            'education_cityu_meta': 'QS排名: 62',
+            'education_cityu_details': '創新學院 | 創新創業理學碩士 (MSc Venture Creation) (已獲錄取)',
+            
+            'education_ecust': '華東理工大學',
+            'education_ecust_meta': '211高校 (跨專業保送)',
+            'education_ecust_details': '設計學院 | 設計學（智能產品交互設計）',
+            'education_ecust_time': '2025.09 - 2028.06',
+            'education_ecust_research': '重點研究方向: 智能產品設計、工業設計工程、AIGC設計、大模型訓練、服務設計',
+            
+            'education_sju': '山東建築大學',
+            'education_sju_meta': '國家一流本科專業/軟科評估A',
+            'education_sju_details': '建築城規學院 | 建築學(綠色建築設計方向)',
+            'education_sju_time': '2021.09 - 2025.06',
+            'education_sju_stats': 'GPA: 3.91/5 | 專業排名: 2/159',
+            'education_sju_awards': '獲獎經歷: 國家獎學金(1‰)、優秀學生一等獎學金(1%)、優秀學生標兵(1%) 等共計12項國家級獎項，25項省級獎項，6項校級獎項',
+            
+            // 工作經歷
+            'exp_ikea_title': '宜家中國 - 數字創新中心(IKEA Digital Hub)',
+            'exp_ikea_meta': '上海 | Global Product Collage(GPC)組 | 產品經理、交互設計師',
+            'exp_ikea_time': '2024.07 - 2024.12',
+            
+            'exp_smartsite_title': 'Smart Site360 小程序',
+            'exp_smartsite_meta': '項目負責人、產品經理、UX設計師',
+            'exp_smartsite_time': '2024.05 - 2025.05',
+            
+            'exp_matconstruct_title': 'Matconstruct 小程序',
+            'exp_matconstruct_meta': '項目負責人、產品經理、UX設計師',
+            'exp_matconstruct_time': '2023.05 - 2023.09',
+            
+            'exp_google_title': '谷歌中國開發者大會',
+            'exp_google_meta': '上海 | Gemini AI',
+            'exp_google_time': '2025.04',
+            
+            // 技能
+            'skill_prototype': '原型設計',
+            'skill_ai_programming': 'AI 編程',
+            'skill_ai_drawing': 'AI 繪畫',
+            'skill_3d': '3D建模',
+            
+            // 頁腳
+            'footer_copyright': '© 2024 謝堂華 Travis Tse. 版權所有。',
+            
+            // 論文
+            'paper_title_1': '"文化雙創"背景下傳統村落文化遺產交互服務系統設計研究',
+            'paper_authors_1': '謝堂華, 王江. 2024計算性設計學術論壇年會論文集[C]. 同濟大學出版社',
+            
+            // 位置
+            'location': '上海'
         }
     };
     
@@ -201,7 +321,16 @@ function initLanguageToggle() {
     
     // 切换语言函数
     function toggleLanguage() {
-        currentLang = currentLang === 'en' ? 'zh' : 'en';
+        // 循环切换语言: 英文 -> 简体中文 -> 繁体中文 -> 英文
+        if (currentLang === 'en') {
+            currentLang = 'zh-CN';
+        } else if (currentLang === 'zh-CN') {
+            currentLang = 'zh-TW';
+        } else {
+            currentLang = 'en';
+        }
+        
+        // 更新页面语言
         updatePageLanguage();
     }
     
@@ -349,6 +478,7 @@ function initSidebarHighlight() {
     // 获取所有部分和侧边栏链接
     const sections = document.querySelectorAll('.section');
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
+    const navLinks = document.querySelectorAll('.nav-link');
     
     // 设置观察者选项
     const options = {
@@ -369,8 +499,22 @@ function initSidebarHighlight() {
                     link.classList.remove('active');
                 });
                 
-                // 为当前部分的链接添加active类
-                document.querySelector(`.sidebar-link[href="#${id}"]`).classList.add('active');
+                // 为当前部分的侧边栏链接添加active类
+                const sidebarLink = document.querySelector(`.sidebar-link[href="#${id}"]`);
+                if (sidebarLink) {
+                    sidebarLink.classList.add('active');
+                }
+                
+                // 移除所有导航链接的active类
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                });
+                
+                // 为当前部分的导航链接添加active类
+                const navLink = document.querySelector(`.nav-link[href="#${id}"]`);
+                if (navLink) {
+                    navLink.classList.add('active');
+                }
             }
         });
     }, options);
@@ -379,6 +523,77 @@ function initSidebarHighlight() {
     sections.forEach(section => {
         observer.observe(section);
     });
+    
+    // 初始化侧边栏切换按钮
+    initSidebarToggle();
+}
+
+// 侧边栏切换功能
+function initSidebarToggle() {
+    const sidebar = document.querySelector('.sidebar');
+    
+    // 创建侧边栏切换按钮
+    const toggleButton = document.createElement('button');
+    toggleButton.className = 'sidebar-toggle';
+    toggleButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    document.body.appendChild(toggleButton);
+    
+    // 添加切换事件
+    toggleButton.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        toggleButton.classList.toggle('active');
+    });
+}
+
+// 初始化汉堡菜单功能
+function initMobileMenu() {
+    const hamburgerMenu = document.createElement('div');
+    hamburgerMenu.className = 'hamburger-menu';
+    hamburgerMenu.innerHTML = `
+        <span></span>
+        <span></span>
+        <span></span>
+    `;
+    
+    const nav = document.querySelector('nav');
+    const navLinks = document.querySelector('.nav-links').cloneNode(true);
+    
+    // 创建移动端菜单
+    const mobileMenu = document.createElement('div');
+    mobileMenu.className = 'mobile-menu';
+    mobileMenu.appendChild(navLinks);
+    
+    // 将汉堡菜单和移动端菜单添加到DOM
+    nav.insertBefore(hamburgerMenu, nav.firstChild);
+    document.body.appendChild(mobileMenu);
+    
+    // 添加汉堡菜单点击事件
+    hamburgerMenu.addEventListener('click', () => {
+        hamburgerMenu.classList.toggle('active');
+        mobileMenu.classList.toggle('active');
+    });
+    
+    // 添加移动端菜单链接点击事件（点击后关闭菜单）
+    const mobileMenuLinks = mobileMenu.querySelectorAll('a');
+    mobileMenuLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            hamburgerMenu.classList.remove('active');
+            mobileMenu.classList.remove('active');
+        });
+    });
+}
+
+// 添加地球图标到语言切换按钮
+function addLanguageIcon() {
+    const langToggle = document.getElementById('language-toggle');
+    const langText = langToggle.querySelector('.lang-text');
+    
+    // 创建图标元素
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-globe language-icon';
+    
+    // 将图标插入到按钮的开头
+    langToggle.insertBefore(icon, langText);
 }
 
 // 世界地图足迹功能
@@ -391,7 +606,8 @@ function initWorldMap() {
     const svg = d3.select('#world-map')
         .append('svg')
         .attr('width', width)
-        .attr('height', height);
+        .attr('height', height)
+        .attr('style', 'background-color: #F5F5F7'); // 设置海洋背景色为F5F5F7
     
     // 创建地图组
     const g = svg.append('g');
@@ -432,7 +648,13 @@ function initWorldMap() {
         { name: "日本", location: [139.6917, 35.6895], intensity: 5 },
         { name: "新加坡", location: [103.8198, 1.3521], intensity: 4 },
         { name: "加拿大温哥华", location: [-123.1207, 49.2827], intensity: 5 },
-        { name: "欧洲", location: [9.1900, 48.7775], intensity: 4 }
+        { name: "欧洲", location: [9.1900, 48.7775], intensity: 4 },
+        // 新增足迹点
+        { name: "西藏拉萨", location: [91.1200, 29.6500], intensity: 4 },
+        { name: "美国纽约", location: [-74.0060, 40.7128], intensity: 6 },
+        { name: "美国拉斯维加斯", location: [-115.1391, 36.1699], intensity: 5 },
+        { name: "美国洛杉矶", location: [-118.2437, 34.0522], intensity: 5 },
+        { name: "荷兰代尔夫特", location: [4.3571, 52.0116], intensity: 4 }
     ];
     
     // 加载世界地图数据
@@ -448,36 +670,36 @@ function initWorldMap() {
                 .append('path')
                 .attr('d', path)
                 .attr('class', 'country')
-                .attr('fill', '#d1d1d1')
-                .attr('stroke', '#ffffff')
+                .attr('fill', '#d1d1d1') // 保持陆地颜色为D1D1D1
+                .attr('stroke', '#F4F4F4') // 国家边界线颜色修改为F4F4F4
                 .attr('stroke-width', 0.5);
             
-            // 计算热力图的颜色比例尺
-            const colorScale = d3.scaleSequential(d3.interpolateInferno)
-                .domain([1, 10]);
-            
-            // 添加足迹点
-            g.selectAll('circle')
+            // 添加足迹点 - 使用简单的蓝色圆点
+            g.selectAll('.footprint')
                 .data(footprints)
                 .enter()
                 .append('circle')
                 .attr('cx', d => projection(d.location)[0])
                 .attr('cy', d => projection(d.location)[1])
-                .attr('r', d => Math.sqrt(d.intensity) * 4)
-                .attr('fill', d => colorScale(d.intensity))
-                .attr('fill-opacity', 0.7)
-                .attr('stroke', '#fff')
+                .attr('r', d => Math.sqrt(d.intensity) * 2) // 较小的半径
+                .attr('fill', '#0066ff') // 蓝色
+                .attr('fill-opacity', 0.8)
+                .attr('stroke', '#ffffff')
                 .attr('stroke-width', 0.5)
                 .attr('class', 'footprint')
                 .on('mouseover', function(event, d) {
+                    // 只放大圆点，不显示文字
                     d3.select(this)
-                        .attr('r', Math.sqrt(d.intensity) * 6)
-                        .attr('fill-opacity', 0.9);
+                        .transition()
+                        .duration(300)
+                        .attr('r', Math.sqrt(d.intensity) * 3);
                 })
                 .on('mouseout', function(event, d) {
+                    // 恢复圆点大小
                     d3.select(this)
-                        .attr('r', Math.sqrt(d.intensity) * 4)
-                        .attr('fill-opacity', 0.7);
+                        .transition()
+                        .duration(300)
+                        .attr('r', Math.sqrt(d.intensity) * 2);
                 });
             
             // 添加缩放功能
@@ -486,7 +708,7 @@ function initWorldMap() {
                 .on('zoom', (event) => {
                     g.attr('transform', event.transform);
                 });
-            
+                
             svg.call(zoom);
         })
         .catch(error => console.error('加载世界地图数据时出错:', error));
@@ -501,4 +723,193 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             behavior: 'smooth'
         });
     });
-}); 
+});
+
+// 添加搜索功能
+function initSearchFeature() {
+    // 创建搜索按钮
+    const searchButton = document.createElement('button');
+    searchButton.id = 'search-button';
+    searchButton.innerHTML = '<i class="fas fa-search"></i>';
+    
+    // 将搜索按钮添加到导航栏右侧
+    const navRight = document.querySelector('.nav-right');
+    navRight.insertBefore(searchButton, navRight.firstChild);
+    
+    // 创建搜索容器
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'search-container';
+    searchContainer.innerHTML = `
+        <div class="search-close"><i class="fas fa-times"></i></div>
+        <div class="search-box">
+            <input type="text" class="search-input" placeholder="搜索...">
+            <div class="search-results"></div>
+        </div>
+    `;
+    document.body.appendChild(searchContainer);
+    
+    // 搜索按钮点击事件
+    searchButton.addEventListener('click', () => {
+        searchContainer.classList.add('active');
+        document.querySelector('.search-input').focus();
+    });
+    
+    // 关闭搜索框事件
+    document.querySelector('.search-close').addEventListener('click', () => {
+        searchContainer.classList.remove('active');
+    });
+    
+    // ESC键关闭搜索框
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && searchContainer.classList.contains('active')) {
+            searchContainer.classList.remove('active');
+        }
+    });
+    
+    // 搜索功能实现
+    const searchInput = document.querySelector('.search-input');
+    const searchResults = document.querySelector('.search-results');
+    
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase();
+        
+        // 清空搜索结果
+        searchResults.innerHTML = '';
+        
+        if (query.length < 2) return;
+        
+        // 收集页面上的所有可搜索文本
+        const searchableElements = document.querySelectorAll('h1, h2, h3, p, li');
+        const results = [];
+        
+        searchableElements.forEach(el => {
+            const text = el.textContent;
+            if (text.toLowerCase().includes(query)) {
+                const sectionId = el.closest('section')?.id || '';
+                if (!results.some(r => r.text === text)) {
+                    results.push({
+                        text: text,
+                        element: el,
+                        sectionId: sectionId
+                    });
+                }
+            }
+        });
+        
+        // 显示搜索结果
+        if (results.length > 0) {
+            results.slice(0, 10).forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'search-result-item';
+                resultItem.textContent = result.text;
+                
+                resultItem.addEventListener('click', () => {
+                    searchContainer.classList.remove('active');
+                    
+                    if (result.sectionId) {
+                        document.getElementById(result.sectionId).scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    } else {
+                        result.element.scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    }
+                    
+                    // 高亮显示找到的内容
+                    result.element.classList.add('search-highlight');
+                    setTimeout(() => {
+                        result.element.classList.remove('search-highlight');
+                    }, 2000);
+                });
+                
+                searchResults.appendChild(resultItem);
+            });
+        } else {
+            const noResult = document.createElement('div');
+            noResult.className = 'search-result-item';
+            noResult.textContent = '没有找到相关内容';
+            searchResults.appendChild(noResult);
+        }
+    });
+}
+
+// 移动端水平滚动选择器
+function initMobileScrollSelector() {
+    const navLinks = document.querySelector('.nav-links');
+    
+    // 创建水平滚动选择器
+    const scrollSelector = document.createElement('div');
+    scrollSelector.className = 'scroll-selector';
+    scrollSelector.appendChild(navLinks.cloneNode(true));
+    
+    // 添加到页面
+    const header = document.querySelector('header');
+    header.appendChild(scrollSelector);
+    
+    // 添加滚动事件监听
+    const selectorLinks = scrollSelector.querySelectorAll('.nav-link');
+    selectorLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const targetId = this.getAttribute('href');
+            document.querySelector(targetId).scrollIntoView({
+                behavior: 'smooth'
+            });
+        });
+    });
+}
+
+// 导航高亮功能
+function initNavHighlight() {
+    // 获取所有部分和导航链接
+    const sections = document.querySelectorAll('.section');
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    // 设置观察者选项
+    const options = {
+        root: null,
+        rootMargin: '-20% 0px -70% 0px',
+        threshold: 0
+    };
+    
+    // 创建观察者
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                // 获取当前部分的ID
+                const id = entry.target.getAttribute('id');
+                
+                // 移除所有导航链接的active类
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                });
+                
+                // 为当前部分的导航链接添加active类
+                const navLink = document.querySelector(`.nav-link[href="#${id}"]`);
+                if (navLink) {
+                    navLink.classList.add('active');
+                }
+                
+                // 如果是移动端，滚动水平选择器到对应位置
+                const scrollSelector = document.querySelector('.scroll-selector');
+                if (scrollSelector && window.innerWidth <= 1024) {
+                    const activeLink = scrollSelector.querySelector(`.nav-link[href="#${id}"]`);
+                    if (activeLink) {
+                        activeLink.classList.add('active');
+                        scrollSelector.scrollTo({
+                            left: activeLink.offsetLeft - scrollSelector.offsetWidth / 2 + activeLink.offsetWidth / 2,
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            }
+        });
+    }, options);
+    
+    // 观察每个部分
+    sections.forEach(section => {
+        observer.observe(section);
+    });
+} 
