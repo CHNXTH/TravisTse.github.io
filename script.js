@@ -87,6 +87,8 @@ function reorganizeHeroLayout() {
     const locationInfo = document.createElement('div');
     locationInfo.className = 'location-info';
     locationInfo.innerHTML = '<i class="fas fa-map-marker-alt"></i>Shanghai';
+    locationInfo.style.display = 'flex';
+    locationInfo.style.alignItems = 'center';
     
     // 重组结构
     heroInfo.appendChild(nameElement.cloneNode(true));

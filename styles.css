@@ -482,6 +482,7 @@ main {
 .location-info {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   margin-bottom: 10px;
   color: var(--secondary-color);
 }
@@ -686,6 +687,7 @@ main {
   position: relative;
   max-width: 800px;
   margin: 0 auto;
+  padding-left: 20px;
 }
 
 .timeline::before {
@@ -726,6 +728,7 @@ main {
   border-radius: 50%;
   top: 5px;
   transition: all 0.3s ease;
+  z-index: 2;
 }
 
 .timeline-item:hover .timeline-date::after {
@@ -942,66 +945,36 @@ footer p {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 1400px) and (min-resolution: 1.5dppx) {
   .timeline {
-    margin-left: 60px;
+    padding-left: 30px;
   }
   
   .timeline::before {
-    left: 30px;
+    left: 20px;
   }
   
   .timeline-item {
     flex-direction: column;
+    margin-left: 10px;
   }
   
   .timeline-date {
     width: 100%;
-    margin-bottom: 10px;
     text-align: left;
-    padding-left: 50px;
+    padding-left: 0;
+    padding-right: 0;
+    margin-bottom: 10px;
   }
   
   .timeline-date::after {
-    left: 20px;
+    left: -30px;
+    right: auto;
   }
   
   .timeline-content {
     width: 100%;
-  }
-  
-  .education-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .skills-grid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 15px;
-  }
-  
-  .social-icons {
-    grid-template-columns: repeat(4, 1fr);
-  }
-  
-  .social-icon {
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-  }
-  
-  /* 移动端头像和信息布局 */
-  .hero-content {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .avatar-container {
-    margin: 0 auto;
-  }
-  
-  .hero .container {
-    padding: 20px;
+    padding-left: 0;
   }
 }
 
@@ -1046,5 +1019,50 @@ footer p {
   
   .skill-name {
     font-size: 12px;
+  }
+}
+
+/* 移动端样式 */
+@media (max-width: 768px) {
+  /* 移动端头像和信息布局 */
+  .hero-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .avatar-container {
+    margin: 0 auto;
+  }
+  
+  .hero-info {
+    align-items: center;
+  }
+  
+  .location-info {
+    justify-content: center;
+  }
+  
+  .hero .container {
+    padding: 20px;
+  }
+  
+  .education-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .skills-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 15px;
+  }
+  
+  .social-icons {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .social-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
   }
 } 
