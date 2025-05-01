@@ -1312,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'sk-zGMN1RoKrAKHbJbbNDniZ65CVVH6O9YW9KdDkF7cpR6P7EVB' // 实际使用时需替换为真实的API密钥
+                    'Authorization': 'Bearer DEEPSEEK_API_KEY' // 实际使用时需替换为真实的API密钥
                 },
                 body: JSON.stringify({
                     model: 'deepseek-chat', // 根据DeepSeek的实际模型名称调整
@@ -1400,4 +1400,153 @@ style.textContent = `
     }
 }
 `
-document.head.appendChild(style); 
+document.head.appendChild(style);
+
+// 初始化工作经历折叠/展开功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取所有折叠/展开按钮
+    const toggleButtons = document.querySelectorAll('.experience-toggle');
+    // 获取可点击的标题区域和logo
+    const clickableHeaders = document.querySelectorAll('.experience-header[data-controls]');
+    const clickableLogos = document.querySelectorAll('.experience-logo[data-controls]');
+    
+    // 保存当前展开的项目
+    let currentExpanded = null;
+    
+    // 折叠/展开功能
+    function toggleDetails(detailsId) {
+        const detailsElement = document.getElementById(detailsId);
+        const wrapperElement = document.getElementById(detailsId.replace('details', 'wrapper'));
+        const button = document.querySelector(`[aria-controls="${detailsId}"]`);
+        const isExpanded = button.getAttribute('aria-expanded') === 'true';
+        
+        if (isExpanded) {
+            // 折叠当前项
+            button.setAttribute('aria-expanded', 'false');
+            
+            // 先设置高度为当前实际高度，然后动画过渡到0
+            const currentHeight = wrapperElement.scrollHeight;
+            wrapperElement.style.height = `${currentHeight}px`;
+            
+            // 强制回流
+            wrapperElement.offsetHeight;
+            
+            // 开始高度过渡到0
+            requestAnimationFrame(() => {
+                wrapperElement.style.height = '0';
+                
+                // 过渡完成后移除expanded类
+                setTimeout(() => {
+                    detailsElement.classList.remove('expanded');
+                }, 300);
+            });
+            
+            currentExpanded = null;
+        } else {
+            // 如果有其他已展开的项目，先折叠它
+            if (currentExpanded) {
+                const currentButton = document.querySelector(`[aria-controls="${currentExpanded}"]`);
+                const currentDetails = document.getElementById(currentExpanded);
+                const currentWrapper = document.getElementById(currentExpanded.replace('details', 'wrapper'));
+                
+                currentButton.setAttribute('aria-expanded', 'false');
+                
+                // 获取当前高度并设置，然后过渡到0
+                const currentHeight = currentWrapper.scrollHeight;
+                currentWrapper.style.height = `${currentHeight}px`;
+                
+                // 强制回流
+                currentWrapper.offsetHeight;
+                
+                // 开始高度过渡到0
+                requestAnimationFrame(() => {
+                    currentWrapper.style.height = '0';
+                    
+                    // 过渡完成后移除expanded类
+                    setTimeout(() => {
+                        currentDetails.classList.remove('expanded');
+                    }, 300);
+                });
+            }
+            
+            // 展开当前点击的项目
+            button.setAttribute('aria-expanded', 'true');
+            detailsElement.classList.add('expanded');
+            
+            // 计算内容实际高度并设置
+            requestAnimationFrame(() => {
+                const targetHeight = detailsElement.offsetHeight;
+                wrapperElement.style.height = `${targetHeight}px`;
+            });
+            
+            currentExpanded = detailsId;
+            
+            // 保存滚动位置而不是自动滚动，避免在内容展开/折叠时页面移动
+            // 如果绝对必要，可以使用下面的代码来滚动到展开内容的位置
+            /*
+            const yOffset = -100; // 上方预留的空间
+            const headerElement = document.querySelector(`.experience-header[data-controls="${detailsId}"]`);
+            const y = headerElement.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            
+            window.scrollTo({
+                top: y,
+                behavior: 'smooth'
+            });
+            */
+        }
+    }
+    
+    // 为展开/折叠按钮添加点击事件
+    toggleButtons.forEach(button => {
+        // 默认情况下，所有详情都是折叠的
+        const detailsId = button.getAttribute('aria-controls');
+        const detailsElement = document.getElementById(detailsId);
+        const wrapperElement = document.getElementById(detailsId.replace('details', 'wrapper'));
+        
+        // 初始化时设置为折叠状态
+        button.setAttribute('aria-expanded', 'false');
+        detailsElement.classList.remove('expanded');
+        wrapperElement.style.height = '0';
+        
+        button.addEventListener('click', function(e) {
+            e.stopPropagation(); // 阻止事件冒泡
+            toggleDetails(detailsId);
+        });
+    });
+    
+    // 为标题区域添加点击事件
+    clickableHeaders.forEach(header => {
+        const detailsId = header.getAttribute('data-controls');
+        
+        header.addEventListener('click', function(e) {
+            // 确保点击不是在按钮上
+            if (!e.target.closest('.experience-toggle')) {
+                toggleDetails(detailsId);
+            }
+        });
+    });
+    
+    // 为Logo添加点击事件
+    clickableLogos.forEach(logo => {
+        const detailsId = logo.getAttribute('data-controls');
+        
+        logo.addEventListener('click', function() {
+            toggleDetails(detailsId);
+        });
+    });
+    
+    // 窗口大小变化时重新计算高度
+    window.addEventListener('resize', function() {
+        if (currentExpanded) {
+            const detailsElement = document.getElementById(currentExpanded);
+            const wrapperElement = document.getElementById(currentExpanded.replace('details', 'wrapper'));
+            
+            if (detailsElement.classList.contains('expanded')) {
+                requestAnimationFrame(() => {
+                    const targetHeight = detailsElement.offsetHeight;
+                    wrapperElement.style.height = `${targetHeight}px`;
+                });
+            }
+        }
+    });
+}); 

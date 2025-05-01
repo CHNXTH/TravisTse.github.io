@@ -634,6 +634,7 @@ main {
 
 /* Experience */
 .experience-item {
+  position: relative;
   margin-bottom: 40px;
   display: flex;
   align-items: flex-start;
@@ -651,6 +652,13 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.experience-logo:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
 .experience-logo img {
@@ -658,20 +666,15 @@ main {
   max-height: 100%;
   object-fit: contain;
   padding: 10px;
+  transition: transform 0.3s ease;
+}
+
+.experience-logo:hover img {
+  transform: scale(1.05);
 }
 
 .experience-content {
   flex-grow: 1;
-}
-
-.experience-header {
-  margin-bottom: 15px;
-}
-
-.experience-header h3 {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 5px;
 }
 
 .experience-meta, .experience-time {
@@ -680,8 +683,118 @@ main {
   font-weight: 500;
 }
 
+/* 工作经历折叠/展开样式 */
+.experience-header {
+  position: relative;
+  margin-bottom: 15px;
+  padding-right: 40px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.experience-header:hover {
+  color: var(--accent-color);
+}
+
+.experience-header h3 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: color 0.2s ease;
+}
+
+.experience-header:hover h3 {
+  color: var(--accent-color);
+}
+
+.experience-toggle {
+  position: absolute;
+  right: 0;
+  top: 10px;
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--accent-color);
+  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  background-color: rgba(0, 113, 227, 0.1);
+  z-index: 2;
+}
+
+.experience-toggle:hover {
+  background-color: rgba(0, 113, 227, 0.2);
+  transform: scale(1.1);
+}
+
+.experience-toggle i {
+  transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.experience-toggle[aria-expanded="true"] i {
+  transform: rotate(-180deg);
+}
+
+/* 悬浮提示 */
+.experience-header[title]:hover::after,
+.experience-logo[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeInTooltip 0.3s forwards;
+}
+
+.experience-header[title]:hover::after {
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.experience-logo[title]:hover::after {
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@keyframes fadeInTooltip {
+  from { opacity: 0; transform: translateY(5px) translateX(-50%); }
+  to { opacity: 1; transform: translateY(0) translateX(-50%); }
+}
+
+/* 修改为固定高度占位方式来避免页面跳动 */
+.experience-details-wrapper {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  transition: height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
 .experience-details {
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.experience-details.expanded {
+  opacity: 1;
+  transform: translateY(0);
   padding-left: 20px;
+  margin-bottom: 10px;
 }
 
 .experience-details li {
@@ -1198,9 +1311,8 @@ footer p {
     padding: 20px;
   }
   
-  .education-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .experience-header {
+    padding-right: 40px;
   }
   
   .skills-grid {
@@ -1998,5 +2110,23 @@ footer p {
     .ai-message-content {
         background-color: rgba(60, 60, 60, 0.8);
         color: white;
+    }
+}
+
+@media (max-width: 768px) {
+    .experience-toggle {
+        top: 5px;
+        right: 0;
+        width: 28px;
+        height: 28px;
+    }
+    
+    .experience-header {
+        padding-right: 40px;
+    }
+    
+    .education-header {
+        flex-direction: column;
+        align-items: flex-start;
     }
 } 
