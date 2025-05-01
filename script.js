@@ -19,10 +19,31 @@ document.addEventListener('DOMContentLoaded', () => {
         heroSectionTop = heroSection.offsetTop;
         avatarSectionTop = avatarSection.offsetTop;
         
-        // 页面加载时也检查滚动位置
+        // 页面加载时也检查滚动位置和设备类型
         const scrollPosition = window.scrollY;
-        if (scrollPosition > 100) {
-            header.classList.add('scrolled');
+        const heroHeight = heroSection.offsetHeight;
+        const isMobile = window.innerWidth <= 768;
+        
+        // 根据设备类型决定是否显示header中的头像
+        if (isMobile) {
+            // 移动端：只有在hero区域滚出视图后才显示头像
+            if (scrollPosition > heroSectionTop + heroHeight - 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+                
+                // 确保在移动端初始加载时不显示头像
+                if (scrollPosition === 0) {
+                    header.classList.remove('scrolled');
+                }
+            }
+        } else {
+            // 桌面端：在轻微滚动后即显示头像
+            if (scrollPosition > 100) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
         }
     }
     
@@ -124,6 +145,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 项目轮播功能
     initProjectsCarousel();
+    
+    // 立即检查是否是移动设备，并强制更新header状态
+    if (window.innerWidth <= 768) {
+        // 移动设备上，初始状态应该移除scrolled类（除非已经滚动了）
+        if (window.scrollY === 0) {
+            header.classList.remove('scrolled');
+        }
+    }
 });
 
 // 重组hero区域布局
