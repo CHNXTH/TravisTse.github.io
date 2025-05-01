@@ -69,12 +69,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // 监听滚动事件
     window.addEventListener('scroll', () => {
         const scrollPosition = window.scrollY;
+        const heroHeight = document.querySelector('.hero').offsetHeight;
+        const heroTop = document.querySelector('.hero').offsetTop;
+        const isMobile = window.innerWidth <= 768;
         
-        // 当滚动超过头像部分时，显示导航栏头像
-        if (scrollPosition > 100) {
-            header.classList.add('scrolled');
+        // 根据不同设备类型确定显示导航栏头像的滚动位置
+        if (isMobile) {
+            // 移动端：只有在hero区域完全滚出视图后才显示头像
+            if (scrollPosition > heroTop + heroHeight - 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
         } else {
-            header.classList.remove('scrolled');
+            // 桌面端：在轻微滚动后即显示头像
+            if (scrollPosition > 100) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
         }
         
         // 为了性能优化，使用requestAnimationFrame
@@ -674,37 +687,37 @@ function initWorldMap() {
     // 定义足迹数据
     // 1-10 表示访问的频率/强度，10最高
     const footprints = [
-        { name: "上海", location: [121.4737, 31.2304], intensity: 10 },
-        { name: "广东", location: [113.2644, 23.1291], intensity: 9 },
-        { name: "山东", location: [117.0000, 36.6510], intensity: 9 },
-        { name: "成都", location: [104.0668, 30.5728], intensity: 6 },
-        { name: "北京", location: [116.4074, 39.9042], intensity: 6 },
-        { name: "海南", location: [110.3290, 19.8330], intensity: 5 },
-        { name: "安徽", location: [117.2900, 31.8600], intensity: 5 },
-        { name: "江苏", location: [118.7727, 32.0476], intensity: 5 },
-        { name: "江西", location: [115.8580, 28.6832], intensity: 4 },
-        { name: "湖南", location: [112.9834, 28.1145], intensity: 4 },
-        { name: "湖北", location: [114.3416, 30.5470], intensity: 4 },
-        { name: "广西", location: [108.3280, 22.8150], intensity: 4 },
-        { name: "哈尔滨", location: [126.6420, 45.7560], intensity: 3 },
-        { name: "福建", location: [119.2960, 26.0991], intensity: 3 },
-        { name: "浙江", location: [120.1536, 30.2650], intensity: 5 },
-        { name: "陕西", location: [108.9540, 34.2650], intensity: 3 },
-        { name: "重庆", location: [106.5550, 29.5630], intensity: 4 },
-        { name: "香港", location: [114.1694, 22.3193], intensity: 6 },
-        { name: "澳门", location: [113.5439, 22.1987], intensity: 6 },
-        { name: "云南", location: [102.7100, 25.0500], intensity: 3 },
-        { name: "河南", location: [113.7500, 34.7700], intensity: 3 },
-        { name: "日本", location: [139.6917, 35.6895], intensity: 5 },
-        { name: "新加坡", location: [103.8198, 1.3521], intensity: 4 },
-        { name: "加拿大温哥华", location: [-123.1207, 49.2827], intensity: 5 },
-        { name: "欧洲", location: [9.1900, 48.7775], intensity: 4 },
+        { name: "上海", location: [121.4737, 31.2304], intensity: 10, image: "https://www.shhk.gov.cn/shhk/202cdc49-f400-4d16-b86c-6bdef99be486/78891cbb-74d1-4d76-85e7-9d47734693a2/20221128075539086984.png" },
+        { name: "广东", location: [113.2644, 23.1291], intensity: 9, image: "https://images.mepai.me/app/works/1912307/2025-01-28/w_67985458671e6/46798545867354.jpg!720wp" },
+        { name: "山东", location: [117.0000, 36.6510], intensity: 9, image: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Baotu_Spring%2C_Jinan_in_Oct_2013.jpg" },
+        { name: "成都", location: [104.0668, 30.5728], intensity: 6, image: "https://www.swireproperties.com/-/media/images/swireproperties/portfolio/current-developments/taikoo-li-chengdu/taikoo-li-chengdu/content/abastract-list/at-a-glance-sino-ocean-taikoo-li-chengdu-retail-1.ashx?bc=white&as=0&db=web&iar=0&mh=936&mw=1464&vs=1&hash=7916AF0F95589E2FAA2C9AF8B97F6C83" },
+        { name: "北京", location: [116.4074, 39.9042], intensity: 6, image: "https://www.cp-center.cn/uploads/images/2024/0209/V2miUmXJwXhKjiCUCChOWGuw5n5Vr6esxUhHzs8u.png" },
+        { name: "海南", location: [110.3290, 19.8330], intensity: 5, image: "https://p5.itc.cn/images01/20220428/fc4383222e3c4110a1723fc9b6eb24dd.jpeg" },
+        { name: "安徽", location: [117.2900, 31.8600], intensity: 5, image: "https://www.huangshan.gov.cn/group1/M00/19/84/wKiM92eRk_aAHOB1AANmLmPp7aI453.jpg" },
+        { name: "江苏", location: [118.7727, 32.0476], intensity: 5, image: "https://media-cdn.tripadvisor.com/media/attractions-splice-spp-674x446/07/2b/9d/8f.jpg" },
+        { name: "江西", location: [115.8580, 28.6832], intensity: 4, image: "https://file.dahe.cn/image/jpeg/20211022/1634861139760274.jpg?imageMogr2/thumbnail/600%3E/format/jpg" },
+        { name: "湖南", location: [112.9834, 28.1145], intensity: 4, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8twbLHVeFuOTuBmHZnynCUXT8V1jlsDsW2w&s" },
+        { name: "湖北", location: [114.3416, 30.5470], intensity: 4, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRjY3uYCpTOp46Ah5CetxSIr4r_hoGUizjFng&s" },
+        { name: "广西", location: [108.3280, 22.8150], intensity: 4, image: "https://static.wixstatic.com/media/135d1f_b24ab7e6d3a4420e9f66d1b4b8f20f7d~mv2.jpg/v1/fill/w_630,h_434,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/135d1f_b24ab7e6d3a4420e9f66d1b4b8f20f7d~mv2.jpg" },
+        { name: "哈尔滨", location: [126.6420, 45.7560], intensity: 3, image: "https://lw.news.cn/1310652188_16603609094661n.jpg" },
+        { name: "福建", location: [119.2960, 26.0991], intensity: 3, image: "https://www.newamazing.com.tw/eWeb_newamazing/IMGDB/000128/000295/00007412.JPG" },
+        { name: "浙江", location: [120.1536, 30.2650], intensity: 5, image: "https://wgly.hangzhou.gov.cn/picture/0/2311201439582605992.jpg" },
+        { name: "陕西", location: [108.9540, 34.2650], intensity: 3, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/%E8%A5%BF%E5%AE%89%E9%92%9F%E6%A5%BC2020_%281%29.jpg/1200px-%E8%A5%BF%E5%AE%89%E9%92%9F%E6%A5%BC2020_%281%29.jpg" },
+        { name: "重庆", location: [106.5550, 29.5630], intensity: 4, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Chongqing_Nightscape.jpg/960px-Chongqing_Nightscape.jpg" },
+        { name: "香港", location: [114.1694, 22.3193], intensity: 6, image: "https://cdn.bella.tw/index_image/bGYuDsMVp06wqkrU7KF8KXQ1xNqqa52sZnx6uqiw.jpeg" },
+        { name: "澳门", location: [113.5439, 22.1987], intensity: 6, image: "https://www.agoda.com/wp-content/uploads/2024/04/Macau-Las-Vegas-of-Asia.jpg" },
+        { name: "云南", location: [102.7100, 25.0500], intensity: 3, image: "https://ialive.bwnet.com.tw/AC_Gallery/2024/04/9403e81c-6245-1cb0-66ea-ca96d30e449e.jpg" },
+        { name: "河南", location: [113.7500, 34.7700], intensity: 3, image: "https://p2.itc.cn/images01/20210430/37d50f6e03194e249ca9c9b55bf4939a.jpeg" },
+        { name: "日本", location: [139.6917, 35.6895], intensity: 5, image: "https://img.bigfang.tw/2020/02/1580740308-2bd34f9e43e132ffc7cc879dda74af36.jpg" },
+        { name: "新加坡", location: [103.8198, 1.3521], intensity: 4, image: "https://nusgs.nus.edu.sg/wp-content/uploads/nusgs-assets/images/home-events/yfp/Education_Resource_Centre_02.jpg" },
+        { name: "加拿大温哥华", location: [-123.1207, 49.2827], intensity: 5, image: "https://ischool.cms.arts.ubc.ca/wp-content/uploads/sites/46/2022/07/About-Featured-Image-UBC-iSchool.jpg" },
+        { name: "欧洲", location: [9.1900, 48.7775], intensity: 4, image: "https://resource02.ulifestyle.com.hk/ulcms/content/article/thumbnail/1280x720/2023/05/20230519142934_2b469c311096d6d54882ec8d2ed3acf963e735b9.jpg" },
         // 新增足迹点
-        { name: "西藏拉萨", location: [91.1200, 29.6500], intensity: 4 },
-        { name: "美国纽约", location: [-74.0060, 40.7128], intensity: 6 },
-        { name: "美国拉斯维加斯", location: [-115.1391, 36.1699], intensity: 5 },
-        { name: "美国洛杉矶", location: [-118.2437, 34.0522], intensity: 5 },
-        { name: "荷兰代尔夫特", location: [4.3571, 52.0116], intensity: 4 }
+        { name: "西藏拉萨", location: [91.1200, 29.6500], intensity: 4, image: "https://www.settour.com.tw/act/gfg/china/tibet/images/topBanner2_m.jpg" },
+        { name: "美国纽约", location: [-74.0060, 40.7128], intensity: 6, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Lower_Manhattan_skyline_-_June_2017.jpg/1280px-Lower_Manhattan_skyline_-_June_2017.jpg" },
+        { name: "美国拉斯维加斯", location: [-115.1391, 36.1699], intensity: 5, image: "https://image.kkday.com/v2/image/get/w_1900%2Cc_fit%2Cq_55/s1.kkday.com/product_182181/20240612085428_pHGtW/jpg" },
+        { name: "美国洛杉矶", location: [-118.2437, 34.0522], intensity: 5, image: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Golden_Gate_Bridge_2021.jpg" },
+        { name: "荷兰代尔夫特", location: [4.3571, 52.0116], intensity: 4, image: "https://filelist.tudelft.nl/_processed_/5/1/csm_20140611_tudelft_campus_R9B0532_d52c5440e6.jpg" }
     ];
     
     // 获取CSS变量的值
@@ -712,6 +725,22 @@ function initWorldMap() {
     const countryStroke = getComputedStyle(document.documentElement).getPropertyValue('--country-stroke').trim();
     const footprintColor = getComputedStyle(document.documentElement).getPropertyValue('--footprint-color').trim();
     
+    // 创建缩略图预览容器，用于鼠标悬停时显示 - 改为文档正文追加
+    const tooltip = d3.select('body')
+        .append('div')
+        .attr('class', 'location-thumbnail')
+        .style('position', 'absolute')
+        .style('visibility', 'hidden')
+        .style('background-color', 'white')
+        .style('border-radius', '8px')
+        .style('box-shadow', '0 4px 15px rgba(0, 0, 0, 0.2)')
+        .style('overflow', 'hidden')
+        .style('z-index', '1000')
+        .style('pointer-events', 'none')
+        .style('opacity', '0')
+        .style('transform', 'translateY(10px) scale(0.95)')
+        .style('transition', 'all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28)');
+
     // 加载世界地图数据
     d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
         .then(data => {
@@ -729,33 +758,131 @@ function initWorldMap() {
                 .attr('stroke', countryStroke)
                 .attr('stroke-width', 0.5);
             
-            // 添加足迹点 - 使用简单的蓝色圆点
-            g.selectAll('.footprint')
+            // 添加足迹点 - 使用简单的蓝色圆点并加入律动动画
+            const footprintPoints = g.selectAll('.footprint')
                 .data(footprints)
                 .enter()
                 .append('circle')
                 .attr('cx', d => projection(d.location)[0])
                 .attr('cy', d => projection(d.location)[1])
-                .attr('r', d => Math.sqrt(d.intensity) * 2) // 较小的半径
-                .attr('fill', footprintColor) // 使用CSS变量定义的颜色
+                .attr('r', d => Math.sqrt(d.intensity) * 2) // 初始半径
+                .attr('fill', footprintColor)
                 .attr('fill-opacity', 0.8)
                 .attr('stroke', '#ffffff')
                 .attr('stroke-width', 0.5)
-                .attr('class', 'footprint')
+                .attr('class', 'footprint');
+                
+            // 添加律动动画效果
+            footprintPoints.each(function(d, i) {
+                // 为每个点添加不同的动画延迟，使得律动感更强
+                const delay = i % 5 * 300;  // 将点分成5组，每组延迟300ms
+                
+                d3.select(this)
+                    .style('transform-origin', 'center center')
+                    .style('transform-box', 'fill-box')
+                    .transition()
+                    .duration(1500)  // 动画持续时间
+                    .delay(delay)    // 错开动画开始时间
+                    .attr('r', d => Math.sqrt(d.intensity) * 2.2)  // 轻微放大
+                    .attr('fill-opacity', 0.9)
+                    .transition()
+                    .duration(1500)
+                    .attr('r', d => Math.sqrt(d.intensity) * 1.8)  // 轻微缩小
+                    .attr('fill-opacity', 0.7)
+                    .on('end', function repeat() {  // 动画完成后循环
+                        d3.select(this)
+                            .transition()
+                            .duration(1500)
+                            .attr('r', d => Math.sqrt(d.intensity) * 2.2)
+                            .attr('fill-opacity', 0.9)
+                            .transition()
+                            .duration(1500)
+                            .attr('r', d => Math.sqrt(d.intensity) * 1.8)
+                            .attr('fill-opacity', 0.7)
+                            .on('end', repeat);  // 循环动画
+                    });
+            });
+            
+            // 为足迹点添加交互事件
+            footprintPoints
                 .on('mouseover', function(event, d) {
-                    // 只放大圆点，不显示文字
+                    // 鼠标悬停时放大圆点
                     d3.select(this)
+                        .interrupt() // 中断现有动画
                         .transition()
                         .duration(300)
-                        .attr('r', Math.sqrt(d.intensity) * 3);
+                        .attr('r', Math.sqrt(d.intensity) * 3)
+                        .attr('fill-opacity', 1);
+                    
+                    // 显示缩略图和位置名称
+                    const imageWidth = 280;
+                    const imageHeight = 180;
+                    
+                    tooltip.html(`
+                        <div style="width: ${imageWidth}px; height: ${imageHeight}px; overflow: hidden; position: relative;">
+                            <img src="${d.image}" alt="${d.name}" style="width: 100%; height: 100%; object-fit: cover; transform: scale(1); transition: transform 0.5s ease;">
+                        </div>
+                    `)
+                    .style('left', `${event.pageX + 15}px`)
+                    .style('top', `${event.pageY - 100}px`)
+                    .style('visibility', 'visible')
+                    .style('opacity', '1')
+                    .style('transform', 'translateY(0) scale(1)');
+                    
+                    // 添加图片加载缩放动画
+                    setTimeout(() => {
+                        const img = tooltip.select('img').node();
+                        if (img && img.complete) {
+                            img.style.transform = 'scale(1.05)';
+                        }
+                    }, 300);
+                })
+                .on('mousemove', function(event) {
+                    // 跟随鼠标移动
+                    tooltip
+                        .style('left', `${event.pageX + 15}px`)
+                        .style('top', `${event.pageY - 100}px`);
                 })
                 .on('mouseout', function(event, d) {
-                    // 恢复圆点大小
-                    d3.select(this)
+                    // 鼠标移出时恢复律动动画
+                    const thisPoint = d3.select(this);
+                    thisPoint.interrupt(); // 中断现有动画
+                    
+                    // 计算当前点在数组中的索引
+                    const index = footprints.findIndex(fp => fp.name === d.name);
+                    const delay = index % 5 * 300;
+                    
+                    // 恢复律动动画
+                    thisPoint
                         .transition()
-                        .duration(300)
-                        .attr('r', Math.sqrt(d.intensity) * 2);
-                });
+                        .duration(1500)
+                        .delay(delay)
+                        .attr('r', d => Math.sqrt(d.intensity) * 2.2)
+                        .attr('fill-opacity', 0.9)
+                        .transition()
+                        .duration(1500)
+                        .attr('r', d => Math.sqrt(d.intensity) * 1.8)
+                        .attr('fill-opacity', 0.7)
+                        .on('end', function repeat() {
+                            d3.select(this)
+                                .transition()
+                                .duration(1500)
+                                .attr('r', d => Math.sqrt(d.intensity) * 2.2)
+                                .attr('fill-opacity', 0.9)
+                                .transition()
+                                .duration(1500)
+                                .attr('r', d => Math.sqrt(d.intensity) * 1.8)
+                                .attr('fill-opacity', 0.7)
+                                .on('end', repeat);
+                        });
+                    
+                    // 隐藏缩略图
+                    tooltip
+                        .style('opacity', '0')
+                        .style('transform', 'translateY(10px) scale(0.95)')
+                        .style('visibility', 'hidden');
+                })
+                .style('cursor', 'pointer'); // 添加指针样式，提示可交互
             
             // 添加缩放功能
             const zoom = d3.zoom()

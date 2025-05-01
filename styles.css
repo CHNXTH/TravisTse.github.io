@@ -1064,6 +1064,11 @@ footer p {
   filter: invert(37%) sepia(74%) saturate(7482%) hue-rotate(336deg) brightness(100%) contrast(101%);
 }
 
+/* 网易云音乐图标特别样式 */
+.social-icon:hover .custom-icon[alt="网易云音乐"] {
+  filter: invert(16%) sepia(86%) saturate(5743%) hue-rotate(349deg) brightness(76%) contrast(93%);
+}
+
 .social-icon .fa-instagram:hover {
   background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
   -webkit-background-clip: text;
@@ -1093,6 +1098,44 @@ footer p {
 
 .social-icon .fa-tiktok:hover {
   color: #000000;
+}
+
+/* 地图缩略图样式 */
+.location-thumbnail {
+  pointer-events: none;
+  transform-origin: center top;
+  max-width: 300px;
+  max-height: 250px;
+}
+
+.location-thumbnail img {
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.location-thumbnail img:hover {
+  transform: scale(1.05);
+}
+
+/* 增强足迹点缩略图动画效果 */
+@keyframes fadeInImage {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.location-thumbnail {
+  animation: fadeInImage 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+/* 添加深色模式下的缩略图样式适配 */
+@media (prefers-color-scheme: dark) {
+  .location-thumbnail {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  }
+  
+  .location-thumbnail img {
+    filter: brightness(0.9);
+  }
 }
 
 /* Responsive */
