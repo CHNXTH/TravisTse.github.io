@@ -1610,4 +1610,393 @@ footer p {
     height: 3px;
     background-color: var(--accent-color);
     border-radius: 2px;
+}
+
+/* 悬浮球和AI对话框样式 */
+.floating-chat-button {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9447FF, #F165F8, #6F9EFF);
+    background-size: 300% 300%;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28); /* 苹果风格的弹性动画 */
+    animation: floatingPulse 3s ease-in-out infinite, gradientShift 8s ease infinite;
+}
+
+@keyframes floatingPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 15px rgba(148, 71, 255, 0.5);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes showChatTooltip {
+    0%, 90% { opacity: 0; visibility: hidden; }
+    20%, 70% { opacity: 1; visibility: visible; }
+    100% { opacity: 0; visibility: hidden; }
+}
+
+.floating-chat-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 15px rgba(148, 71, 255, 0.5);
+    animation-play-state: paused;
+}
+
+.floating-chat-button.hidden {
+    transform: scale(0);
+    opacity: 0;
+    animation: none;
+}
+
+.floating-chat-button.show {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.chat-icon {
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+}
+
+.chat-tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    right: 75px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    animation: showChatTooltip 2s 1s forwards; /* 单独为工具提示添加动画 */
+}
+
+.chat-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -6px;
+    transform: translateY(-50%);
+    border-width: 6px 0 6px 6px;
+    border-style: solid;
+    border-color: transparent transparent transparent rgba(0, 0, 0, 0.85);
+}
+
+.floating-chat-button:hover .chat-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 对话框遮罩层 - 仅在移动端显示 */
+.chat-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 998;
+    display: none;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .floating-chat-button {
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+    }
+    
+    .ai-chat-container {
+        width: 90%;
+        height: 70vh;
+        bottom: 80px;
+        right: 5%;
+        left: 5%;
+    }
+    
+    .chat-tooltip {
+        display: none;
+    }
+    
+    .chat-overlay.active {
+        display: block;
+    }
+}
+
+.ai-chat-container {
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    width: 350px;
+    height: 500px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transform: translateY(20px);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.4s ease;
+}
+
+.ai-chat-container.active {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.ai-chat-glowing-border {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.ai-chat-glowing-border::before {
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    background: linear-gradient(45deg, 
+        #C686FF, #F5B9EA, #FFBA71, #FF6778, #8D99FF,
+        #C686FF, #F5B9EA, #FFBA71, #FF6778, #8D99FF);
+    background-size: 500% 500%;
+    border-radius: 23px;
+    z-index: -2;
+    animation: pastelGlowing 15s linear infinite;
+}
+
+@keyframes pastelGlowing {
+    0% {
+        background-position: 0% 0%;
+    }
+    50% {
+        background-position: 100% 100%;
+    }
+    100% {
+        background-position: 0% 0%;
+    }
+}
+
+.ai-chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.ai-chat-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.ai-chat-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.ai-chat-close:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.ai-chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.ai-message, .user-message {
+    display: flex;
+    gap: 10px;
+    max-width: 85%;
+}
+
+.ai-message {
+    align-self: flex-start;
+}
+
+.user-message {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.ai-avatar, .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.ai-avatar img, .user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ai-message-content, .user-message-content {
+    padding: 10px 12px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.ai-message-content {
+    background-color: rgba(255, 255, 255, 0.8);
+    border-bottom-left-radius: 5px;
+}
+
+.user-message-content {
+    background: linear-gradient(135deg, #9447FF, #F165F8);
+    color: white;
+    border-bottom-right-radius: 5px;
+}
+
+.ai-chat-input-container {
+    display: flex;
+    padding: 15px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.ai-chat-input {
+    flex: 1;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 20px;
+    padding: 12px 15px;
+    outline: none;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+}
+
+.ai-chat-input:focus {
+    border-color: #9447FF;
+    box-shadow: 0 0 0 2px rgba(148, 71, 255, 0.2);
+}
+
+.ai-chat-send {
+    background: linear-gradient(135deg, #9447FF, #F165F8);
+    color: white;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    margin-left: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.ai-chat-send:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+    .ai-chat-container {
+        background-color: rgba(30, 30, 30, 0.6);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .ai-chat-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+    
+    .ai-chat-close {
+        color: #aaa;
+    }
+    
+    .ai-chat-input-container {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+    
+    .ai-chat-input {
+        background-color: rgba(50, 50, 50, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    .ai-message-content {
+        background-color: rgba(60, 60, 60, 0.8);
+        color: white;
+    }
 } 

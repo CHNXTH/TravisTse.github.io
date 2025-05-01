@@ -395,6 +395,43 @@
         </div>
     </footer>
 
+    <!-- 悬浮球和AI对话框 -->
+    <div class="floating-chat-button" id="floating-chat-button">
+        <div class="chat-icon">
+            <i class="fa-solid fa-comments"></i>
+        </div>
+        <span class="chat-tooltip">Chat With Me</span>
+    </div>
+
+    <!-- 遮罩层，用于移动端点击外部关闭对话框 -->
+    <div class="chat-overlay" id="chat-overlay"></div>
+
+    <div class="ai-chat-container" id="ai-chat-container">
+        <div class="ai-chat-header">
+            <div class="ai-chat-title">Chat with Travis AI</div>
+            <button class="ai-chat-close" id="ai-chat-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="ai-chat-glowing-border"></div>
+        <div class="ai-chat-messages" id="ai-chat-messages">
+            <div class="ai-message">
+                <div class="ai-avatar">
+                    <img src="assets/images/avatar-round.png" alt="AI Avatar">
+                </div>
+                <div class="ai-message-content">
+                    <p>Hello! I'm Travis's AI assistant. How can I help you today?</p>
+                </div>
+            </div>
+        </div>
+        <div class="ai-chat-input-container">
+            <input type="text" class="ai-chat-input" id="ai-chat-input" placeholder="Type your question...">
+            <button class="ai-chat-send" id="ai-chat-send">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html> 

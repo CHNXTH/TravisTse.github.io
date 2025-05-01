@@ -1132,4 +1132,272 @@ function initProjectsCarousel() {
     
     // 启动自动轮播
     startAutoSlide();
-} 
+}
+
+// AI聊天相关功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取元素
+    const floatingButton = document.getElementById('floating-chat-button');
+    const chatContainer = document.getElementById('ai-chat-container');
+    const closeButton = document.getElementById('ai-chat-close');
+    const sendButton = document.getElementById('ai-chat-send');
+    const chatInput = document.getElementById('ai-chat-input');
+    const messagesContainer = document.getElementById('ai-chat-messages');
+    const chatOverlay = document.getElementById('chat-overlay');
+    
+    // 检测是否为移动设备
+    const isMobile = window.innerWidth <= 768;
+    
+    // 打开聊天窗口
+    floatingButton.addEventListener('click', function() {
+        // 添加隐藏类并稍微延迟以创建弹性效果
+        floatingButton.classList.add('hidden');
+        
+        setTimeout(() => {
+            if (isMobile) {
+                chatOverlay.classList.add('active');
+            }
+            
+            chatContainer.style.display = 'flex';
+            
+            // 添加动画类以触发过渡效果
+            setTimeout(() => {
+                chatContainer.classList.add('active');
+            }, 10);
+        }, 200); // 等待按钮缩小效果完成
+    });
+    
+    // 关闭聊天窗口
+    function closeChat() {
+        chatContainer.classList.remove('active');
+        
+        if (isMobile) {
+            chatOverlay.classList.remove('active');
+        }
+        
+        // 等待动画完成后隐藏对话框
+        setTimeout(() => {
+            chatContainer.style.display = 'none';
+            
+            // 显示悬浮球并添加弹性动画
+            floatingButton.style.display = 'flex';
+            floatingButton.classList.remove('hidden');
+            floatingButton.classList.add('show');
+            
+            // 移除show类以确保下次点击时动画正常
+            setTimeout(() => {
+                floatingButton.classList.remove('show');
+                
+                // 确保律动动画恢复
+                void floatingButton.offsetWidth; // 强制重绘
+            }, 500);
+        }, 400);
+    }
+    
+    // 关闭按钮点击事件
+    closeButton.addEventListener('click', closeChat);
+    
+    // 移动端点击遮罩层关闭对话框
+    chatOverlay.addEventListener('click', function(e) {
+        if (isMobile) {
+            closeChat();
+        }
+    });
+    
+    // 发送消息事件处理
+    function sendMessage() {
+        const message = chatInput.value.trim();
+        if (message) {
+            // 添加用户消息到聊天界面
+            addUserMessage(message);
+            chatInput.value = '';
+            
+            // 显示思考中的状态
+            showTypingIndicator();
+            
+            // 调用DeepSeek API获取回复
+            fetchAIResponse(message);
+        }
+    }
+    
+    // 发送按钮点击事件
+    sendButton.addEventListener('click', sendMessage);
+    
+    // 输入框回车事件
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // 添加用户消息到聊天界面
+    function addUserMessage(message) {
+        const userMessageElement = document.createElement('div');
+        userMessageElement.className = 'user-message';
+        userMessageElement.innerHTML = `
+            <div class="user-message-content">
+                <p>${escapeHtml(message)}</p>
+            </div>
+        `;
+        messagesContainer.appendChild(userMessageElement);
+        scrollToBottom();
+    }
+    
+    // 添加AI消息到聊天界面
+    function addAIMessage(message) {
+        // 移除正在输入指示器
+        removeTypingIndicator();
+        
+        const aiMessageElement = document.createElement('div');
+        aiMessageElement.className = 'ai-message';
+        aiMessageElement.innerHTML = `
+            <div class="ai-avatar">
+                <img src="assets/images/avatar-round.png" alt="AI Avatar">
+            </div>
+            <div class="ai-message-content">
+                <p>${message}</p>
+            </div>
+        `;
+        messagesContainer.appendChild(aiMessageElement);
+        scrollToBottom();
+    }
+    
+    // 显示AI正在输入的指示器
+    function showTypingIndicator() {
+        const typingIndicator = document.createElement('div');
+        typingIndicator.className = 'ai-message typing-indicator';
+        typingIndicator.innerHTML = `
+            <div class="ai-avatar">
+                <img src="assets/images/avatar-round.png" alt="AI Avatar">
+            </div>
+            <div class="ai-message-content">
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
+        messagesContainer.appendChild(typingIndicator);
+        scrollToBottom();
+    }
+    
+    // 移除正在输入指示器
+    function removeTypingIndicator() {
+        const typingIndicator = document.querySelector('.typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+    
+    // 滚动到底部
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    // HTML转义函数，防止XSS攻击
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+    
+    // 调用DeepSeek API获取回复
+    async function fetchAIResponse(message) {
+        try {
+            // DeepSeek API调用
+            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer DEEPSEEK_API_KEY' // 实际使用时需替换为真实的API密钥
+                },
+                body: JSON.stringify({
+                    model: 'deepseek-chat', // 根据DeepSeek的实际模型名称调整
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are Travis\'s AI assistant, helping website visitors answer questions about Travis\'s education, experience, skills, etc. Please respond in English in a friendly and professional tone.'
+                        },
+                        {
+                            role: 'user',
+                            content: message
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 512
+                })
+            });
+            
+            // 解析API响应
+            const data = await response.json();
+            
+            if (data.choices && data.choices.length > 0) {
+                const aiResponse = data.choices[0].message.content;
+                addAIMessage(aiResponse);
+            } else {
+                // 如果没有得到有效响应，显示错误消息
+                addAIMessage("I'm sorry, I couldn't generate a response at this time. Please try again later.");
+            }
+            
+        } catch (error) {
+            console.error('Error fetching AI response:', error);
+            removeTypingIndicator();
+            
+            // 在API调用失败时提供备用响应
+            addAIMessage('Thank you for your message! I\'m Travis\'s AI assistant. I\'m currently in development and having trouble connecting to my backend. Please try again later or contact Travis directly through the social media links at the bottom of the page.');
+        }
+    }
+
+    // 不再需要在JS中控制工具提示，因为现在已经通过CSS动画来控制
+    
+    // 窗口大小变化时更新移动设备检测
+    window.addEventListener('resize', function() {
+        isMobile = window.innerWidth <= 768;
+    });
+});
+
+// 添加正在输入指示器的样式
+const style = document.createElement('style');
+style.textContent = `
+.typing-dots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.typing-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #C686FF;
+    display: inline-block;
+    animation: typing 1.4s infinite ease-in-out both;
+}
+
+.typing-dots span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.typing-dots span:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes typing {
+    0%, 80%, 100% { 
+        transform: scale(0);
+    } 
+    40% { 
+        transform: scale(1);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .typing-dots span {
+        background-color: #F5B9EA;
+    }
+}
+`
+document.head.appendChild(style); 
