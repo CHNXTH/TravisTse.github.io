@@ -108,6 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 重组hero区域布局
     reorganizeHeroLayout();
+
+    // 项目轮播功能
+    initProjectsCarousel();
 });
 
 // 重组hero区域布局
@@ -964,4 +967,169 @@ function initNavHighlight() {
     sections.forEach(section => {
         observer.observe(section);
     });
+}
+
+// 项目轮播功能
+function initProjectsCarousel() {
+    const projectsCarousel = document.querySelector('.projects-carousel');
+    const projectsWrapper = document.querySelector('.projects-wrapper');
+    const projects = document.querySelectorAll('.project-item');
+    const dots = document.querySelectorAll('.carousel-dots .dot');
+    const prevBtn = document.querySelector('.carousel-prev');
+    const nextBtn = document.querySelector('.carousel-next');
+    
+    // 检查元素是否存在
+    if (!projectsCarousel || !projectsWrapper || projects.length === 0) {
+        return; // 如果元素不存在，则退出函数
+    }
+    
+    let currentIndex = 0;
+    let projectWidth = projects[0].offsetWidth + 20; // 项目宽度 + margin
+    let projectsPerView = getProjectsPerView();
+    let autoSlideInterval;
+    let isHovered = false;
+    let maxVisibleIndex = Math.max(0, projects.length - projectsPerView);
+    let activeDotsPage = 0;
+    
+    // 根据屏幕宽度确定一次显示几个项目
+    function getProjectsPerView() {
+        if (window.innerWidth > 992) {
+            return 3; // 桌面设备显示3个
+        } else if (window.innerWidth > 768) {
+            return 2; // 平板设备显示2个
+        } else {
+            return 1; // 手机设备显示1个
+        }
+    }
+    
+    // 更新轮播位置
+    function updateCarousel() {
+        projectWidth = projects[0].offsetWidth + 20; // 重新计算项目宽度
+        projectsPerView = getProjectsPerView();
+        maxVisibleIndex = Math.max(0, projects.length - projectsPerView);
+        
+        // 检查是否需要调整当前索引
+        if (currentIndex > maxVisibleIndex) {
+            currentIndex = maxVisibleIndex;
+        }
+        
+        // 更新轮播位置
+        projectsWrapper.style.transform = `translateX(-${currentIndex * projectWidth}px)`;
+        
+        // 计算当前页面（为了导航点）
+        activeDotsPage = Math.floor(currentIndex / projectsPerView);
+        
+        // 更新导航点状态
+        dots.forEach((dot, index) => {
+            dot.classList.toggle('active', index === activeDotsPage);
+        });
+        
+        // 检查是否需要禁用前进/后退按钮
+        prevBtn.style.opacity = currentIndex === 0 ? '0.5' : '1';
+        nextBtn.style.opacity = currentIndex >= maxVisibleIndex ? '0.5' : '1';
+    }
+    
+    // 跳转到指定项目
+    function goToProject(index) {
+        currentIndex = Math.max(0, Math.min(index, maxVisibleIndex));
+        updateCarousel();
+    }
+    
+    // 下一个项目
+    function nextProject() {
+        goToProject(currentIndex + 1);
+    }
+    
+    // 上一个项目
+    function prevProject() {
+        goToProject(currentIndex - 1);
+    }
+    
+    // 跳转到指定的导航点
+    function goToDot(dotIndex) {
+        goToProject(dotIndex * projectsPerView);
+    }
+    
+    // 自动轮播
+    function startAutoSlide() {
+        stopAutoSlide();
+        autoSlideInterval = setInterval(() => {
+            if (!isHovered) {
+                if (currentIndex >= maxVisibleIndex) {
+                    goToProject(0); // 如果到达最后，回到第一个
+                } else {
+                    nextProject(); // 否则前进到下一个
+                }
+            }
+        }, 5000);
+    }
+    
+    // 停止自动轮播
+    function stopAutoSlide() {
+        clearInterval(autoSlideInterval);
+    }
+    
+    // 更新轮播初始状态
+    updateCarousel();
+    
+    // 添加按钮点击事件
+    prevBtn.addEventListener('click', prevProject);
+    nextBtn.addEventListener('click', nextProject);
+    
+    // 添加导航点点击事件
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => goToDot(index));
+    });
+    
+    // 鼠标悬停暂停自动轮播
+    projectsCarousel.addEventListener('mouseenter', () => {
+        isHovered = true;
+    });
+    
+    projectsCarousel.addEventListener('mouseleave', () => {
+        isHovered = false;
+    });
+    
+    // 监听窗口大小变化，更新轮播布局
+    window.addEventListener('resize', () => {
+        projectWidth = projects[0].offsetWidth + 20;
+        projectsPerView = getProjectsPerView();
+        maxVisibleIndex = Math.max(0, projects.length - projectsPerView);
+        updateCarousel();
+    });
+    
+    // 添加鼠标滚轮事件
+    projectsCarousel.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY > 0) {
+            nextProject();
+        } else {
+            prevProject();
+        }
+    }, { passive: false });
+    
+    // 添加触摸滑动支持
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    projectsCarousel.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    projectsCarousel.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        if (touchEndX < touchStartX - swipeThreshold) {
+            nextProject();
+        } else if (touchEndX > touchStartX + swipeThreshold) {
+            prevProject();
+        }
+    }
+    
+    // 启动自动轮播
+    startAutoSlide();
 } 
