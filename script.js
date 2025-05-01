@@ -728,7 +728,7 @@ function initWorldMap() {
         { name: "湖南", location: [112.9834, 28.1145], intensity: 4, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8twbLHVeFuOTuBmHZnynCUXT8V1jlsDsW2w&s" },
         { name: "湖北", location: [114.3416, 30.5470], intensity: 4, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRjY3uYCpTOp46Ah5CetxSIr4r_hoGUizjFng&s" },
         { name: "广西", location: [108.3280, 22.8150], intensity: 4, image: "https://static.wixstatic.com/media/135d1f_b24ab7e6d3a4420e9f66d1b4b8f20f7d~mv2.jpg/v1/fill/w_630,h_434,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/135d1f_b24ab7e6d3a4420e9f66d1b4b8f20f7d~mv2.jpg" },
-        { name: "哈尔滨", location: [126.6420, 45.7560], intensity: 3, image: "https://lw.news.cn/1310652188_16603609094661n.jpg" },
+        { name: "哈尔滨", location: [126.6420, 45.7560], intensity: 3, image: "https://imgcdn.yicai.com/uppics/images/2024/01/e934b43fa374759105fbb9265a5b6a96.jpg" },
         { name: "福建", location: [119.2960, 26.0991], intensity: 3, image: "https://www.newamazing.com.tw/eWeb_newamazing/IMGDB/000128/000295/00007412.JPG" },
         { name: "浙江", location: [120.1536, 30.2650], intensity: 5, image: "https://wgly.hangzhou.gov.cn/picture/0/2311201439582605992.jpg" },
         { name: "陕西", location: [108.9540, 34.2650], intensity: 3, image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/%E8%A5%BF%E5%AE%89%E9%92%9F%E6%A5%BC2020_%281%29.jpg/1200px-%E8%A5%BF%E5%AE%89%E9%92%9F%E6%A5%BC2020_%281%29.jpg" },
