@@ -1312,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer DEEPSEEK_API_KEY' // 实际使用时需替换为真实的API密钥
+                    'Authorization': 'sk-zGMN1RoKrAKHbJbbNDniZ65CVVH6O9YW9KdDkF7cpR6P7EVB' // 实际使用时需替换为真实的API密钥
                 },
                 body: JSON.stringify({
                     model: 'deepseek-chat', // 根据DeepSeek的实际模型名称调整
