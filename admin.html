@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
+    <title>管理后台 - Travis Tse</title>
+    <link rel="icon" href="assets/images/avatar-round.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-login" id="admin-login">
+        <div class="login-container">
+            <div class="admin-avatar">
+                <img src="assets/images/avatar-round.png" alt="Travis Tse">
+            </div>
+            <h1>管理后台</h1>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="password">请输入管理密码</label>
+                    <input type="password" id="password" placeholder="输入密码">
+                </div>
+                <button id="login-btn">登录</button>
+                <p class="login-error" id="login-error"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-panel" id="admin-panel" style="display: none;">
+        <header class="admin-header">
+            <div class="admin-logo">
+                <img src="assets/images/avatar-round.png" alt="Travis Tse" class="admin-avatar-small">
+                <h1>Travis Tse 网站管理</h1>
+            </div>
+            <button id="logout-btn" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> 退出
+            </button>
+        </header>
+
+        <div class="admin-content">
+            <div class="admin-sidebar">
+                <ul class="admin-menu">
+                    <li class="active" data-target="profile-section"><i class="fas fa-user"></i> 个人资料</li>
+                    <li data-target="education-section"><i class="fas fa-graduation-cap"></i> 教育经历</li>
+                    <li data-target="experience-section"><i class="fas fa-briefcase"></i> 工作经历</li>
+                    <li data-target="projects-section"><i class="fas fa-project-diagram"></i> 项目展示</li>
+                    <li data-target="papers-section"><i class="fas fa-file-alt"></i> 论文与专利</li>
+                    <li data-target="awards-section"><i class="fas fa-trophy"></i> 奖项荣誉</li>
+                    <li data-target="footprints-section"><i class="fas fa-map-marker-alt"></i> 我的足迹</li>
+                    <li data-target="social-section"><i class="fas fa-share-alt"></i> 社交媒体</li>
+                    <li data-target="settings-section"><i class="fas fa-cog"></i> 网站设置</li>
+                </ul>
+            </div>
+
+            <div class="admin-main">
+                <!-- 个人资料部分 -->
+                <section id="profile-section" class="admin-section active">
+                    <h2 class="section-title">个人资料管理</h2>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>头像管理</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="avatar-preview">
+                                <img id="current-avatar" src="assets/images/avatar.jpg" alt="当前头像">
+                            </div>
+                            <div class="form-group">
+                                <label for="avatar-upload">上传新头像</label>
+                                <input type="file" id="avatar-upload" accept="image/*">
+                                <p class="help-text">推荐尺寸: 500x500px, 文件大小不超过2MB</p>
+                            </div>
+                            <button class="admin-btn" id="save-avatar">保存头像</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>基本信息</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="name-en">英文姓名</label>
+                                <input type="text" id="name-en" placeholder="英文姓名" value="Travis Tse">
+                            </div>
+                            <div class="form-group">
+                                <label for="name-zh">中文姓名</label>
+                                <input type="text" id="name-zh" placeholder="中文姓名" value="谢堂华">
+                            </div>
+                            <div class="form-group">
+                                <label for="age">年龄</label>
+                                <input type="text" id="age" placeholder="年龄" value="23">
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">联系电话</label>
+                                <input type="text" id="phone" placeholder="联系电话" value="15698010160">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">电子邮箱</label>
+                                <input type="email" id="email" placeholder="电子邮箱" value="chnxth@gmail.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="location">所在城市</label>
+                                <input type="text" id="location" placeholder="所在城市" value="Shanghai">
+                            </div>
+                            <button class="admin-btn" id="save-profile">保存信息</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 教育经历部分 -->
+                <section id="education-section" class="admin-section">
+                    <h2 class="section-title">教育经历管理</h2>
+                    <button class="admin-btn add-btn" id="add-education">
+                        <i class="fas fa-plus"></i> 添加教育经历
+                    </button>
+                    
+                    <div class="items-container" id="education-items">
+                        <!-- 教育经历项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="education-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="education-modal-title">添加教育经历</h3>
+                                <button class="close-btn" id="close-education-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="edu-school">学校名称</label>
+                                    <input type="text" id="edu-school" placeholder="如：华东理工大学">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edu-meta">学校简介</label>
+                                    <input type="text" id="edu-meta" placeholder="如：Top 211 (Cross-Major Admission)">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edu-details">专业详情</label>
+                                    <input type="text" id="edu-details" placeholder="如：School of Design | Design (Intelligent Product Interaction Design)">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edu-time">时间段</label>
+                                    <input type="text" id="edu-time" placeholder="如：2025.09 - 2028.06">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edu-research">研究方向 (可选)</label>
+                                    <textarea id="edu-research" placeholder="如：Research Focus: Intelligent Product Design..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="edu-stats">学业数据 (可选)</label>
+                                    <input type="text" id="edu-stats" placeholder="如：GPA: 3.91/5 | Rank: 2/159">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edu-awards">所获奖项 (可选)</label>
+                                    <textarea id="edu-awards" placeholder="如：Awards: National Scholarship..."></textarea>
+                                </div>
+                                <input type="hidden" id="edu-id" value="">
+                                <button class="admin-btn" id="save-education">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 工作经历部分 -->
+                <section id="experience-section" class="admin-section">
+                    <h2 class="section-title">工作经历管理</h2>
+                    <div class="admin-controls">
+                        <button class="add-btn" id="add-experience">
+                            <i class="fas fa-plus"></i> 添加工作经历
+                        </button>
+                        <button class="example-btn" id="add-experience-examples" onclick="addIkeaExampleExperience()">
+                            <i class="fas fa-magic"></i> 添加示例数据
+                        </button>
+                    </div>
+                    
+                    <div class="items-container" id="experience-items">
+                        <!-- 工作经历项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="experience-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="experience-modal-title">添加工作经历</h3>
+                                <button class="close-btn" id="close-experience-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="exp-logo">公司Logo</label>
+                                    <div class="logo-preview">
+                                        <img id="exp-logo-preview" src="assets/images/placeholder-logo.png" alt="公司Logo">
+                                    </div>
+                                    <input type="file" id="exp-logo-upload" accept="image/*">
+                                    <p class="help-text">推荐使用透明背景的PNG或SVG格式</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="exp-company">公司/项目名称</label>
+                                    <input type="text" id="exp-company" placeholder="如：IKEA China - Digital Innovation Center">
+                                </div>
+                                <div class="form-group">
+                                    <label for="exp-meta">职位/角色</label>
+                                    <input type="text" id="exp-meta" placeholder="如：Product Manager, Interaction Designer">
+                                </div>
+                                <div class="form-group">
+                                    <label for="exp-time">工作时间</label>
+                                    <input type="text" id="exp-time" placeholder="如：2024.07 - 2024.12">
+                                </div>
+                                <div class="form-group">
+                                    <label for="exp-details">工作内容/项目细节</label>
+                                    <textarea id="exp-details" placeholder="每一项工作内容请以'-'或'*'开头，每项占一行"></textarea>
+                                </div>
+                                <input type="hidden" id="exp-id" value="">
+                                <input type="hidden" id="exp-logo-path" value="">
+                                <button class="admin-btn" id="save-experience">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 项目展示部分 -->
+                <section id="projects-section" class="admin-section">
+                    <h2 class="section-title">项目展示管理</h2>
+                    <button class="admin-btn add-btn" id="add-project">
+                        <i class="fas fa-plus"></i> 添加项目
+                    </button>
+                    
+                    <div class="items-container grid-container" id="project-items">
+                        <!-- 项目展示项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="project-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="project-modal-title">添加项目</h3>
+                                <button class="close-btn" id="close-project-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="project-image">项目预览图</label>
+                                    <div class="image-preview">
+                                        <img id="project-image-preview" src="assets/images/placeholder-project.jpg" alt="项目预览图">
+                                    </div>
+                                    <input type="file" id="project-image-upload" accept="image/*">
+                                    <p class="help-text">推荐尺寸: 1200x800px, 文件大小不超过5MB</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-title">项目名称</label>
+                                    <input type="text" id="project-title" placeholder="如：MatConstruct-Architecture-Education-App">
+                                </div>
+                                <div class="form-group">
+                                    <label for="project-link">项目链接</label>
+                                    <input type="text" id="project-link" placeholder="如：https://www.behance.net/gallery/177525313/...">
+                                </div>
+                                <input type="hidden" id="project-id" value="">
+                                <input type="hidden" id="project-image-path" value="">
+                                <button class="admin-btn" id="save-project">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 论文与专利部分 -->
+                <section id="papers-section" class="admin-section">
+                    <h2 class="section-title">论文与专利管理</h2>
+                    <button class="admin-btn add-btn" id="add-paper">
+                        <i class="fas fa-plus"></i> 添加论文/专利
+                    </button>
+                    
+                    <div class="items-container" id="paper-items">
+                        <!-- 论文与专利项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="paper-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="paper-modal-title">添加论文/专利</h3>
+                                <button class="close-btn" id="close-paper-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="paper-time">时间</label>
+                                    <input type="text" id="paper-time" placeholder="如：2024.11">
+                                </div>
+                                <div class="form-group">
+                                    <label for="paper-title">标题</label>
+                                    <input type="text" id="paper-title" placeholder="如：Research on Interactive Service System Design...">
+                                </div>
+                                <div class="form-group">
+                                    <label for="paper-link">链接 (可选)</label>
+                                    <input type="text" id="paper-link" placeholder="如：https://cdac2024.cn/Assets/...">
+                                </div>
+                                <div class="form-group">
+                                    <label for="paper-authors">作者/详情</label>
+                                    <textarea id="paper-authors" placeholder="如：Travis Tse, Jiang Wang. 2024 Computational Design Academic Forum..."></textarea>
+                                </div>
+                                <input type="hidden" id="paper-id" value="">
+                                <button class="admin-btn" id="save-paper">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 奖项荣誉部分 -->
+                <section id="awards-section" class="admin-section">
+                    <h2 class="section-title">奖项荣誉管理</h2>
+                    <button class="admin-btn add-btn" id="add-award">
+                        <i class="fas fa-plus"></i> 添加奖项
+                    </button>
+                    
+                    <div class="items-container" id="award-items">
+                        <!-- 奖项荣誉项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="award-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="award-modal-title">添加奖项</h3>
+                                <button class="close-btn" id="close-award-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="award-time">获奖时间</label>
+                                    <input type="text" id="award-time" placeholder="如：2021.12">
+                                </div>
+                                <div class="form-group">
+                                    <label for="award-title">奖项名称</label>
+                                    <input type="text" id="award-title" placeholder="如：National Scholarship (1‰)">
+                                </div>
+                                <div class="form-group">
+                                    <label for="award-details">奖项详情 (可选)</label>
+                                    <textarea id="award-details" placeholder="奖项的补充说明..."></textarea>
+                                </div>
+                                <input type="hidden" id="award-id" value="">
+                                <button class="admin-btn" id="save-award">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 我的足迹部分 -->
+                <section id="footprints-section" class="admin-section">
+                    <h2 class="section-title">我的足迹管理</h2>
+                    <button class="admin-btn add-btn" id="add-footprint">
+                        <i class="fas fa-plus"></i> 添加足迹
+                    </button>
+                    
+                    <div class="items-container" id="footprint-items">
+                        <!-- 足迹项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="footprint-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="footprint-modal-title">添加足迹</h3>
+                                <button class="close-btn" id="close-footprint-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="footprint-city">城市名称</label>
+                                    <input type="text" id="footprint-city" placeholder="如：上海">
+                                </div>
+                                <div class="form-group">
+                                    <label for="footprint-country">所属国家</label>
+                                    <input type="text" id="footprint-country" placeholder="如：中国">
+                                </div>
+                                <div class="form-group">
+                                    <label for="footprint-lat">纬度</label>
+                                    <input type="text" id="footprint-lat" placeholder="如：31.2304">
+                                </div>
+                                <div class="form-group">
+                                    <label for="footprint-lng">经度</label>
+                                    <input type="text" id="footprint-lng" placeholder="如：121.4737">
+                                </div>
+                                <div class="form-group">
+                                    <label for="footprint-year">访问年份 (可选)</label>
+                                    <input type="text" id="footprint-year" placeholder="如：2024">
+                                </div>
+                                <div class="form-group">
+                                    <label for="footprint-description">描述 (可选)</label>
+                                    <textarea id="footprint-description" placeholder="此地的简单描述或访问经历..."></textarea>
+                                </div>
+                                <input type="hidden" id="footprint-id" value="">
+                                <button class="admin-btn" id="save-footprint">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 社交媒体部分 -->
+                <section id="social-section" class="admin-section">
+                    <h2 class="section-title">社交媒体管理</h2>
+                    <button class="admin-btn add-btn" id="add-social">
+                        <i class="fas fa-plus"></i> 添加社交媒体
+                    </button>
+                    
+                    <div class="items-container grid-container" id="social-items">
+                        <!-- 社交媒体项将动态加载 -->
+                    </div>
+                    
+                    <div class="modal" id="social-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="social-modal-title">添加社交媒体</h3>
+                                <button class="close-btn" id="close-social-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="social-type">社交媒体类型</label>
+                                    <select id="social-type">
+                                        <option value="instagram">Instagram</option>
+                                        <option value="behance">Behance</option>
+                                        <option value="github">GitHub</option>
+                                        <option value="pinterest">Pinterest</option>
+                                        <option value="youtube">YouTube</option>
+                                        <option value="rednote">小红书</option>
+                                        <option value="tiktok">抖音</option>
+                                        <option value="netease">网易云音乐</option>
+                                        <option value="custom">自定义</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="social-custom-icon-group" style="display: none;">
+                                    <label for="social-custom-icon">自定义图标</label>
+                                    <div class="logo-preview">
+                                        <img id="social-custom-icon-preview" src="assets/images/placeholder-logo.png" alt="自定义图标">
+                                    </div>
+                                    <input type="file" id="social-custom-icon-upload" accept="image/*">
+                                    <p class="help-text">推荐使用透明背景的PNG或SVG格式</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="social-name">显示名称</label>
+                                    <input type="text" id="social-name" placeholder="如：Instagram">
+                                </div>
+                                <div class="form-group">
+                                    <label for="social-link">链接</label>
+                                    <input type="text" id="social-link" placeholder="如：https://www.instagram.com/travis_tse?igsh=...">
+                                </div>
+                                <input type="hidden" id="social-id" value="">
+                                <input type="hidden" id="social-icon-path" value="">
+                                <button class="admin-btn" id="save-social">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 网站设置部分 -->
+                <section id="settings-section" class="admin-section">
+                    <h2 class="section-title">网站设置</h2>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>管理员设置</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="admin-password">修改管理密码</label>
+                                <input type="password" id="admin-password" placeholder="请输入新密码">
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-password-confirm">确认新密码</label>
+                                <input type="password" id="admin-password-confirm" placeholder="请再次输入新密码">
+                            </div>
+                            <button class="admin-btn" id="save-password">保存密码</button>
+                            <p class="password-message" id="password-message"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>备份与恢复</h3>
+                        </div>
+                        <div class="card-body">
+                            <button class="admin-btn" id="backup-data">导出网站数据</button>
+                            <div class="form-group mt-20">
+                                <label for="restore-data">恢复网站数据</label>
+                                <input type="file" id="restore-data" accept=".json">
+                            </div>
+                            <button class="admin-btn" id="restore-btn">恢复数据</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>清除缓存</h3>
+                        </div>
+                        <div class="card-body">
+                            <button class="admin-btn" id="clear-cache">清除网站缓存</button>
+                            <p class="help-text">清除浏览器中存储的数据，用于排除某些功能异常</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script src="admin-content.js"></script>
+    <script src="admin-modules.js"></script>
+    <script src="admin-sync.js"></script>
+    <script src="admin-sync-check.js"></script>
+    <script src="sync-bridge.js"></script>
+</body>
+</html> 

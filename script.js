@@ -687,6 +687,40 @@ function addLanguageIcon() {
 
 // 世界地图足迹功能
 function initWorldMap() {
+    // 检查是否有从localStorage加载的自定义足迹数据
+    let customFootprintsData = null;
+    let websiteData = {};
+    
+    try {
+        // 优先从localStorage获取数据
+        const savedData = localStorage.getItem('websiteData');
+        if (savedData) {
+            websiteData = JSON.parse(savedData);
+            
+            // 确保footprints字段存在
+            if (!websiteData.footprints) {
+                websiteData.footprints = [];
+            }
+            
+            // 如果从localStorage读取到的足迹数据不为空，使用它
+            if (websiteData.footprints && Array.isArray(websiteData.footprints) && websiteData.footprints.length > 0) {
+                console.log(`从localStorage读取到${websiteData.footprints.length}条足迹数据`);
+                
+                // 转换格式为地图使用的格式
+                customFootprintsData = websiteData.footprints.map(fp => ({
+                    name: `${fp.city}${fp.country ? ', ' + fp.country : ''}`,
+                    location: [parseFloat(fp.lng), parseFloat(fp.lat)],
+                    intensity: fp.intensity || 5,
+                    image: fp.image || 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(fp.city)
+                }));
+            } else {
+                console.log('localStorage中没有足迹数据，将使用默认数据');
+            }
+        }
+    } catch (e) {
+        console.error('读取自定义足迹数据失败:', e);
+    }
+    
     // 设置地图尺寸
     const width = document.getElementById('map-container').offsetWidth;
     const height = 600;
@@ -715,7 +749,7 @@ function initWorldMap() {
     
     // 定义足迹数据
     // 1-10 表示访问的频率/强度，10最高
-    const footprints = [
+    const defaultFootprints = [
         { name: "上海", location: [121.4737, 31.2304], intensity: 10, image: "https://www.shhk.gov.cn/shhk/202cdc49-f400-4d16-b86c-6bdef99be486/78891cbb-74d1-4d76-85e7-9d47734693a2/20221128075539086984.png" },
         { name: "广东", location: [113.2644, 23.1291], intensity: 9, image: "https://images.mepai.me/app/works/1912307/2025-01-28/w_67985458671e6/46798545867354.jpg!720wp" },
         { name: "山东", location: [117.0000, 36.6510], intensity: 9, image: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Baotu_Spring%2C_Jinan_in_Oct_2013.jpg" },
@@ -748,6 +782,34 @@ function initWorldMap() {
         { name: "美国洛杉矶", location: [-118.2437, 34.0522], intensity: 5, image: "https://upload.wikimedia.org/wikipedia/commons/0/0a/Golden_Gate_Bridge_2021.jpg" },
         { name: "荷兰代尔夫特", location: [4.3571, 52.0116], intensity: 4, image: "https://filelist.tudelft.nl/_processed_/5/1/csm_20140611_tudelft_campus_R9B0532_d52c5440e6.jpg" }
     ];
+    
+    // 使用自定义数据或默认数据
+    const footprints = customFootprintsData || defaultFootprints;
+    
+    // 如果使用的是默认数据，并且localStorage中没有足迹数据，保存默认数据到localStorage
+    if (!customFootprintsData && websiteData) {
+        try {
+            // 转换默认足迹数据为localStorage存储格式
+            const defaultFootprintsForStorage = defaultFootprints.map(fp => ({
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+                city: fp.name.split(',')[0] || fp.name,
+                country: fp.name.includes(',') ? fp.name.split(',')[1].trim() : '中国',
+                lat: fp.location[1],
+                lng: fp.location[0],
+                year: '',
+                description: '',
+                intensity: fp.intensity || 5,
+                image: fp.image || ''
+            }));
+            
+            // 更新websiteData并保存
+            websiteData.footprints = defaultFootprintsForStorage;
+            localStorage.setItem('websiteData', JSON.stringify(websiteData));
+            console.log('已将默认足迹数据保存到localStorage');
+        } catch (e) {
+            console.error('保存默认足迹数据失败:', e);
+        }
+    }
     
     // 获取CSS变量的值
     const countryFill = getComputedStyle(document.documentElement).getPropertyValue('--country-fill').trim();

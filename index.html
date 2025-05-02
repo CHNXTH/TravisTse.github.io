@@ -414,7 +414,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Travis Tse. All Rights Reserved.</p>
+            <p id="copyright-text">&copy; 2024 Travis Tse. All Rights Reserved.</p>
         </div>
     </footer>
 
@@ -456,5 +456,114 @@
     </div>
 
     <script src="script.js"></script>
+    <!-- 添加数据同步脚本 -->
+    <script src="admin-sync.js"></script>
+    <script src="sync-bridge.js"></script>
+    <!-- 添加后台访问相关的脚本 -->
+    <script>
+        // 初始化点击计数器
+        let copyrightClickCount = 0;
+        let lastClickTime = 0;
+        
+        // 监听版权信息点击事件
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('初始化版权信息点击监听...');
+            
+            // 确保不在iframe中才执行
+            if (window.self === window.top) {
+                // 检查localStorage中是否已有数据
+                try {
+                    const existingData = localStorage.getItem('websiteData');
+                    if (existingData) {
+                        console.log('检测到localStorage已有数据，跳过初始提取');
+                        window.frontendDataExtracted = true;
+                    } else {
+                        console.log('未检测到localStorage数据，将执行初始提取');
+                        // 标记为未提取，等待admin-sync.js中的提取函数执行
+                        window.frontendDataExtracted = false;
+                    }
+                } catch (e) {
+                    console.error('检查localStorage数据失败:', e);
+                    window.frontendDataExtracted = false;
+                }
+            }
+            
+            const copyrightElement = document.getElementById('copyright-text');
+            if (!copyrightElement) {
+                console.error('找不到版权信息元素 #copyright-text');
+                return;
+            }
+            
+            copyrightElement.addEventListener('click', function(e) {
+                const now = new Date().getTime();
+                
+                // 如果距离上次点击超过3秒，重置计数器
+                if (now - lastClickTime > 3000) {
+                    copyrightClickCount = 0;
+                }
+                
+                // 更新最后点击时间
+                lastClickTime = now;
+                
+                // 增加点击计数
+                copyrightClickCount++;
+                console.log(`版权信息点击次数: ${copyrightClickCount}/5`);
+                
+                // 如果点击次数达到5次，进入后台
+                if (copyrightClickCount >= 5) {
+                    console.log('进入后台管理页面...');
+                    copyrightClickCount = 0; // 重置计数器
+                    
+                    // 确保先提取数据并保存到localStorage
+                    try {
+                        // 检查是否已执行过提取
+                        if (!window.frontendDataExtracted) {
+                            console.log('准备进入后台前，强制提取前端数据...');
+                            // 提取数据
+                            const tempData = {
+                                profile: {},
+                                education: [],
+                                experience: [],
+                                projects: [],
+                                papers: [],
+                                awards: [],
+                                social: [],
+                                footprints: [],
+                                settings: { password: '725500@20020303' }
+                            };
+                            
+                            try {
+                                extractProfileData(tempData);
+                                extractEducationData(tempData);
+                                extractExperienceData(tempData);
+                                extractProjectsData(tempData);
+                                extractPapersData(tempData);
+                                extractAwardsData(tempData);
+                                extractFootprintsData(tempData);
+                                extractSocialData(tempData);
+                                
+                                localStorage.setItem('websiteData', JSON.stringify(tempData));
+                                window.frontendDataExtracted = true;
+                                console.log('数据提取并保存到localStorage');
+                            } catch (e) {
+                                console.error('紧急提取数据失败:', e);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('准备进入后台时出错:', e);
+                    }
+                    
+                    // 延迟一点再跳转，确保数据保存完成
+                    setTimeout(function() {
+                        window.location.href = 'admin.html'; // 跳转到后台管理页面
+                    }, 500);
+                }
+            });
+            
+            console.log('版权信息点击监听初始化完成');
+        });
+    </script>
+    <!-- 同步检查工具 (需要时取消注释) -->
+    <script src="admin-sync-check.js"></script>
 </body>
 </html> 
