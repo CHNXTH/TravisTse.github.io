@@ -36,9 +36,14 @@
                 <img src="assets/images/avatar-round.png" alt="Travis Tse" class="admin-avatar-small">
                 <h1>Travis Tse 网站管理</h1>
             </div>
-            <button id="logout-btn" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i> 退出
-            </button>
+            <div class="admin-actions">
+                <a href="index.html" class="home-btn" title="返回个人主页">
+                    <i class="fas fa-home"></i> 返回主页
+                </a>
+                <button id="logout-btn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> 退出
+                </button>
+            </div>
         </header>
 
         <div class="admin-content">
@@ -507,11 +512,46 @@
         </div>
     </div>
 
+    <!-- 主内容区域结束 -->
+    </div>
+    
+    <!-- 数据监控面板 -->
+    <div id="data-monitor-panel" class="data-monitor">
+        <div class="data-monitor-header">
+            <span>数据监控</span>
+            <button id="data-monitor-toggle">▼</button>
+        </div>
+        <div class="data-monitor-content">
+            <div class="data-monitor-item">
+                <span class="label">数据版本:</span>
+                <span id="data-version" class="value">加载中...</span>
+            </div>
+            <div class="data-monitor-item">
+                <span class="label">最后同步:</span>
+                <span id="last-sync-time" class="value">无</span>
+            </div>
+            <div class="data-monitor-item">
+                <span class="label">存储使用:</span>
+                <span id="storage-usage" class="value">计算中...</span>
+            </div>
+            <div class="data-monitor-item">
+                <span class="label">同步状态:</span>
+                <span id="sync-status" class="value">正常</span>
+            </div>
+            <div class="data-monitor-actions">
+                <button id="force-sync" title="强制同步数据">同步</button>
+                <button id="check-sync-status" title="检查同步状态">检查</button>
+                <button id="create-backup" title="创建备份">备份</button>
+            </div>
+        </div>
+    </div>
+
     <script src="admin.js"></script>
     <script src="admin-content.js"></script>
     <script src="admin-modules.js"></script>
     <script src="admin-sync.js"></script>
-    <script src="admin-sync-check.js"></script>
     <script src="sync-bridge.js"></script>
+    <script src="admin-sync-check.js"></script>
+    <script src="admin-data-rescue.js"></script>
 </body>
 </html> 

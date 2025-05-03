@@ -7,7 +7,9 @@
   --divider-color: #d2d2d7;
   --animation-duration: 0.5s;
   --header-bg-color: rgba(255, 255, 255, 0.65);
+  --header-bg-color-rgb: 255, 255, 255;
   --header-bg-scrolled: rgba(255, 255, 255, 0.75);
+  --header-bg-scrolled-rgb: 255, 255, 255;
   --hero-content-bg: rgba(255, 255, 255, 0.8);
   --card-bg: white;
   --card-shadow: rgba(0, 0, 0, 0.1);
@@ -33,7 +35,9 @@
     --light-gray: #2a2a2a;
     --divider-color: #38383c;
     --header-bg-color: rgba(26, 26, 26, 0.65);
+    --header-bg-color-rgb: 26, 26, 26;
     --header-bg-scrolled: rgba(26, 26, 26, 0.75);
+    --header-bg-scrolled-rgb: 26, 26, 26;
     --hero-content-bg: rgba(26, 26, 26, 0.8);
     --card-bg: #252525;
     --card-shadow: rgba(0, 0, 0, 0.3);
@@ -93,31 +97,35 @@ a:hover {
 /* Header & Navigation */
 header {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background-color: var(--header-bg-color);
-  backdrop-filter: saturate(180%) blur(30px);
-  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  top: 20px; /* 从顶部下移20px实现悬浮效果 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%; /* 宽度减小，实现居中悬浮 */
+  max-width: 1200px;
+  background-color: rgba(var(--header-bg-color-rgb), 0.1); /* 降低透明度到50%增强毛玻璃效果 */
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   z-index: 1000;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+  border-radius: 20px; /* 圆角边框 */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
 /* 滚动时为header添加更深的背景色 */
 header.scrolled {
-  background-color: var(--header-bg-scrolled);
-  backdrop-filter: saturate(180%) blur(35px);
-  -webkit-backdrop-filter: saturate(180%) blur(35px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  background-color: rgba(var(--header-bg-scrolled-rgb), 0.65); /* 滚动时增加一些不透明度但仍保持半透明 */
+  backdrop-filter: saturate(180%) blur(25px);
+  -webkit-backdrop-filter: saturate(180%) blur(25px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 44px;
-  padding: 0 22px;
+  height: 50px; /* 稍微增加高度 */
+  padding: 0 25px; /* 增加内边距 */
 }
 
 .logo {
@@ -424,7 +432,7 @@ nav {
 
 /* Main Content */
 main {
-  margin-top: 44px; /* Header height */
+  margin-top: 80px; /* 增加顶部边距，为悬浮header留出空间 */
   padding-top: 40px;
 }
 
@@ -439,7 +447,7 @@ main {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin-top: 44px;
+  margin-top: 10px; /* 减小顶部边距，因为main已经有足够间距 */
 }
 
 .hero-bg {
@@ -773,34 +781,28 @@ main {
   to { opacity: 1; transform: translateY(0) translateX(-50%); }
 }
 
-/* 修改为固定高度占位方式来避免页面跳动 */
+/* 改进工作经历展示效果 */
 .experience-details-wrapper {
   position: relative;
-  height: 0;
   overflow: hidden;
-  transition: height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  max-height: 0;
+  transition: max-height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  margin-top: 5px;
 }
 
 .experience-details {
   padding: 0;
   margin: 0;
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
-              transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-}
-
-.experience-details.expanded {
-  opacity: 1;
-  transform: translateY(0);
   padding-left: 20px;
   margin-bottom: 10px;
+  list-style-position: outside;
 }
 
 .experience-details li {
   margin-bottom: 10px;
   font-size: 17px;
   font-weight: 450;
+  opacity: 1;
 }
 
 /* 技能部分 */
@@ -2179,5 +2181,42 @@ footer p {
   .social-icon img[alt="网易云音乐"] {
     width: 30px;
     height: 30px;
+  }
+}
+
+/* 移动端保持原样 */
+@media (max-width: 768px) {
+  main {
+    margin-top: 44px; /* 恢复原来的顶部边距 */
+  }
+  
+  .hero {
+    margin-top: 44px; /* 恢复原来的顶部边距 */
+  }
+}
+
+/* 移动端样式调整 */
+@media (max-width: 768px) {
+  header {
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-radius: 0;
+    transform: none;
+    border: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background-color: var(--header-bg-color);
+  }
+  
+  nav {
+    height: 44px;
+    padding: 0 22px;
+  }
+  
+  header.scrolled {
+    background-color: var(--header-bg-scrolled);
+    backdrop-filter: saturate(180%) blur(35px);
+    -webkit-backdrop-filter: saturate(180%) blur(35px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   }
 } 

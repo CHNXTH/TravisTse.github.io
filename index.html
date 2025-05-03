@@ -25,6 +25,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <style>
+        /* 为Google经历部分的嵌套列表添加特殊样式 */
+        #google-details ul {
+            padding-left: 20px;
+            margin-top: 5px;
+            list-style-type: circle;
+        }
+        #google-details > li {
+            margin-bottom: 10px;
+        }
+        #google-details > li > strong {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -193,16 +208,45 @@
                     </div>
                     <div class="experience-content">
                         <div class="experience-header" data-controls="google-details" title="Click to expand details">
-                            <h3>Google China Developer Conference</h3>
-                            <p class="experience-meta">Shanghai | Gemini AI</p>
-                            <p class="experience-time">2025.04</p>
+                            <h3>Google Cloud - Build with AI</h3>
+                            <p class="experience-meta">Shanghai | Enterprise-Grade GenAI Solutions</p>
+                            <p class="experience-time">2025.05</p>
                             <button class="experience-toggle" aria-expanded="false" aria-controls="google-details" title="Toggle details">
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                         </div>
                         <div class="experience-details-wrapper" id="google-wrapper">
                             <ul class="experience-details" id="google-details">
-                                <li>Conducted in-depth semi-structured interviews with architecture students across different grades and building construction and materials course teachers to analyze the pain points caused by the neglect of materials in architectural education</li>
+                                <li><strong>Explored Product Opportunities Across Industries</strong>
+                                    <ul>
+                                        <li>Analyzed key GenAI adoption scenarios in finance (automated research reporting), gaming (NPC behavior generation), and healthcare (medical image enhancement);</li>
+                                        <li>Identified product-market fit and crafted three initial product concepts leveraging Vertex AI, supported by draft PRDs;</li>
+                                    </ul>
+                                </li>
+                                <li><strong>End-to-End GenAI Product Lifecycle Practice</strong>
+                                    <ul>
+                                        <li>Gained hands-on experience with custom model creation, deployment, monitoring, and evaluation using Vertex AI and Model Garden;</li>
+                                        <li>Evaluated pre-trained and open-source models for latency-performance trade-offs in product-grade use cases;</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Cross-Functional Collaboration with Engineering Teams</strong>
+                                    <ul>
+                                        <li>Worked side-by-side with developers in configuring environments (Python 3.10+, Vertex AI SDK) and debugging real-time issues;</li>
+                                        <li>Bridged product vision with technical constraints, enhancing my ability to write technically feasible and impactful product requirements;</li>
+                                    </ul>
+                                </li>
+                                <li><strong>AI Learning Pathways & Ecosystem Mapping</strong>
+                                    <ul>
+                                        <li>Mapped out Google AI Learning Path and Kaggle competitions as long-term learning and validation routes for AI PMs;</li>
+                                        <li>Proposed internal upskilling paths for AI product teams to build foundational GenAI capabilities;</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Key Takeaways & PM Skill Enhancement</strong>
+                                    <ul>
+                                        <li>Completed a full GenAI product thinking loop: from opportunity discovery → technical validation → deployment strategy → performance review;</li>
+                                        <li>Strengthened core PM capabilities in AI context: cross-domain insight, model evaluation literacy, and product-technical alignment.</li>
+                                    </ul>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -455,10 +499,121 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <!-- 添加数据同步脚本 -->
+    <!-- 先加载数据同步脚本，确保数据处理函数可用 -->
     <script src="admin-sync.js"></script>
     <script src="sync-bridge.js"></script>
+
+    <!-- 主要脚本文件 -->
+    <script src="script.js"></script>
+    
+    <!-- 修改工作经历展开逻辑，允许多个同时展开 -->
+    <script>
+        // 标记为已处理，防止script.js中的相同功能初始化
+        window.experienceHandlersInitialized = true;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 清除页面上可能存在的旧事件处理器
+            try {
+                // 确保其他脚本不会初始化展开/收起功能
+                document.querySelectorAll('.experience-toggle').forEach(btn => {
+                    // 移除可能存在的旧事件监听器
+                    const newBtn = btn.cloneNode(true);
+                    btn.parentNode.replaceChild(newBtn, btn);
+                });
+                
+                document.querySelectorAll('.experience-header[data-controls], .experience-logo[data-controls]').forEach(elem => {
+                    // 克隆节点以移除可能存在的旧事件监听器
+                    const newElem = elem.cloneNode(true);
+                    elem.parentNode.replaceChild(newElem, elem);
+                });
+                
+                console.log('已清除旧事件处理器');
+            } catch (error) {
+                console.log('移除旧事件处理程序出错:', error);
+            }
+            
+            // 函数：处理展开/收起逻辑
+            function toggleExperienceDetails(toggle) {
+                // 获取相关元素
+                const detailsId = toggle.getAttribute('aria-controls');
+                const wrapperElement = document.getElementById(detailsId).parentElement;
+                const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+                
+                // 根据当前状态切换
+                if (isExpanded) {
+                    // 已展开，需要收起
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.querySelector('i').classList.remove('fa-chevron-up');
+                    toggle.querySelector('i').classList.add('fa-chevron-down');
+                    
+                    // 设置max-height为0，触发收起动画
+                    wrapperElement.style.maxHeight = '0';
+                } else {
+                    // 已收起，需要展开
+                    toggle.setAttribute('aria-expanded', 'true');
+                    toggle.querySelector('i').classList.remove('fa-chevron-down');
+                    toggle.querySelector('i').classList.add('fa-chevron-up');
+                    
+                    // 设置足够大的max-height值确保内容能够完全展开
+                    const contentHeight = document.getElementById(detailsId).scrollHeight;
+                    wrapperElement.style.maxHeight = (contentHeight + 40) + 'px';
+                }
+            }
+            
+            // 为所有toggle按钮添加事件处理器
+            document.querySelectorAll('.experience-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 防止事件冒泡到header
+                    toggleExperienceDetails(this);
+                });
+            });
+            
+            // 为标题区域添加点击事件
+            document.querySelectorAll('.experience-header[data-controls]').forEach(header => {
+                header.addEventListener('click', function(e) {
+                    // 如果点击的不是展开按钮本身或其子元素
+                    if (!e.target.closest('.experience-toggle')) {
+                        const toggle = this.querySelector('.experience-toggle');
+                        if (toggle) {
+                            toggleExperienceDetails(toggle);
+                        }
+                    }
+                });
+            });
+            
+            // 为Logo添加点击事件
+            document.querySelectorAll('.experience-logo[data-controls]').forEach(logo => {
+                logo.addEventListener('click', function() {
+                    const detailsId = this.getAttribute('data-controls');
+                    const header = document.querySelector(`.experience-header[data-controls="${detailsId}"]`);
+                    if (header) {
+                        const toggle = header.querySelector('.experience-toggle');
+                        if (toggle) {
+                            toggleExperienceDetails(toggle);
+                        }
+                    }
+                });
+            });
+            
+            // 为过渡结束添加监听器
+            document.querySelectorAll('.experience-details-wrapper').forEach(wrapper => {
+                wrapper.addEventListener('transitionend', function(e) {
+                    if (e.propertyName === 'max-height') {
+                        const detailsId = this.id.replace('wrapper', 'details');
+                        const toggleButton = document.querySelector(`[aria-controls="${detailsId}"]`);
+                        // 如果已展开且内容高度变化，可能需要重新调整max-height
+                        if (toggleButton && toggleButton.getAttribute('aria-expanded') === 'true') {
+                            const contentHeight = document.getElementById(detailsId).scrollHeight;
+                            this.style.maxHeight = (contentHeight + 40) + 'px';
+                        }
+                    }
+                });
+            });
+            
+            console.log('工作经历展开功能初始化成功');
+        });
+    </script>
+
     <!-- 添加后台访问相关的脚本 -->
     <script>
         // 初始化点击计数器
@@ -563,6 +718,88 @@
             console.log('版权信息点击监听初始化完成');
         });
     </script>
+
+    <!-- 前端数据同步启动脚本 -->
+    <script>
+    // 创建一个自执行函数，确保在页面加载后尽快同步数据
+    (function() {
+        // 用于检测URL参数
+        function getURLParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+        
+        // 检查是否是从后台更新而来
+        const syncParam = getURLParameter('sync');
+        let isSyncUpdate = false;
+        
+        if (syncParam) {
+            console.log('检测到同步参数:', syncParam);
+            isSyncUpdate = true;
+        }
+        
+        // 初始化完成后立即应用数据
+        function initSync() {
+            try {
+                // 检查localStorage中是否有数据
+                const savedData = localStorage.getItem('websiteData');
+                if (savedData) {
+                    console.log('前端同步脚本: 发现localStorage数据，应用到页面...');
+                    
+                    // 如果updateFrontend函数可用，直接调用
+                    if (typeof updateFrontend === 'function') {
+                        setTimeout(function() {
+                            console.log('前端同步脚本: 延迟执行updateFrontend...');
+                            updateFrontend();
+                        }, 300);
+                    } else {
+                        console.log('前端同步脚本: updateFrontend函数不可用，等待脚本加载完成');
+                        
+                        // 监听DOM内容加载完成
+                        document.addEventListener('DOMContentLoaded', function() {
+                            if (typeof updateFrontend === 'function') {
+                                console.log('前端同步脚本: DOM加载完成后执行updateFrontend');
+                                updateFrontend();
+                            } else {
+                                console.warn('前端同步脚本: DOM加载完成但updateFrontend仍不可用');
+                            }
+                        });
+                    }
+                } else {
+                    console.log('前端同步脚本: localStorage中没有数据，等待提取');
+                }
+            } catch (e) {
+                console.error('前端同步脚本初始化失败:', e);
+            }
+        }
+        
+        // 如果是来自同步更新的请求，立即执行
+        if (isSyncUpdate) {
+            console.log('前端同步脚本: 来自同步更新，立即执行');
+            initSync();
+        } else {
+            // 否则，等待一小段时间再执行，确保其他脚本已加载
+            console.log('前端同步脚本: 等待脚本加载完成...');
+            setTimeout(initSync, 500);
+        }
+        
+        // 向window对象添加一个辅助函数，用于主动检查和同步数据
+        window.checkAndSyncData = function() {
+            try {
+                if (typeof updateFrontend === 'function') {
+                    console.log('主动执行数据检查和同步...');
+                    updateFrontend();
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('数据同步检查失败:', e);
+                return false;
+            }
+        };
+    })();
+    </script>
+
     <!-- 同步检查工具 (需要时取消注释) -->
     <script src="admin-sync-check.js"></script>
 </body>

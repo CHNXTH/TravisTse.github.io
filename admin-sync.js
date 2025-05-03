@@ -13,20 +13,55 @@ function generateId() {
 
 // 在页面加载时立即执行数据提取（不等待DOMContentLoaded）
 (function() {
+    console.debug('admin-sync.js 初始化中...');
+    
     // 如果在iframe中，不执行提取
-    if (window.self !== window.top) return;
+    if (window.self !== window.top) {
+        console.debug('检测到在iframe中，跳过数据提取');
+        return;
+    }
+    
+    // 检查是否是管理页面
+    const isAdminPage = window.location.pathname.includes('admin');
+    if (isAdminPage) {
+        console.debug('检测到在管理页面，跳过初始数据提取');
+        window.frontendDataExtracted = true;
+        return;
+    }
     
     // 先检查localStorage中是否已有数据
     try {
         const existingData = localStorage.getItem('websiteData');
         if (existingData) {
-            console.log('检测到localStorage已有数据，设置提取标志为true');
-            window.frontendDataExtracted = true;
-            return; // 如果已有数据，直接返回，不执行提取
+            try {
+                // 解析数据并验证完整性
+                const data = JSON.parse(existingData);
+                
+                // 检查是否包含关键字段
+                if (data && data.profile && data.experience !== undefined) {
+                    console.debug('检测到localStorage中存在有效数据，设置提取标志为true');
+                    window.frontendDataExtracted = true;
+                    
+                    // 检查数据版本和完整性
+                    if (data.meta && data.meta.version) {
+                        console.debug(`数据版本: ${data.meta.version}, 最后修改: ${data.meta.lastModified || '未知'}`);
+                    } else {
+                        console.debug('数据缺少版本信息，可能需要升级');
+                    }
+                    
+                    return; // 如果已有数据，直接返回，不执行提取
+                } else {
+                    console.debug('localStorage数据存在但不完整，将执行初始提取');
+                }
+            } catch (parseError) {
+                console.error('解析localStorage数据失败:', parseError);
+                console.debug('将执行初始提取以修复数据');
+            }
         } else {
-            console.log('未检测到localStorage中的数据，将执行初始提取');
-            window.frontendDataExtracted = false;
+            console.debug('未检测到localStorage中的数据，将执行初始提取');
         }
+        
+        window.frontendDataExtracted = false;
     } catch (e) {
         console.error('检查localStorage数据失败:', e);
     }
@@ -35,210 +70,133 @@ function generateId() {
     setTimeout(function() {
         // 再次检查是否已经执行过
         if (window.frontendDataExtracted) {
-            console.log('前端数据已提取过，跳过重复提取');
+            console.debug('前端数据已提取过，跳过重复提取');
             return;
         }
         
         try {
+            // 尝试提取前端数据
             console.log('开始从前端提取数据...');
-            
-            // 从前端提取数据到临时对象
-            const tempData = {
-                profile: {},
-                education: [],
-                experience: [],
-                projects: [],
-                papers: [],
-                awards: [],
-                social: [],
-                footprints: [],
-                settings: { password: '725500@20020303' }
-            };
-            
-            // 提取个人资料
-            console.log('提取个人资料...');
-            extractProfileData(tempData);
-            
-            // 提取教育经历
-            console.log('提取教育经历...');
-            extractEducationData(tempData);
-            
-            // 提取工作经历
-            console.log('提取工作经历...');
-            extractExperienceData(tempData);
-            
-            // 提取项目展示
-            console.log('提取项目展示...');
-            extractProjectsData(tempData);
-            
-            // 提取论文与专利
-            console.log('提取论文与专利...');
-            extractPapersData(tempData);
-            
-            // 提取奖项荣誉
-            console.log('提取奖项荣誉...');
-            extractAwardsData(tempData);
-            
-            // 提取足迹
-            console.log('提取足迹...');
-            extractFootprintsData(tempData);
-            
-            // 提取社交媒体
-            console.log('提取社交媒体...');
-            extractSocialData(tempData);
-            
-            // 保存到localStorage
-            console.log('将提取的数据保存到localStorage...');
-            localStorage.setItem('websiteData', JSON.stringify(tempData));
-            
-            // 标记已提取
-            window.frontendDataExtracted = true;
-            
-            console.log('前端数据提取完成');
-            console.log('数据摘要:', {
-                教育经历: tempData.education.length,
-                工作经历: tempData.experience.length,
-                项目展示: tempData.projects.length,
-                论文与专利: tempData.papers.length,
-                奖项荣誉: tempData.awards.length,
-                足迹: tempData.footprints.length,
-                社交媒体: tempData.social.length
-            });
-        } catch (error) {
-            console.error('提取前端数据失败:', error);
+            extractFrontendData();
+        } catch (e) {
+            console.error('提取前端数据失败:', e);
         }
-    }, 1500); // 增加延迟以确保页面完全加载
+    }, 500); // 减少延迟到500ms，提高加载速度
 })();
 
-// 在页面完成加载后执行
-document.addEventListener('DOMContentLoaded', function() {
-    // 确保先加载websiteData
-    setTimeout(function() {
-        if (typeof websiteData === 'undefined') {
-            console.error('websiteData未定义，请确保先加载admin.js');
-            return;
-        }
-        
-        // 初始化同步系统
-        initSyncSystem();
-    }, 1000);
-});
-
-// 初始化同步系统
-function initSyncSystem() {
-    // 监听管理面板的变化
-    listenForAdminChanges();
-    
-    // 初始化自动保存功能
-    initAutoSave();
-}
-
-// 从前端提取初始数据到指定对象
+// 提取前端数据并保存到localStorage
 function extractFrontendData() {
-    // 提取前检查是否已经提取过
+    // 如果在iframe中，不执行提取
+    if (window.self !== window.top) return;
+    
+    // 如果已经提取过，不再重复提取
     if (window.frontendDataExtracted) {
         console.log('数据已提取过，跳过重复提取');
-        return true;
+        return;
     }
     
+    console.log('提取前端数据到localStorage...');
+    
     try {
-        console.log('开始手动提取前端数据...');
-        
-        // 从前端提取数据到临时对象
-        const tempData = {
-            profile: {},
-            education: [],
-            experience: [],
-            projects: [],
-            papers: [],
-            awards: [],
-            social: [],
-            footprints: [],
-            settings: { password: '725500@20020303' }
-        };
-        
-        // 检查是否存在现有数据，如果存在则合并
-        let existingData = {};
+        // 获取当前websiteData（如果存在）
+        let websiteData = {};
         try {
-            const existingDataStr = localStorage.getItem('websiteData');
-            if (existingDataStr) {
-                existingData = JSON.parse(existingDataStr);
-                console.log('合并现有数据...');
+            const existingData = localStorage.getItem('websiteData');
+            if (existingData) {
+                websiteData = JSON.parse(existingData);
             }
         } catch (e) {
-            console.error('读取现有数据失败:', e);
+            console.error('读取现有数据失败，将创建新数据:', e);
         }
         
-        // 提取个人资料
-        console.log('提取个人资料...');
-        extractProfileData(tempData);
+        // 确保所有数据结构都存在
+        websiteData.profile = websiteData.profile || {};
+        websiteData.education = websiteData.education || [];
+        websiteData.experience = websiteData.experience || [];
+        websiteData.projects = websiteData.projects || [];
+        websiteData.papers = websiteData.papers || [];
+        websiteData.awards = websiteData.awards || [];
+        websiteData.social = websiteData.social || [];
+        websiteData.footprints = websiteData.footprints || [];
+        websiteData.settings = websiteData.settings || { password: '725500@20020303' };
         
-        // 提取教育经历
-        console.log('提取教育经历...');
-        extractEducationData(tempData);
-        
-        // 提取工作经历
-        console.log('提取工作经历...');
-        extractExperienceData(tempData);
-        
-        // 提取项目展示
-        console.log('提取项目展示...');
-        extractProjectsData(tempData);
-        
-        // 提取论文与专利
-        console.log('提取论文与专利...');
-        extractPapersData(tempData);
-        
-        // 提取奖项荣誉
-        console.log('提取奖项荣誉...');
-        extractAwardsData(tempData);
-        
-        // 提取足迹
-        console.log('提取足迹...');
-        extractFootprintsData(tempData);
-        
-        // 提取社交媒体
-        console.log('提取社交媒体...');
-        extractSocialData(tempData);
-        
-        // 合并现有数据 - 如果前端没有数据但localStorage有，使用localStorage的数据
-        ['profile', 'education', 'experience', 'projects', 'papers', 'awards', 'social', 'footprints'].forEach(key => {
-            if (Array.isArray(tempData[key]) && tempData[key].length === 0 && Array.isArray(existingData[key]) && existingData[key].length > 0) {
-                console.log(`使用现有的${key}数据(${existingData[key].length}条)替代空白提取结果`);
-                tempData[key] = existingData[key];
-            } else if (key === 'profile' && Object.keys(tempData[key]).length === 0 && existingData[key] && Object.keys(existingData[key]).length > 0) {
-                console.log('使用现有的个人资料数据替代空白提取结果');
-                tempData[key] = existingData[key];
-            }
-        });
-        
-        // 确保设置被保留
-        if (existingData.settings) {
-            tempData.settings = existingData.settings;
+        // 只有当字段为空时才提取数据（避免覆盖已有数据）
+        if (Object.keys(websiteData.profile).length === 0) {
+            extractProfileData(websiteData);
+        } else {
+            console.log('个人资料数据已存在，跳过提取');
         }
         
-        // 保存到localStorage
-        console.log('保存提取的数据到localStorage...');
-        localStorage.setItem('websiteData', JSON.stringify(tempData));
+        if (websiteData.education.length === 0) {
+            extractEducationData(websiteData);
+        } else {
+            console.log('教育经历数据已存在，跳过提取');
+        }
         
-        // 标记已提取
+        if (websiteData.experience.length === 0) {
+            extractExperienceData(websiteData);
+        } else {
+            console.log('工作经历数据已存在，跳过提取');
+        }
+        
+        if (websiteData.projects.length === 0) {
+            extractProjectsData(websiteData);
+        } else {
+            console.log('项目数据已存在，跳过提取');
+        }
+        
+        if (websiteData.papers.length === 0) {
+            extractPapersData(websiteData);
+        } else {
+            console.log('论文数据已存在，跳过提取');
+        }
+        
+        if (websiteData.awards.length === 0) {
+            extractAwardsData(websiteData);
+        } else {
+            console.log('奖项数据已存在，跳过提取');
+        }
+        
+        if (websiteData.social.length === 0) {
+            extractSocialData(websiteData);
+        } else {
+            console.log('社交媒体数据已存在，跳过提取');
+        }
+        
+        // 添加元数据
+        if (!websiteData.meta) {
+            websiteData.meta = {
+                version: '1.0',
+                created: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                source: 'frontend_extract'
+            };
+        }
+        
+        // 标记前端数据已提取
         window.frontendDataExtracted = true;
         
-        console.log('前端数据提取完成');
-        console.log('数据摘要:', {
-            教育经历: tempData.education.length,
-            工作经历: tempData.experience.length,
-            项目展示: tempData.projects.length,
-            论文与专利: tempData.papers.length,
-            奖项荣誉: tempData.awards.length,
-            足迹: tempData.footprints.length,
-            社交媒体: tempData.social.length
-        });
+        // 将提取的数据保存到localStorage
+        localStorage.setItem('websiteData', JSON.stringify(websiteData));
         
-        return true;
+        console.log('前端数据提取完成，已保存到localStorage');
+        
+        // 触发同步事件通知其他页面
+        try {
+            localStorage.setItem('websiteDataSync', Date.now().toString());
+            localStorage.setItem('websiteDataSyncSource', 'frontend_extract_' + Math.random().toString(36).substring(2));
+        } catch (e) {
+            console.error('触发同步事件失败:', e);
+        }
+        
+        return websiteData;
     } catch (error) {
         console.error('提取前端数据失败:', error);
-        return false;
+        
+        // 即使失败也标记为已提取，防止反复尝试
+        window.frontendDataExtracted = true;
+        
+        throw error;
     }
 }
 
