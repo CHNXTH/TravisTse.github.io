@@ -1,3 +1,27 @@
 User-agent: *
 Allow: /
-Sitemap: https://your-username.github.io/sitemap.xml
+Sitemap: https://www.travistse.com/sitemap.xml
+
+# 允许所有搜索引擎爬取
+User-agent: Googlebot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Sogou web spider
+Allow: /
+
+User-agent: 360Spider
+Allow: /
+
+User-agent: Yandex
+Allow: /
+
+# 禁止访问管理页面
+User-agent: *
+Disallow: /admin.html
+Disallow: /admin-* 

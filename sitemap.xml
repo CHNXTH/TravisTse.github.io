@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+                            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- 主页 -->
+  <url>
+    <loc>https://www.travistse.com/</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- 主要部分 -->
+  <url>
+    <loc>https://www.travistse.com/#education</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.travistse.com/#experience</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.travistse.com/#papers</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.travistse.com/#awards</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.travistse.com/#footprints</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.travistse.com/#social</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- 项目链接 -->
+  <url>
+    <loc>https://www.behance.net/gallery/177525313/MatConstruct-Architecture-Education-App</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.behance.net/gallery/191423493/System-Service-Design-Project-Ancient-Village-Catalyst</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.behance.net/gallery/193984021/SmartSite360Architectural-design-research-APP</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.behance.net/gallery/187086371/Green-building-renovation-design</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.behance.net/gallery/224769855/Green-Building-VR-Workshop</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  
+  <!-- 论文链接 -->
+  <url>
+    <loc>https://cdac2024.cn/Assets/userfiles/sys_eb538c1c-65ff-4e82-8e6a-a1ef01127fed/files/article/05/QW221.pdf</loc>
+    <lastmod>2024-06-15</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+</urlset> 

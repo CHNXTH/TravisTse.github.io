@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" itemscope itemtype="https://schema.org/WebPage" xmlns="http://www.w3.org/1999/xhtml" 
+      xmlns:og="http://ogp.me/ns#" 
+      xmlns:fb="http://www.facebook.com/2008/fbml">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +9,19 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
     <title>Travis Tse (谢堂华)</title>
+    
+    <!-- SEO元标签 -->
+    <meta name="description" content="谢堂华(Travis Tse)的个人网站 - IKEA中国数字创新中心产品经理，山东建筑大学优秀毕业生，国家奖学金获得者，SmartSite360和MatConstruct项目负责人。专注于产品管理、交互设计和服务设计。">
+    <meta name="keywords" content="谢堂华,Travis Tse,IKEA,宜家,产品经理,交互设计师,建筑师,山东建筑大学,ECUST,SmartSite360,MatConstruct,设计,AI产品,服务设计,国家奖学金">
+    <meta name="author" content="谢堂华 (Travis Tse)">
+    <meta name="robots" content="index, follow">
+    <meta name="googlebot" content="index, follow">
+    <meta name="baiduspider" content="index, follow">
+    <meta name="generator" content="HTML5">
+    <meta name="application-name" content="Travis Tse's Portfolio">
+    
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml">
+    <link rel="canonical" href="https://www.travistse.com">
     
     <!-- favicon设置 -->
     <link rel="icon" href="assets/images/avatar-round.png" type="image/png">
@@ -15,11 +29,26 @@
     <link rel="apple-touch-icon" href="assets/images/avatar-round.png">
     
     <!-- Open Graph 元标签 -->
-    <meta property="og:title" content="Travis Tse (谢堂华)">
-    <meta property="og:description" content="Travis Tse's Personal Website">
+    <meta property="og:title" content="谢堂华 (Travis Tse) - 产品经理、交互设计师">
+    <meta property="og:description" content="谢堂华(Travis Tse)的个人网站 - IKEA中国数字创新中心产品经理，山东建筑大学优秀毕业生，国家奖学金获得者。专注于产品管理、交互设计和创新服务设计。">
     <meta property="og:image" content="assets/images/avatar-round.png">
-    <meta property="og:url" content="">
+    <meta property="og:url" content="https://www.travistse.com">
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="谢堂华的个人网站">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    
+    <!-- 更新站点实时性标签 -->
+    <meta name="revisit-after" content="7 days">
+    <meta http-equiv="last-modified" content="2025-05-05">
+    <meta name="updated-date" content="2025-05-05">
+    <meta property="article:modified_time" content="2025-00-05T08:00:00+08:00">
+    
+    <!-- Twitter卡片元标签 -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="谢堂华 (Travis Tse) - 产品经理、交互设计师">
+    <meta name="twitter:description" content="谢堂华(Travis Tse)的个人网站 - IKEA中国数字创新中心产品经理，专注于产品管理、交互设计和服务设计。">
+    <meta name="twitter:image" content="assets/images/avatar-round.png">
     
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -802,5 +831,63 @@
 
     <!-- 同步检查工具 (需要时取消注释) -->
     <script src="admin-sync-check.js"></script>
+    
+    <!-- 添加结构化数据，帮助搜索引擎更好理解网站内容 -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Person",
+      "name": "谢堂华",
+      "alternateName": "Travis Tse",
+      "url": "https://www.travistse.com",
+      "image": "assets/images/avatar.jpg",
+      "sameAs": [
+        "https://www.instagram.com/travis_tse",
+        "https://www.behance.net/xth4",
+        "https://github.com/CHNXTH",
+        "https://www.pinterest.com/chn_xth/",
+        "https://www.youtube.com/@travis_tse",
+        "https://www.xiaohongshu.com/user/profile/61e427e700000000210278b4"
+      ],
+      "jobTitle": ["Product Manager", "Interaction Designer", "Architect"],
+      "worksFor": [
+        {
+          "@type": "Organization",
+          "name": "IKEA China - Digital Innovation Center",
+          "alternateName": "IKEA Digital Hub",
+          "sameAs": "https://about.ikea.com/en/about-us/organisation"
+        }
+      ],
+      "alumniOf": [
+        {
+          "@type": "CollegeOrUniversity",
+          "name": "City University of Hong Kong",
+          "sameAs": "https://www.cityu.edu.hk/"
+        },
+        {
+          "@type": "CollegeOrUniversity",
+          "name": "East China University of Science and Technology",
+          "sameAs": "https://www.ecust.edu.cn/"
+        },
+        {
+          "@type": "CollegeOrUniversity",
+          "name": "Shandong Jianzhu University",
+          "sameAs": "https://www.sdjzu.edu.cn/"
+        }
+      ],
+      "award": [
+        "National Scholarship",
+        "First Prize in the VR Workshop for Science and Art Practice at the National University Student Art Exhibition",
+        "Special Prize in the National College Student Green Building Design Competition",
+        "First, Second, and Third Prizes in the China Good Ideas National Digital Art Design Competition"
+      ],
+      "knowsLanguage": ["中文", "English"],
+      "description": "谢堂华(Travis Tse) - IKEA中国数字创新中心产品经理，国家奖学金获得者，SmartSite360和MatConstruct项目负责人。专注于产品管理、交互设计和服务设计。",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://www.travistse.com"
+      }
+    }
+    </script>
 </body>
 </html> 
