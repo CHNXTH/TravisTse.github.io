@@ -1528,7 +1528,12 @@ footer p {
   .custom-project-icon {
     filter: brightness(0) invert(1); /* 使PNG变为白色 */
   }
-  
+
+  /* 深色模式下NIO logo变为白色 */
+  .experience-logo img[alt="NIO Logo"] {
+    filter: brightness(0) invert(1);
+  }
+
   /* 深色模式下鼠标悬停时变为小红书红色 */
   .social-icon:hover .custom-icon {
     filter: invert(37%) sepia(74%) saturate(7482%) hue-rotate(336deg) brightness(100%) contrast(101%);
