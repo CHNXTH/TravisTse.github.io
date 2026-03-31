@@ -235,6 +235,10 @@ function initLanguageToggle() {
             'education_sju_awards': 'Awards: National Scholarship (1‰), First-Class Outstanding Student Scholarship (1%), Outstanding Student Pacesetter (1%), etc. Total of 12 national awards, 25 provincial awards, 6 university-level awards',
             
             // 工作经历
+            'exp_nio_title': 'NIO Headquarters (Shanghai) - Intelligent Cockpit - Media & Entertainment Ecosystem',
+            'exp_nio_meta': 'AI Product Manager for Intelligent Cockpit',
+            'exp_nio_time': '2025.10 - 2026.02',
+
             'exp_ikea_title': 'IKEA China - Digital Innovation Center (IKEA Digital Hub)',
             'exp_ikea_meta': 'Shanghai | Global Product Collage (GPC) Team | Product Manager, Interaction Designer',
             'exp_ikea_time': '2024.07 - 2024.12',
@@ -303,6 +307,10 @@ function initLanguageToggle() {
             'education_sju_awards': '获奖经历: 国家奖学金(1‰)、优秀学生一等奖学金(1%)、优秀学生标兵(1%) 等共计12项国家级奖项，25项省级奖项，6项校级奖项',
             
             // 工作经历
+            'exp_nio_title': '蔚来汽车总部(上海) - 座舱智能化 - 媒体娱乐生态业务',
+            'exp_nio_meta': '智能座舱AI产品经理',
+            'exp_nio_time': '2025.10 - 2026.02',
+
             'exp_ikea_title': '宜家中国 - 数字创新中心(IKEA Digital Hub)',
             'exp_ikea_meta': '上海 | Global Product Collage(GPC)组 | 产品经理、交互设计师',
             'exp_ikea_time': '2024.07 - 2024.12',
@@ -371,6 +379,10 @@ function initLanguageToggle() {
             'education_sju_awards': '獲獎經歷: 國家獎學金(1‰)、優秀學生一等獎學金(1%)、優秀學生標兵(1%) 等共計12項國家級獎項，25項省級獎項，6項校級獎項',
             
             // 工作經歷
+            'exp_nio_title': '蔚來汽車總部(上海) - 座艙智能化 - 媒體娛樂生態業務',
+            'exp_nio_meta': '智能座艙AI產品經理',
+            'exp_nio_time': '2025.10 - 2026.02',
+
             'exp_ikea_title': '宜家中國 - 數字創新中心(IKEA Digital Hub)',
             'exp_ikea_meta': '上海 | Global Product Collage(GPC)組 | 產品經理、交互設計師',
             'exp_ikea_time': '2024.07 - 2024.12',
@@ -479,27 +491,33 @@ function initLanguageToggle() {
         
         // 更新工作经历
         const experienceItems = document.querySelectorAll('.experience-item');
-        if(experienceItems.length >= 4) {
+        if(experienceItems.length >= 5) {
+            // 蔚来
+            const nio = experienceItems[0];
+            nio.querySelector('h3').textContent = translations[currentLang]['exp_nio_title'];
+            nio.querySelector('.experience-meta').textContent = translations[currentLang]['exp_nio_meta'];
+            nio.querySelector('.experience-time').textContent = translations[currentLang]['exp_nio_time'];
+
             // 宜家
-            const ikea = experienceItems[0];
+            const ikea = experienceItems[1];
             ikea.querySelector('h3').textContent = translations[currentLang]['exp_ikea_title'];
             ikea.querySelector('.experience-meta').textContent = translations[currentLang]['exp_ikea_meta'];
             ikea.querySelector('.experience-time').textContent = translations[currentLang]['exp_ikea_time'];
-            
+
             // Smart Site360
-            const smartSite = experienceItems[1];
+            const smartSite = experienceItems[2];
             smartSite.querySelector('h3').textContent = translations[currentLang]['exp_smartsite_title'];
             smartSite.querySelector('.experience-meta').textContent = translations[currentLang]['exp_smartsite_meta'];
             smartSite.querySelector('.experience-time').textContent = translations[currentLang]['exp_smartsite_time'];
-            
+
             // Matconstruct
-            const matConstruct = experienceItems[2];
+            const matConstruct = experienceItems[3];
             matConstruct.querySelector('h3').textContent = translations[currentLang]['exp_matconstruct_title'];
             matConstruct.querySelector('.experience-meta').textContent = translations[currentLang]['exp_matconstruct_meta'];
             matConstruct.querySelector('.experience-time').textContent = translations[currentLang]['exp_matconstruct_time'];
-            
+
             // Google
-            const google = experienceItems[3];
+            const google = experienceItems[4];
             google.querySelector('h3').textContent = translations[currentLang]['exp_google_title'];
             google.querySelector('.experience-meta').textContent = translations[currentLang]['exp_google_meta'];
             google.querySelector('.experience-time').textContent = translations[currentLang]['exp_google_time'];
