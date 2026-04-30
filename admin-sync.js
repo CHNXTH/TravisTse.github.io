@@ -48,13 +48,17 @@ function calculateDynamicAge() {
     if (window.cloudflareApi) {
         try {
             const remoteData = await window.cloudflareApi.getPublicContent();
-            if (remoteData && remoteData.content) {
+            if (remoteData && remoteData.content && isMeaningfulPublicContent(remoteData.content)) {
                 localStorage.setItem('websiteData', JSON.stringify(remoteData.content));
                 localStorage.setItem('websiteDataSync', Date.now().toString());
                 localStorage.setItem('websiteDataSyncSource', 'cloudflare_public_content');
                 window.frontendDataExtracted = true;
                 console.debug('已从 Cloudflare 拉取公开网站内容');
                 return;
+            }
+
+            if (remoteData && remoteData.content) {
+                console.warn('Cloudflare 公开内容存在但不完整，已忽略以避免覆盖本地页面内容。');
             }
         } catch (error) {
             console.warn('从 Cloudflare 获取公开内容失败，回退到本地提取:', error);
@@ -115,6 +119,19 @@ function calculateDynamicAge() {
         }
     }, 500); // 减少延迟到500ms，提高加载速度
 })();
+
+function isMeaningfulPublicContent(content) {
+    if (!content || typeof content !== 'object') return false;
+    const education = Array.isArray(content.education) ? content.education.length : 0;
+    const experience = Array.isArray(content.experience) ? content.experience.length : 0;
+    const projects = Array.isArray(content.projects) ? content.projects.length : 0;
+    const papers = Array.isArray(content.papers) ? content.papers.length : 0;
+    const awards = Array.isArray(content.awards) ? content.awards.length : 0;
+    const social = Array.isArray(content.social) ? content.social.length : 0;
+
+    // 允许云端以“至少一个主要模块有内容”为判定标准，避免“只有 footprints”就把前台清空。
+    return (education + experience + projects + papers + awards + social) > 0;
+}
 
 // 提取前端数据并保存到localStorage
 function extractFrontendData() {

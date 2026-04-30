@@ -6,6 +6,7 @@ let websiteData = {}; // 网站数据对象
 let adminSectionsInitialized = false;
 const USE_CLOUDFLARE_ADMIN = typeof window.cloudflareApi !== 'undefined';
 let cloudBootstrapRequired = false;
+let cloudAutoSeedAttempted = false;
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', async function() {
@@ -433,6 +434,13 @@ async function prepareAdminPanel() {
         await loadWebsiteData();
     }
 
+    if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken() && !cloudBootstrapRequired && !cloudAutoSeedAttempted) {
+        cloudAutoSeedAttempted = true;
+        await forceCloudSyncFromSiteIfEmpty();
+        await saveWebsiteData();
+        await loadWebsiteData();
+    }
+
     if (!adminSectionsInitialized) {
         initProfileSection();
         initEducationSection();
@@ -490,12 +498,10 @@ function normalizeWebsiteData(data) {
 
 async function bootstrapCloudflareContentFromStaticSite() {
     try {
-        const response = await fetch('index.html', { cache: 'no-store' });
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        const doc = await fetchHomeDocument();
         const extracted = extractWebsiteDataFromDocument(doc);
 
+        assertExtractedContentUseful(extracted, '云端初始化');
         websiteData = normalizeWebsiteData(extracted);
         await saveWebsiteData();
         cloudBootstrapRequired = false;
@@ -507,27 +513,73 @@ async function bootstrapCloudflareContentFromStaticSite() {
 }
 
 async function forceCloudSyncFromSiteIfEmpty() {
-    const isEmpty =
+    // 只在“云端内容明显未初始化/过于空白”时才自动从主页回填，
+    // 避免用户主动清空某个模块后被自动回填覆盖。
+    const emptyMainSections =
         !websiteData ||
-        (Array.isArray(websiteData.education) && websiteData.education.length === 0) ||
-        (Array.isArray(websiteData.experience) && websiteData.experience.length === 0) ||
-        (Array.isArray(websiteData.projects) && websiteData.projects.length === 0) ||
-        (Array.isArray(websiteData.papers) && websiteData.papers.length === 0) ||
-        (Array.isArray(websiteData.awards) && websiteData.awards.length === 0) ||
-        (Array.isArray(websiteData.social) && websiteData.social.length === 0);
+        (
+            Array.isArray(websiteData.education) && websiteData.education.length === 0 &&
+            Array.isArray(websiteData.experience) && websiteData.experience.length === 0 &&
+            Array.isArray(websiteData.projects) && websiteData.projects.length === 0 &&
+            Array.isArray(websiteData.papers) && websiteData.papers.length === 0 &&
+            Array.isArray(websiteData.awards) && websiteData.awards.length === 0 &&
+            Array.isArray(websiteData.social) && websiteData.social.length === 0
+        );
 
-    if (!isEmpty) {
+    if (!emptyMainSections) {
         return;
     }
 
-    const response = await fetch('index.html', { cache: 'no-store' });
-    const html = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = await fetchHomeDocument();
     const extracted = extractWebsiteDataFromDocument(doc);
 
+    assertExtractedContentUseful(extracted, '强制同步');
     websiteData = mergeWebsiteData(websiteData, extracted);
     showMessage('已从主页提取内容，准备同步到云端...', 'info');
+}
+
+async function fetchHomeDocument() {
+    const tried = [];
+    const origin = window.location.origin;
+    const pathname = window.location.pathname || '/';
+    const parts = pathname.split('/'); // leading '' for root
+
+    // 从“当前目录”开始一路向上尝试，兼容 GH Pages 的项目页/子目录部署。
+    for (let i = parts.length - 1; i >= 1; i--) {
+        const base = parts.slice(0, i).join('/') + '/';
+        const url = origin + base + 'index.html';
+        if (tried.includes(url)) continue;
+        tried.push(url);
+
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) continue;
+            const html = await res.text();
+            const parser = new DOMParser();
+            return parser.parseFromString(html, 'text/html');
+        } catch (e) {
+            // 继续尝试下一个路径
+        }
+    }
+
+    throw new Error(`无法加载主页 index.html（已尝试：${tried.join(', ')}）`);
+}
+
+function assertExtractedContentUseful(extracted, actionLabel) {
+    const hasAny =
+        extracted &&
+        (
+            (Array.isArray(extracted.education) && extracted.education.length > 0) ||
+            (Array.isArray(extracted.experience) && extracted.experience.length > 0) ||
+            (Array.isArray(extracted.projects) && extracted.projects.length > 0) ||
+            (Array.isArray(extracted.papers) && extracted.papers.length > 0) ||
+            (Array.isArray(extracted.awards) && extracted.awards.length > 0) ||
+            (Array.isArray(extracted.social) && extracted.social.length > 0)
+        );
+
+    if (!hasAny) {
+        throw new Error(`${actionLabel}：从主页提取到的内容为空，已取消写入。请确认 admin 页面能访问到正确的 index.html。`);
+    }
 }
 
 function extractWebsiteDataFromDocument(doc) {
