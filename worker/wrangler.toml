@@ -7,4 +7,7 @@ workers_dev = true
 enabled = true
 
 [secrets]
-required = ["DEEPSEEK_API_KEY"]
+required = ["DEEPSEEK_API_KEY", "ADMIN_SESSION_SECRET", "ADMIN_BOOTSTRAP_PASSWORD"]
+
+[[kv_namespaces]]
+binding = "SITE_DATA"

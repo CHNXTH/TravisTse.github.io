@@ -111,7 +111,7 @@
                 </section>
                 <h1 class="name" data-en="Travis Tse" data-zh="谢堂华 Travis Tse">Travis Tse</h1>
                 <div class="contact-info">
-                    <p>24 Years Old | <a href="tel:+86 13020264160">+86 13020264160</a> | <a href="mailto:chnxth@gmail.com">chnxth@gmail.com</a></p>
+                    <p><span class="dynamic-age" data-birthdate="2002-03-03"></span> Years Old | <a href="tel:+86 13020264160">+86 13020264160</a> | <a href="mailto:chnxth@gmail.com">chnxth@gmail.com</a></p>
                 </div>
             </div>
         </section>
@@ -555,12 +555,14 @@
         </div>
     </div>
 
+    <script src="chat-config.js"></script>
+    <script src="cloudflare-api.js"></script>
+
     <!-- 先加载数据同步脚本，确保数据处理函数可用 -->
     <script src="admin-sync.js"></script>
     <script src="sync-bridge.js"></script>
 
     <!-- 主要脚本文件 -->
-    <script src="chat-config.js"></script>
     <script src="script.js"></script>
     
     <!-- 修改工作经历展开逻辑，允许多个同时展开 -->

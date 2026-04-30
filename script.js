@@ -142,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 重组hero区域布局
     reorganizeHeroLayout();
+    updateDynamicAgeDisplays();
 
     // 项目轮播功能
     initProjectsCarousel();
@@ -154,6 +155,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+function calculateAgeFromBirthdate(birthdateString) {
+    const birthdate = new Date(birthdateString);
+    const today = new Date();
+
+    let age = today.getFullYear() - birthdate.getFullYear();
+    const hasHadBirthdayThisYear =
+        today.getMonth() > birthdate.getMonth() ||
+        (today.getMonth() === birthdate.getMonth() && today.getDate() >= birthdate.getDate());
+
+    if (!hasHadBirthdayThisYear) {
+        age -= 1;
+    }
+
+    return age;
+}
+
+function updateDynamicAgeDisplays() {
+    document.querySelectorAll('.dynamic-age').forEach((element) => {
+        const birthdate = element.getAttribute('data-birthdate');
+        if (!birthdate) {
+            return;
+        }
+
+        element.textContent = String(calculateAgeFromBirthdate(birthdate));
+    });
+}
+
+window.updateDynamicAgeDisplays = updateDynamicAgeDisplays;
 
 // 重组hero区域布局
 function reorganizeHeroLayout() {

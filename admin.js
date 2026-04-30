@@ -3,44 +3,53 @@
 // 全局变量
 const DEFAULT_PASSWORD = '725500@20020303'; // 初始密码
 let websiteData = {}; // 网站数据对象
+let adminSectionsInitialized = false;
+const USE_CLOUDFLARE_ADMIN = typeof window.cloudflareApi !== 'undefined';
+let cloudBootstrapRequired = false;
 
 // 页面加载完成后执行
-document.addEventListener('DOMContentLoaded', function() {
-    // 从localStorage加载网站数据
-    loadWebsiteData();
-    
-    // 初始化登录功能
+document.addEventListener('DOMContentLoaded', async function() {
     initLoginSystem();
-    
-    // 初始化导航系统
     initNavigationSystem();
-    
-    // 初始化各个模块
-    initProfileSection();
-    initEducationSection();
-    initExperienceSection();
-    initProjectsSection();
-    initPapersSection();
-    initAwardsSection();
-    initSocialSection();
-    initFootprintsSection();
-    initSettingsSection();
-    
-    // 检查是否已登录
-    checkLoginStatus();
-    
-    // 初始化数据监控面板
     initDataMonitorPanel();
+
+    const isLoggedIn = await checkLoginStatus();
+    if (isLoggedIn) {
+        await prepareAdminPanel();
+    }
 });
 
 // 加载网站数据
-function loadWebsiteData() {
+async function loadWebsiteData() {
+    if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken()) {
+        try {
+            const remoteData = await window.cloudflareApi.getAdminContent();
+            if (remoteData.bootstrapRequired || !remoteData.content) {
+                cloudBootstrapRequired = true;
+                loadWebsiteDataFromLocal();
+                showMessage('云端内容尚未初始化，当前已载入本地内容。首次保存后将写入 Cloudflare。', 'warning');
+                return;
+            }
+
+            cloudBootstrapRequired = false;
+            websiteData = normalizeWebsiteData(remoteData.content);
+            localStorage.setItem('websiteData', JSON.stringify(websiteData));
+            return;
+        } catch (error) {
+            console.error('从 Cloudflare 加载数据失败，回退到本地数据:', error);
+            showMessage(`云端数据加载失败，已回退到本地缓存：${error.message}`, 'warning');
+        }
+    }
+
+    loadWebsiteDataFromLocal();
+}
+
+function loadWebsiteDataFromLocal() {
     try {
         const savedData = localStorage.getItem('websiteData');
         if (savedData) {
-            websiteData = JSON.parse(savedData);
+            websiteData = normalizeWebsiteData(JSON.parse(savedData));
         } else {
-            // 初始化默认数据
             initDefaultData();
         }
     } catch (error) {
@@ -100,7 +109,7 @@ function initDefaultData() {
         profile: {
             nameEn: 'Travis Tse',
             nameZh: '谢堂华',
-            age: '23',
+            age: '24',
             phone: '15698010160',
             email: 'chnxth@gmail.com',
             location: 'Shanghai',
@@ -133,20 +142,12 @@ function initDefaultData() {
 }
 
 // 保存网站数据
-function saveWebsiteData() {
+async function saveWebsiteData() {
     try {
-        console.log('正在保存网站数据到localStorage...');
+        console.log('正在保存网站数据...');
         
         // 确保每个数据数组都存在
-        websiteData.profile = websiteData.profile || {};
-        websiteData.education = websiteData.education || [];
-        websiteData.experience = websiteData.experience || [];
-        websiteData.projects = websiteData.projects || [];
-        websiteData.papers = websiteData.papers || [];
-        websiteData.awards = websiteData.awards || [];
-        websiteData.social = websiteData.social || [];
-        websiteData.footprints = websiteData.footprints || [];
-        websiteData.settings = websiteData.settings || { password: DEFAULT_PASSWORD };
+        websiteData = normalizeWebsiteData(websiteData);
         
         // 更新元数据
         if (!websiteData.meta) {
@@ -176,11 +177,11 @@ function saveWebsiteData() {
             showMessage(`警告：数据大小 ${formatSize(dataSize)} 接近localStorage限制 ${formatSize(maxSize)}，请导出备份`, 'warning');
         }
         
-        // 保存到localStorage - 添加一个随机生成的标识符，确保写入生效并触发storage事件
+        // 保留本地缓存，作为离线回退与导出来源
         const syncId = Date.now().toString(36) + Math.random().toString(36).substring(2);
         localStorage.setItem('websiteData', dataStr);
         
-        console.log('数据保存成功，大小:', formatSize(dataSize));
+        console.log('本地缓存保存成功，大小:', formatSize(dataSize));
         
         // 在保存完数据后设置一个标志，表示数据已经更改
         window.websiteDataUpdated = true;
@@ -188,113 +189,20 @@ function saveWebsiteData() {
         // 自动创建每日备份（限制为最多7个备份）
         createBackup();
         
-        // 使用更健壮的方式触发前端更新
-        try {
-            // 添加保存验证步骤 - 确保数据已经成功写入
-            const verifyData = localStorage.getItem('websiteData');
-            if (!verifyData) {
-                console.error('数据保存验证失败：localStorage中找不到websiteData');
-                showMessage('数据保存失败，请重试或检查浏览器存储空间', 'error');
-                return false;
-            }
-            
-            // 1. 直接调用updateFrontend函数（如果在同一页面）
-            if (typeof updateFrontend === 'function') {
-                console.log('直接调用updateFrontend更新前端...');
-                updateFrontend();
-            }
-            
-            // 2. 触发storage事件通知其他页面
-            try {
-                // 设置一个特殊的标记，触发storage事件
-                localStorage.setItem('websiteDataSync', syncId);
-                localStorage.setItem('websiteDataSyncSource', 'admin_save_' + syncId);
-            } catch (e) {
-                console.error('触发storage事件失败:', e);
-            }
-            
-            // 3. 如果当前页面是admin.html，尝试通过iframe更新前端
-            if (window.location.pathname.includes('admin')) {
-                console.log('当前在admin页面，尝试通过iframe更新前端页面...');
-                
-                // 查找或创建用于前端更新的iframe
-                let updateFrame = document.getElementById('update-frame');
-                if (!updateFrame) {
-                    updateFrame = document.createElement('iframe');
-                    updateFrame.id = 'update-frame';
-                    updateFrame.style.display = 'none';
-                    updateFrame.onload = function() {
-                        try {
-                            const frameWindow = updateFrame.contentWindow;
-                            if (frameWindow) {
-                                console.log('iframe已加载，尝试更新前端...');
-                                
-                                // 首先确保iframe能访问localStorage
-                                try {
-                                    // 传递最新数据到iframe
-                                    if (frameWindow.localStorage) {
-                                        frameWindow.localStorage.setItem('websiteData', dataStr);
-                                        frameWindow.localStorage.setItem('websiteDataSync', syncId);
-                                        frameWindow.localStorage.setItem('websiteDataSyncSource', 'admin_iframe_' + syncId);
-                                    }
-                                } catch (storageError) {
-                                    console.error('向iframe传递数据失败:', storageError);
-                                }
-                                
-                                // 尝试直接调用iframe中的更新函数
-                                if (frameWindow.updateFrontend) {
-                                    console.log('通过iframe调用updateFrontend...');
-                                    frameWindow.updateFrontend();
-                                } else if (frameWindow.forceSyncUpdate) {
-                                    console.log('通过iframe调用forceSyncUpdate...');
-                                    frameWindow.forceSyncUpdate();
-                                } else {
-                                    console.log('无法在iframe中找到更新函数，尝试注入脚本');
-                                    
-                                    // 注入更新脚本
-                                    try {
-                                        const script = frameWindow.document.createElement('script');
-                                        script.textContent = `
-                                            if (typeof updateFrontend === 'function') {
-                                                console.log('iframe注入脚本执行更新...');
-                                                updateFrontend();
-                                            }
-                                        `;
-                                        frameWindow.document.body.appendChild(script);
-                                    } catch (injectError) {
-                                        console.error('向iframe注入脚本失败:', injectError);
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            console.error('iframe更新尝试失败:', e);
-                        }
-                    };
-                    document.body.appendChild(updateFrame);
-                }
-                
-                // 设置iframe源为主页（使用相对路径并添加随机参数避免缓存）
-                let basePath = './';
-                if (window.location.pathname.includes('/admin.html')) {
-                    basePath = window.location.pathname.replace('/admin.html', '/');
-                }
-                
-                // 添加同步标识符作为URL参数，确保不使用缓存且传递最新数据
-                updateFrame.src = `${basePath}index.html?sync=${syncId}&t=${Date.now()}`;
-            }
-            
-            // 4. 显示保存成功消息
-            showMessage('数据已保存并同步', 'success');
-            
-            return true;
-        } catch (e) {
-            console.error('尝试更新前端失败:', e);
-            showMessage('数据已保存但同步失败: ' + e.message, 'warning');
-            return false;
+        localStorage.setItem('websiteDataSync', syncId);
+        localStorage.setItem('websiteDataSyncSource', 'admin_save_' + syncId);
+
+        if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken()) {
+            await window.cloudflareApi.saveAdminContent(websiteData);
+            showMessage('数据已保存到 Cloudflare', 'success');
+        } else {
+            showMessage('数据已保存到本地缓存', 'success');
         }
+
+        return true;
     } catch (error) {
         console.error('保存数据时出错:', error);
-        showMessage('数据保存失败，请检查浏览器存储空间: ' + error.message, 'error');
+        showMessage('数据保存失败: ' + error.message, 'error');
         return false;
     }
 }
@@ -435,16 +343,16 @@ function initLoginSystem() {
     const passwordInput = document.getElementById('password');
     
     // 登录按钮点击事件
-    loginBtn.addEventListener('click', function() {
+    loginBtn.addEventListener('click', async function() {
         const password = passwordInput.value.trim();
-        login(password);
+        await login(password);
     });
     
     // 密码输入框Enter键事件
-    passwordInput.addEventListener('keypress', function(e) {
+    passwordInput.addEventListener('keypress', async function(e) {
         if (e.key === 'Enter') {
             const password = passwordInput.value.trim();
-            login(password);
+            await login(password);
         }
     });
     
@@ -455,28 +363,28 @@ function initLoginSystem() {
 }
 
 // 登录函数
-function login(password) {
+async function login(password) {
     const loginError = document.getElementById('login-error');
-    const currentPassword = websiteData.settings?.password || DEFAULT_PASSWORD;
-    
-    if (password === currentPassword) {
-        // 登录成功
+
+    try {
+        if (USE_CLOUDFLARE_ADMIN) {
+            await window.cloudflareApi.login(password);
+        } else {
+            const currentPassword = websiteData.settings?.password || DEFAULT_PASSWORD;
+            if (password !== currentPassword) {
+                throw new Error('密码错误，请重试');
+            }
+        }
+
         loginError.textContent = '';
-        
-        // 保存登录状态
         sessionStorage.setItem('adminLoggedIn', 'true');
-        
-        // 显示管理面板，隐藏登录页面
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'flex';
-        
-        // 显示消息
+
+        await prepareAdminPanel();
         showMessage('登录成功', 'success');
-    } else {
-        // 登录失败
-        loginError.textContent = '密码错误，请重试';
-        
-        // 清空密码输入框
+    } catch (error) {
+        loginError.textContent = error.message || '密码错误，请重试';
         document.getElementById('password').value = '';
     }
 }
@@ -485,6 +393,9 @@ function login(password) {
 function logout() {
     // 清除登录状态
     sessionStorage.removeItem('adminLoggedIn');
+    if (USE_CLOUDFLARE_ADMIN) {
+        window.cloudflareApi.logout();
+    }
     
     // 隐藏管理面板，显示登录页面
     document.getElementById('admin-panel').style.display = 'none';
@@ -495,18 +406,199 @@ function logout() {
 }
 
 // 检查登录状态
-function checkLoginStatus() {
+async function checkLoginStatus() {
+    const hasSession = sessionStorage.getItem('adminLoggedIn') === 'true';
+
+    if (hasSession && USE_CLOUDFLARE_ADMIN && !window.cloudflareApi.getAdminToken()) {
+        sessionStorage.removeItem('adminLoggedIn');
+    }
+
     const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
-    
     if (isLoggedIn) {
-        // 已登录，显示管理面板
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'flex';
-    } else {
-        // 未登录，显示登录页面
-        document.getElementById('admin-login').style.display = 'flex';
-        document.getElementById('admin-panel').style.display = 'none';
+        return true;
     }
+
+    document.getElementById('admin-login').style.display = 'flex';
+    document.getElementById('admin-panel').style.display = 'none';
+    return false;
+}
+
+async function prepareAdminPanel() {
+    await loadWebsiteData();
+
+    if (USE_CLOUDFLARE_ADMIN && cloudBootstrapRequired) {
+        await bootstrapCloudflareContentFromStaticSite();
+        await loadWebsiteData();
+    }
+
+    if (!adminSectionsInitialized) {
+        initProfileSection();
+        initEducationSection();
+        initExperienceSection();
+        initProjectsSection();
+        initPapersSection();
+        initAwardsSection();
+        initSocialSection();
+        initFootprintsSection();
+        initSettingsSection();
+        adminSectionsInitialized = true;
+    } else {
+        refreshAdminSections();
+    }
+
+    updateMonitorPanel();
+}
+
+function refreshAdminSections() {
+    const profile = websiteData.profile || {};
+
+    if (document.getElementById('name-en')) document.getElementById('name-en').value = profile.nameEn || '';
+    if (document.getElementById('name-zh')) document.getElementById('name-zh').value = profile.nameZh || '';
+    if (document.getElementById('age')) document.getElementById('age').value = profile.age || '';
+    if (document.getElementById('phone')) document.getElementById('phone').value = profile.phone || '';
+    if (document.getElementById('email')) document.getElementById('email').value = profile.email || '';
+    if (document.getElementById('location')) document.getElementById('location').value = profile.location || '';
+    if (document.getElementById('current-avatar') && profile.avatar) {
+        document.getElementById('current-avatar').src = profile.avatar;
+    }
+
+    if (typeof loadEducationItems === 'function') loadEducationItems();
+    if (typeof loadExperienceItems === 'function') loadExperienceItems();
+    if (typeof loadProjectItems === 'function') loadProjectItems();
+    if (typeof loadPaperItems === 'function') loadPaperItems();
+    if (typeof loadAwardItems === 'function') loadAwardItems();
+    if (typeof loadSocialItems === 'function') loadSocialItems();
+    if (typeof loadFootprintItems === 'function') loadFootprintItems();
+}
+
+function normalizeWebsiteData(data) {
+    const normalized = data || {};
+    normalized.profile = normalized.profile || {};
+    normalized.education = Array.isArray(normalized.education) ? normalized.education : [];
+    normalized.experience = Array.isArray(normalized.experience) ? normalized.experience : [];
+    normalized.projects = Array.isArray(normalized.projects) ? normalized.projects : [];
+    normalized.papers = Array.isArray(normalized.papers) ? normalized.papers : [];
+    normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
+    normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
+    normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.settings = normalized.settings || { password: DEFAULT_PASSWORD };
+    normalized.meta = normalized.meta || {};
+    return normalized;
+}
+
+async function bootstrapCloudflareContentFromStaticSite() {
+    try {
+        const response = await fetch('index.html', { cache: 'no-store' });
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const extracted = extractWebsiteDataFromDocument(doc);
+
+        websiteData = normalizeWebsiteData(extracted);
+        await saveWebsiteData();
+        cloudBootstrapRequired = false;
+        showMessage('已从当前网站页面初始化 Cloudflare 内容库', 'success');
+    } catch (error) {
+        console.error('初始化 Cloudflare 内容库失败:', error);
+        showMessage(`云端初始化失败：${error.message}`, 'error');
+    }
+}
+
+function extractWebsiteDataFromDocument(doc) {
+    const profile = {
+        nameEn: doc.querySelector('.name')?.getAttribute('data-en') || doc.querySelector('.name')?.textContent?.trim() || 'Travis Tse',
+        nameZh: doc.querySelector('.name')?.getAttribute('data-zh') || '谢堂华 Travis Tse',
+        age: extractAgeFromText(doc.querySelector('.contact-info')?.textContent || ''),
+        phone: doc.querySelector('.contact-info a[href^="tel:"]')?.textContent?.trim() || '+86 13020264160',
+        email: doc.querySelector('.contact-info a[href^="mailto:"]')?.textContent?.trim() || 'chnxth@gmail.com',
+        location: doc.querySelector('.location-info')?.textContent?.replace('Shanghai', 'Shanghai').trim() || 'Shanghai',
+        avatar: 'assets/images/avatar.jpg'
+    };
+
+    return {
+        profile,
+        education: Array.from(doc.querySelectorAll('#education .education-item')).map((item, index) => ({
+            id: `edu_${index + 1}`,
+            school: item.querySelector('h3')?.textContent?.trim() || '',
+            meta: item.querySelector('.education-meta')?.textContent?.trim() || '',
+            details: item.querySelector('.education-details')?.textContent?.trim() || '',
+            time: item.querySelector('.education-time')?.textContent?.trim() || '',
+            research: item.querySelector('.education-research')?.textContent?.trim() || '',
+            stats: item.querySelector('.education-stats')?.textContent?.trim() || '',
+            awards: item.querySelector('.education-awards')?.textContent?.trim() || ''
+        })),
+        experience: Array.from(doc.querySelectorAll('#experience .experience-item')).map((item, index) => ({
+            id: `exp_${index + 1}`,
+            company: item.querySelector('h3')?.textContent?.trim() || '',
+            meta: item.querySelector('.experience-meta')?.textContent?.trim() || '',
+            time: item.querySelector('.experience-time')?.textContent?.trim() || '',
+            details: Array.from(item.querySelectorAll('.experience-details > li')).map((line) => line.textContent.trim()),
+            logoPath: normalizeAssetPath(item.querySelector('.experience-logo img')?.getAttribute('src') || '')
+        })),
+        projects: Array.from(doc.querySelectorAll('.project-item')).map((item, index) => ({
+            id: `project_${index + 1}`,
+            title: item.querySelector('.project-info h3')?.textContent?.trim() || '',
+            link: item.querySelector('a.project-link')?.getAttribute('href') || '',
+            imagePath: normalizeAssetPath(item.querySelector('.project-image')?.getAttribute('src') || '')
+        })),
+        papers: Array.from(doc.querySelectorAll('#papers .timeline-item')).map((item, index) => ({
+            id: `paper_${index + 1}`,
+            time: item.querySelector('.timeline-date')?.textContent?.trim() || '',
+            title: item.querySelector('h3')?.textContent?.trim() || '',
+            link: item.querySelector('h3 a')?.getAttribute('href') || '',
+            authors: item.querySelector('.timeline-content p')?.textContent?.trim() || ''
+        })),
+        awards: Array.from(doc.querySelectorAll('#awards .timeline-item')).map((item, index) => ({
+            id: `award_${index + 1}`,
+            time: item.querySelector('.timeline-date')?.textContent?.trim() || '',
+            title: item.querySelector('h3')?.textContent?.trim() || '',
+            details: item.querySelector('.timeline-content p')?.textContent?.trim() || ''
+        })),
+        social: Array.from(doc.querySelectorAll('#social .social-icon')).map((item, index) => ({
+            id: `social_${index + 1}`,
+            type: normalizeSocialType(item.getAttribute('aria-label') || ''),
+            name: item.getAttribute('aria-label') || '',
+            link: item.getAttribute('href') || '',
+            iconPath: item.querySelector('img') ? normalizeAssetPath(item.querySelector('img').getAttribute('src') || '') : ''
+        })),
+        footprints: [],
+        settings: {
+            password: DEFAULT_PASSWORD
+        },
+        meta: {
+            version: '2.0-cloudflare',
+            created: new Date().toISOString(),
+            lastModified: new Date().toISOString()
+        }
+    };
+}
+
+function extractAgeFromText(text) {
+    const match = text.match(/(\d+)\s*Years\s*Old/i);
+    return match ? match[1] : '24';
+}
+
+function normalizeAssetPath(path) {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('assets/')) {
+        return path;
+    }
+    return path.replace(/^\.?\//, '');
+}
+
+function normalizeSocialType(label) {
+    const value = label.toLowerCase();
+    if (value.includes('instagram')) return 'instagram';
+    if (value.includes('behance')) return 'behance';
+    if (value.includes('github')) return 'github';
+    if (value.includes('pinterest')) return 'pinterest';
+    if (value.includes('youtube')) return 'youtube';
+    if (value.includes('小红书') || value.includes('rednote')) return 'rednote';
+    if (value.includes('抖音') || value.includes('tiktok')) return 'tiktok';
+    if (value.includes('网易云')) return 'netease';
+    return 'custom';
 }
 
 // 初始化导航系统

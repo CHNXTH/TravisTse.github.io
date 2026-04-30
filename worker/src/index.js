@@ -1,4 +1,8 @@
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+const CONTENT_KEY = 'website_content_v1';
+const BACKUP_PREFIX = 'website_backup_';
+const TOKEN_TTL_SECONDS = 60 * 60 * 12;
+
 const SITE_KNOWLEDGE = `
 Profile
 - Name: Travis Tse / 谢堂华 Travis Tse
@@ -39,16 +43,6 @@ Awards
 - First, Second, and Third Prizes in the China Good Ideas National Digital Art Design Competition
 - Second Prize (3) in the Future Designer National College Digital Art Design Competition
 - Third Prize in the National College Student English Competition
-
-Social platforms shown on page
-- Instagram
-- Behance
-- GitHub
-- Pinterest
-- YouTube
-- Xiaohongshu / Rednote
-- Douyin / TikTok China
-- NetEase Music
 `;
 
 const SYSTEM_PROMPT = `
@@ -81,93 +75,292 @@ export default {
         if (request.method === 'OPTIONS') {
             return new Response(null, {
                 status: 204,
-                headers: corsHeaders(),
+                headers: corsHeaders(request),
             });
         }
 
         const url = new URL(request.url);
-        if (url.pathname !== '/api/chat') {
-            return jsonResponse({ error: 'Not found' }, 404);
+
+        if (url.pathname === '/api/chat') {
+            return handleChat(request, env);
         }
 
-        if (request.method !== 'POST') {
-            return jsonResponse({ error: 'Method not allowed' }, 405, {
-                'Allow': 'POST, OPTIONS'
-            });
+        if (url.pathname === '/api/content') {
+            return handlePublicContent(request, env);
         }
 
-        if (!env.DEEPSEEK_API_KEY) {
-            return jsonResponse({ error: 'Missing DEEPSEEK_API_KEY secret' }, 500);
+        if (url.pathname === '/api/admin/login') {
+            return handleAdminLogin(request, env);
         }
 
-        let body;
-        try {
-            body = await request.json();
-        } catch (error) {
-            return jsonResponse({ error: 'Invalid JSON body' }, 400);
+        if (url.pathname === '/api/admin/content') {
+            return handleAdminContent(request, env);
         }
 
-        const message = typeof body.message === 'string' ? body.message.trim() : '';
-        if (!message) {
-            return jsonResponse({ error: 'Message is required' }, 400);
-        }
-
-        try {
-            const upstreamResponse = await fetch(DEEPSEEK_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${env.DEEPSEEK_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    model: 'deepseek-v4-flash',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: SYSTEM_PROMPT
-                        },
-                        {
-                            role: 'user',
-                            content: message
-                        }
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 512,
-                    stream: false
-                }),
-            });
-
-            const upstreamData = await upstreamResponse.json();
-            if (!upstreamResponse.ok) {
-                const upstreamError = upstreamData && upstreamData.error
-                    ? (upstreamData.error.message || upstreamData.error)
-                    : 'DeepSeek request failed';
-                return jsonResponse({ error: upstreamError }, upstreamResponse.status);
-            }
-
-            const reply = sanitizeReply(extractReply(upstreamData));
-
-            if (!reply) {
-                return jsonResponse({ error: 'DeepSeek returned an empty response' }, 502);
-            }
-
-            return jsonResponse({ reply }, 200);
-        } catch (error) {
-            return jsonResponse(
-                { error: error && error.message ? error.message : 'Unexpected Worker error' },
-                500
-            );
-        }
+        return jsonResponse(request, { error: 'Not found' }, 404);
     }
 };
 
-function corsHeaders(extra = {}) {
+async function handleChat(request, env) {
+    if (request.method !== 'POST') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'POST, OPTIONS' });
+    }
+
+    if (!env.DEEPSEEK_API_KEY) {
+        return jsonResponse(request, { error: 'Missing DEEPSEEK_API_KEY secret' }, 500);
+    }
+
+    const body = await safeJson(request);
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
+
+    if (!message) {
+        return jsonResponse(request, { error: 'Message is required' }, 400);
+    }
+
+    try {
+        const upstreamResponse = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${env.DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: 'deepseek-v4-flash',
+                messages: [
+                    { role: 'system', content: SYSTEM_PROMPT },
+                    { role: 'user', content: message }
+                ],
+                temperature: 0.7,
+                max_tokens: 512,
+                stream: false
+            }),
+        });
+
+        const upstreamData = await upstreamResponse.json();
+        if (!upstreamResponse.ok) {
+            const upstreamError = upstreamData && upstreamData.error
+                ? (upstreamData.error.message || upstreamData.error)
+                : 'DeepSeek request failed';
+            return jsonResponse(request, { error: upstreamError }, upstreamResponse.status);
+        }
+
+        const reply = sanitizeReply(extractReply(upstreamData));
+        if (!reply) {
+            return jsonResponse(request, { error: 'DeepSeek returned an empty response' }, 502);
+        }
+
+        return jsonResponse(request, { reply }, 200);
+    } catch (error) {
+        return jsonResponse(
+            request,
+            { error: error && error.message ? error.message : 'Unexpected Worker error' },
+            500
+        );
+    }
+}
+
+async function handlePublicContent(request, env) {
+    if (request.method !== 'GET') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'GET, OPTIONS' });
+    }
+
+    const content = await readWebsiteContent(env);
+    if (!content) {
+        return jsonResponse(request, { error: 'Content not initialized' }, 404);
+    }
+
+    return jsonResponse(request, {
+        content: sanitizePublicContent(content)
+    }, 200);
+}
+
+async function handleAdminLogin(request, env) {
+    if (request.method !== 'POST') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'POST, OPTIONS' });
+    }
+
+    if (!env.ADMIN_SESSION_SECRET) {
+        return jsonResponse(request, { error: 'Missing ADMIN_SESSION_SECRET secret' }, 500);
+    }
+
+    const body = await safeJson(request);
+    const password = typeof body.password === 'string' ? body.password.trim() : '';
+
+    if (!password) {
+        return jsonResponse(request, { error: 'Password is required' }, 400);
+    }
+
+    const content = await readWebsiteContent(env);
+    const storedPassword = getStoredPassword(content, env);
+
+    if (password !== storedPassword) {
+        return jsonResponse(request, { error: 'Invalid password' }, 401);
+    }
+
+    const token = await createSessionToken(
+        { scope: 'admin', exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS },
+        env.ADMIN_SESSION_SECRET
+    );
+
+    return jsonResponse(request, {
+        token,
+        expiresIn: TOKEN_TTL_SECONDS
+    }, 200);
+}
+
+async function handleAdminContent(request, env) {
+    const auth = await requireAdminAuth(request, env);
+    if (!auth.ok) {
+        return auth.response;
+    }
+
+    if (request.method === 'GET') {
+        const content = await readWebsiteContent(env);
+        if (!content) {
+            return jsonResponse(request, {
+                content: null,
+                bootstrapRequired: true
+            }, 200);
+        }
+
+        return jsonResponse(request, {
+            content,
+            bootstrapRequired: false
+        }, 200);
+    }
+
+    if (request.method !== 'PUT') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'GET, PUT, OPTIONS' });
+    }
+
+    const body = await safeJson(request);
+    const content = normalizeWebsiteContent(body.content);
+    if (!content) {
+        return jsonResponse(request, { error: 'Content payload is required' }, 400);
+    }
+
+    const previousContent = await readWebsiteContent(env);
+    if (previousContent) {
+        await env.SITE_DATA.put(`${BACKUP_PREFIX}${Date.now()}`, JSON.stringify(previousContent));
+    }
+
+    content.meta = content.meta || {};
+    content.meta.version = content.meta.version || '2.0-cloudflare';
+    content.meta.lastModified = new Date().toISOString();
+    content.meta.savedBy = 'cloudflare-admin';
+
+    await env.SITE_DATA.put(CONTENT_KEY, JSON.stringify(content));
+
+    return jsonResponse(request, { success: true, content }, 200);
+}
+
+async function requireAdminAuth(request, env) {
+    if (!env.ADMIN_SESSION_SECRET) {
+        return {
+            ok: false,
+            response: jsonResponse(request, { error: 'Missing ADMIN_SESSION_SECRET secret' }, 500)
+        };
+    }
+
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+    if (!token) {
+        return {
+            ok: false,
+            response: jsonResponse(request, { error: 'Missing admin token' }, 401)
+        };
+    }
+
+    const payload = await verifySessionToken(token, env.ADMIN_SESSION_SECRET);
+    if (!payload || payload.scope !== 'admin') {
+        return {
+            ok: false,
+            response: jsonResponse(request, { error: 'Invalid or expired admin token' }, 401)
+        };
+    }
+
+    return { ok: true, payload };
+}
+
+async function readWebsiteContent(env) {
+    if (!env.SITE_DATA) {
+        return null;
+    }
+
+    const raw = await env.SITE_DATA.get(CONTENT_KEY);
+    if (!raw) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (error) {
+        return null;
+    }
+}
+
+function getStoredPassword(content, env) {
+    if (content && content.settings && typeof content.settings.password === 'string' && content.settings.password.trim()) {
+        return content.settings.password.trim();
+    }
+
+    return env.ADMIN_BOOTSTRAP_PASSWORD || '725500@20020303';
+}
+
+function sanitizePublicContent(content) {
+    const cloned = structuredClone(content);
+    delete cloned.settings;
+    return cloned;
+}
+
+function normalizeWebsiteContent(content) {
+    if (!content || typeof content !== 'object') {
+        return null;
+    }
+
+    const normalized = structuredClone(content);
+    normalized.profile = normalized.profile || {};
+    normalized.education = Array.isArray(normalized.education) ? normalized.education : [];
+    normalized.experience = Array.isArray(normalized.experience) ? normalized.experience : [];
+    normalized.projects = Array.isArray(normalized.projects) ? normalized.projects : [];
+    normalized.papers = Array.isArray(normalized.papers) ? normalized.papers : [];
+    normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
+    normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
+    normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.settings = normalized.settings || {};
+    normalized.meta = normalized.meta || {};
+    return normalized;
+}
+
+async function safeJson(request) {
+    try {
+        return await request.json();
+    } catch (error) {
+        return {};
+    }
+}
+
+function corsHeaders(request, extra = {}) {
+    const origin = request.headers.get('Origin');
+
     return {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Origin': origin || '*',
+        'Vary': 'Origin',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         ...extra,
     };
+}
+
+function jsonResponse(request, payload, status = 200, extraHeaders = {}) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders(request, extraHeaders),
+        },
+    });
 }
 
 function extractReply(upstreamData) {
@@ -208,12 +401,80 @@ function sanitizeReply(reply) {
         .trim();
 }
 
-function jsonResponse(payload, status = 200, extraHeaders = {}) {
-    return new Response(JSON.stringify(payload), {
-        status,
-        headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders(extraHeaders),
-        },
+async function createSessionToken(payload, secret) {
+    const encoder = new TextEncoder();
+    const header = { alg: 'HS256', typ: 'JWT' };
+    const encodedHeader = base64UrlEncode(JSON.stringify(header));
+    const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+    const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+
+    const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(signingInput));
+    const signature = base64UrlEncode(signatureBuffer);
+
+    return `${signingInput}.${signature}`;
+}
+
+async function verifySessionToken(token, secret) {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        return null;
+    }
+
+    const [encodedHeader, encodedPayload, signature] = parts;
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['verify']
+    );
+
+    const isValid = await crypto.subtle.verify(
+        'HMAC',
+        key,
+        base64UrlDecode(signature),
+        encoder.encode(signingInput)
+    );
+
+    if (!isValid) {
+        return null;
+    }
+
+    const payload = JSON.parse(base64UrlDecodeToString(encodedPayload));
+    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) {
+        return null;
+    }
+
+    return payload;
+}
+
+function base64UrlEncode(input) {
+    const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
+    let binary = '';
+    bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
     });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(input) {
+    const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const binary = atob(padded);
+    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function base64UrlDecodeToString(input) {
+    return new TextDecoder().decode(base64UrlDecode(input));
 }

@@ -557,12 +557,7 @@ function saveExperienceData(id, company, meta, time, details, logoPath) {
         }
         
         // 保存数据
-        const saveResult = saveWebsiteData();
-        
-        if (!saveResult) {
-            showMessage('工作经历保存失败', 'error');
-            return false;
-        }
+        saveWebsiteData();
         
         // 刷新列表
         loadExperienceItems();

@@ -11,8 +11,24 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
+function calculateDynamicAge() {
+    const birthdate = new Date('2002-03-03');
+    const today = new Date();
+
+    let age = today.getFullYear() - birthdate.getFullYear();
+    const hasHadBirthdayThisYear =
+        today.getMonth() > birthdate.getMonth() ||
+        (today.getMonth() === birthdate.getMonth() && today.getDate() >= birthdate.getDate());
+
+    if (!hasHadBirthdayThisYear) {
+        age -= 1;
+    }
+
+    return String(age);
+}
+
 // 在页面加载时立即执行数据提取（不等待DOMContentLoaded）
-(function() {
+(async function() {
     console.debug('admin-sync.js 初始化中...');
     
     // 如果在iframe中，不执行提取
@@ -27,6 +43,22 @@ function generateId() {
         console.debug('检测到在管理页面，跳过初始数据提取');
         window.frontendDataExtracted = true;
         return;
+    }
+
+    if (window.cloudflareApi) {
+        try {
+            const remoteData = await window.cloudflareApi.getPublicContent();
+            if (remoteData && remoteData.content) {
+                localStorage.setItem('websiteData', JSON.stringify(remoteData.content));
+                localStorage.setItem('websiteDataSync', Date.now().toString());
+                localStorage.setItem('websiteDataSyncSource', 'cloudflare_public_content');
+                window.frontendDataExtracted = true;
+                console.debug('已从 Cloudflare 拉取公开网站内容');
+                return;
+            }
+        } catch (error) {
+            console.warn('从 Cloudflare 获取公开内容失败，回退到本地提取:', error);
+        }
     }
     
     // 先检查localStorage中是否已有数据
@@ -652,7 +684,12 @@ function updateProfileFrontend() {
     // 更新联系信息
     const contactInfo = document.querySelector('.contact-info');
     if (contactInfo) {
-        contactInfo.innerHTML = `${profile.age || '23'} Years Old | <a href="tel:${profile.phone || '15698010160'}">${profile.phone || '15698010160'}</a> | <a href="mailto:${profile.email || 'chnxth@gmail.com'}">${profile.email || 'chnxth@gmail.com'}</a>`;
+        const dynamicAge = calculateDynamicAge();
+        contactInfo.innerHTML = `<span class="dynamic-age" data-birthdate="2002-03-03">${dynamicAge}</span> Years Old | <a href="tel:${profile.phone || '15698010160'}">${profile.phone || '15698010160'}</a> | <a href="mailto:${profile.email || 'chnxth@gmail.com'}">${profile.email || 'chnxth@gmail.com'}</a>`;
+
+        if (typeof window.updateDynamicAgeDisplays === 'function') {
+            window.updateDynamicAgeDisplays();
+        }
     }
     
     // 更新位置信息
