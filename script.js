@@ -1541,7 +1541,7 @@ function initProjectsCarousel() {
     projectsWrapper.style.transition = 'none';
 
     // Auto marquee (slower, constant)
-    const speedPxPerSec = 18;
+    const speedPxPerSec = 12;
     let isHovered = false;
     let pausedUntil = 0; // resume after 10s idle
     let rafId = 0;
@@ -1550,6 +1550,8 @@ function initProjectsCarousel() {
     let stride = 0;
     let resetPoint = 0;
     let offsetPx = 0; // how far we've moved to the left
+    let needsMeasure = true;
+    let measureRaf = 0;
 
     const nowMs = () => performance.now();
 
@@ -1572,9 +1574,9 @@ function initProjectsCarousel() {
         projectsWrapper.style.transform = `translate3d(${-offsetPx}px, 0, 0)`;
     };
 
-    const normalizeOffset = () => {
-        if (!resetPoint) return;
-        offsetPx = ((offsetPx % resetPoint) + resetPoint) % resetPoint;
+    const normalizedBaseOffset = () => {
+        if (!resetPoint) return 0;
+        return ((offsetPx % resetPoint) + resetPoint) % resetPoint;
     };
 
     const markInteraction = () => {
@@ -1602,9 +1604,24 @@ function initProjectsCarousel() {
         const dots = Array.from(dotsContainer.querySelectorAll('.dot'));
         if (!dots.length) return;
         const perView = getProjectsPerView();
-        const index = Math.round(offsetPx / stride) % originalCount;
+        const base = normalizedBaseOffset();
+        const index = Math.round(base / stride) % originalCount;
         const page = Math.floor(index / perView);
         dots.forEach((dot, i) => dot.classList.toggle('active', i === page));
+    };
+
+    const requestMeasure = () => {
+        needsMeasure = true;
+        if (measureRaf) return;
+        measureRaf = window.requestAnimationFrame(() => {
+            measureRaf = 0;
+            if (!needsMeasure) return;
+            needsMeasure = false;
+            measure();
+            applyTransform();
+            ensureDots();
+            setActiveDots();
+        });
     };
 
     const schedule = () => {
@@ -1612,21 +1629,31 @@ function initProjectsCarousel() {
     };
 
     const animateTo = (toOffset, duration = 420) => {
-        normalizeOffset();
         manualAnim = { from: offsetPx, to: toOffset, start: nowMs(), duration };
         schedule();
     };
 
     const stepByOneCard = (dir) => {
         if (prefersReduce) return;
-        measure();
-        if (!stride) return;
+        requestMeasure();
+        if (!stride || !resetPoint) return;
         markInteraction();
-        const from = offsetPx;
-        let to = from + dir * stride;
-        // wrap within the loop
+        // Seamless wrap:
+        // - Next from the last card should slide into the cloned set, then normalize back.
+        // - Prev from the first card should jump to the cloned set (equivalent position) before animating.
+        if (dir < 0) {
+            const base = normalizedBaseOffset();
+            if (base < stride * 0.5) {
+                offsetPx += resetPoint;
+                applyTransform();
+            }
+        }
+
+        let to = offsetPx + dir * stride;
+        // keep to within a reasonable range (we allow [0, 2*resetPoint) for seamless wrap)
+        const maxRange = resetPoint * 2;
         if (to < 0) to += resetPoint;
-        if (to >= resetPoint) to -= resetPoint;
+        if (to >= maxRange) to -= resetPoint;
         animateTo(to, 420);
     };
 
@@ -1650,9 +1677,15 @@ function initProjectsCarousel() {
         }, { signal });
     }
 
-    // Hover pauses marquee immediately.
-    projectsCarousel.addEventListener('pointerenter', () => { isHovered = true; }, { signal });
-    projectsCarousel.addEventListener('pointerleave', () => { isHovered = false; }, { signal });
+    // Hover pauses marquee immediately (use multiple events for robustness).
+    const onEnter = () => { isHovered = true; };
+    const onLeave = () => { isHovered = false; };
+    projectsCarousel.addEventListener('pointerenter', onEnter, { signal });
+    projectsCarousel.addEventListener('pointerleave', onLeave, { signal });
+    projectsCarousel.addEventListener('mouseenter', onEnter, { signal });
+    projectsCarousel.addEventListener('mouseleave', onLeave, { signal });
+    projectsWrapper.addEventListener('mouseenter', onEnter, { signal });
+    projectsWrapper.addEventListener('mouseleave', onLeave, { signal });
 
     // Wheel / touch: treat as user interaction (pause for 10s)
     projectsCarousel.addEventListener('wheel', (e) => {
@@ -1666,28 +1699,22 @@ function initProjectsCarousel() {
     projectsCarousel.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
     }, { passive: true, signal });
-    projectsCarousel.addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        const swipeThreshold = 50;
-        if (touchEndX < touchStartX - swipeThreshold) onNext();
-        else if (touchEndX > touchStartX + swipeThreshold) onPrev();
-    }, { passive: true, signal });
+	    projectsCarousel.addEventListener('touchend', (e) => {
+	        touchEndX = e.changedTouches[0].screenX;
+	        const swipeThreshold = 50;
+	        if (touchEndX < touchStartX - swipeThreshold) onNext();
+	        else if (touchEndX > touchStartX + swipeThreshold) onPrev();
+	    }, { passive: true, signal });
 
-    const ro = new ResizeObserver(() => {
-        measure();
-        applyTransform();
-        ensureDots();
-        setActiveDots();
-    });
+	    const ro = new ResizeObserver(() => {
+	        requestMeasure();
+	    });
     ro.observe(projectsCarousel);
     ro.observe(projectsWrapper);
     signal.addEventListener('abort', () => ro.disconnect());
 
     window.addEventListener('resize', () => {
-        measure();
-        applyTransform();
-        ensureDots();
-        setActiveDots();
+        requestMeasure();
     }, { signal });
 
     const tick = (ts) => {
@@ -1696,10 +1723,8 @@ function initProjectsCarousel() {
         const dt = Math.min(0.05, (ts - lastTs) / 1000);
         lastTs = ts;
 
-        measure();
         if (!stride || !resetPoint) {
-            schedule();
-            return;
+            requestMeasure();
         }
 
         // Manual animation (linear for predictable "one card" motion)
@@ -1708,14 +1733,18 @@ function initProjectsCarousel() {
             if (t >= 1) {
                 offsetPx = manualAnim.to;
                 manualAnim = null;
-                normalizeOffset();
+                // Normalize back into the base range when we end up in the cloned segment.
+                if (resetPoint) {
+                    const base = normalizedBaseOffset();
+                    offsetPx = base;
+                }
             } else {
                 const p = clamp(t, 0, 1);
                 offsetPx = manualAnim.from + (manualAnim.to - manualAnim.from) * p;
             }
         } else {
             const idleOk = nowMs() >= pausedUntil;
-            if (!prefersReduce && !isHovered && idleOk) {
+            if (!prefersReduce && !isHovered && idleOk && stride && resetPoint) {
                 offsetPx += speedPxPerSec * dt;
                 // Avoid stutter: wrap immediately without huge while-loops
                 if (offsetPx >= resetPoint) offsetPx -= resetPoint;
@@ -1727,7 +1756,7 @@ function initProjectsCarousel() {
         schedule();
     };
 
-    measure();
+    requestMeasure();
     ensureDots();
     applyTransform();
     setActiveDots();
