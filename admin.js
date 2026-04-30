@@ -506,6 +506,30 @@ async function bootstrapCloudflareContentFromStaticSite() {
     }
 }
 
+async function forceCloudSyncFromSiteIfEmpty() {
+    const isEmpty =
+        !websiteData ||
+        (Array.isArray(websiteData.education) && websiteData.education.length === 0) ||
+        (Array.isArray(websiteData.experience) && websiteData.experience.length === 0) ||
+        (Array.isArray(websiteData.projects) && websiteData.projects.length === 0) ||
+        (Array.isArray(websiteData.papers) && websiteData.papers.length === 0) ||
+        (Array.isArray(websiteData.awards) && websiteData.awards.length === 0) ||
+        (Array.isArray(websiteData.social) && websiteData.social.length === 0);
+
+    if (!isEmpty) {
+        return;
+    }
+
+    const response = await fetch('index.html', { cache: 'no-store' });
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const extracted = extractWebsiteDataFromDocument(doc);
+
+    websiteData = mergeWebsiteData(websiteData, extracted);
+    showMessage('已从主页提取内容，准备同步到云端...', 'info');
+}
+
 function extractWebsiteDataFromDocument(doc) {
     const profile = {
         nameEn: doc.querySelector('.name')?.getAttribute('data-en') || doc.querySelector('.name')?.textContent?.trim() || 'Travis Tse',
@@ -573,6 +597,27 @@ function extractWebsiteDataFromDocument(doc) {
             lastModified: new Date().toISOString()
         }
     };
+}
+
+function mergeWebsiteData(base, incoming) {
+    const merged = normalizeWebsiteData(base);
+    const normalizedIncoming = normalizeWebsiteData(incoming);
+
+    merged.profile = { ...normalizedIncoming.profile, ...merged.profile };
+
+    if (merged.education.length === 0 && normalizedIncoming.education.length > 0) merged.education = normalizedIncoming.education;
+    if (merged.experience.length === 0 && normalizedIncoming.experience.length > 0) merged.experience = normalizedIncoming.experience;
+    if (merged.projects.length === 0 && normalizedIncoming.projects.length > 0) merged.projects = normalizedIncoming.projects;
+    if (merged.papers.length === 0 && normalizedIncoming.papers.length > 0) merged.papers = normalizedIncoming.papers;
+    if (merged.awards.length === 0 && normalizedIncoming.awards.length > 0) merged.awards = normalizedIncoming.awards;
+    if (merged.social.length === 0 && normalizedIncoming.social.length > 0) merged.social = normalizedIncoming.social;
+
+    if (merged.footprints.length === 0 && normalizedIncoming.footprints.length > 0) merged.footprints = normalizedIncoming.footprints;
+
+    merged.settings = merged.settings || normalizedIncoming.settings || {};
+    merged.meta = merged.meta || {};
+
+    return merged;
 }
 
 function extractAgeFromText(text) {
@@ -751,10 +796,21 @@ function initDataMonitorPanel() {
     });
     
     // 强制同步
-    forceSync.addEventListener('click', function() {
-        saveWebsiteData();
-        updateMonitorPanel();
-        showMessage('强制同步已执行', 'success');
+    forceSync.addEventListener('click', async function() {
+        try {
+            if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken()) {
+                await forceCloudSyncFromSiteIfEmpty();
+            }
+
+            await saveWebsiteData();
+            await loadWebsiteData();
+            refreshAdminSections();
+            updateMonitorPanel();
+            showMessage('强制同步已执行', 'success');
+        } catch (error) {
+            console.error('强制同步失败:', error);
+            showMessage(`强制同步失败: ${error.message}`, 'error');
+        }
     });
     
     // 检查同步状态
