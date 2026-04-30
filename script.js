@@ -1715,99 +1715,92 @@ style.textContent = `
 `
 document.head.appendChild(style);
 
-// 初始化工作经历折叠/展开功能
-document.addEventListener('DOMContentLoaded', function() {
-    // 检查是否已经由其他脚本处理了这个功能
-    if (window.experienceHandlersInitialized) {
-        console.log('工作经历展开功能已由其他脚本初始化，跳过script.js中的初始化');
-        return;
+function initExperienceExpandCollapse(options = {}) {
+    // Event delegation: stable even when experience DOM is re-rendered by sync scripts.
+    const { reset = false } = options;
+    const root = document.getElementById('experience');
+    if (!root) return false;
+
+    if (!window.__experienceDelegatedHandlersInitialized) {
+        root.addEventListener('click', function (e) {
+            const toggleButton = e.target.closest('.experience-toggle');
+            if (toggleButton) {
+                e.stopPropagation();
+                const detailsId = toggleButton.getAttribute('aria-controls');
+                if (detailsId) toggleExperienceDetails(detailsId);
+                return;
+            }
+
+            const header = e.target.closest('.experience-header[data-controls]');
+            if (header) {
+                if (!e.target.closest('.experience-toggle')) {
+                    const detailsId = header.getAttribute('data-controls');
+                    if (detailsId) toggleExperienceDetails(detailsId);
+                }
+                return;
+            }
+
+            const logo = e.target.closest('.experience-logo[data-controls]');
+            if (logo) {
+                const detailsId = logo.getAttribute('data-controls');
+                if (detailsId) toggleExperienceDetails(detailsId);
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            document.querySelectorAll('.experience-details-wrapper').forEach(wrapper => {
+                const detailsId = wrapper.id.replace('wrapper', 'details');
+                const detailsElement = document.getElementById(detailsId);
+                const button = document.querySelector(`[aria-controls="${detailsId}"]`);
+
+                if (button && button.getAttribute('aria-expanded') === 'true' && detailsElement) {
+                    wrapper.style.maxHeight = detailsElement.scrollHeight + 40 + 'px';
+                }
+            });
+        });
+
+        window.__experienceDelegatedHandlersInitialized = true;
     }
 
-    // 获取所有折叠/展开按钮
-    const toggleButtons = document.querySelectorAll('.experience-toggle');
-    // 获取可点击的标题区域和logo
-    const clickableHeaders = document.querySelectorAll('.experience-header[data-controls]');
-    const clickableLogos = document.querySelectorAll('.experience-logo[data-controls]');
-    
-    // 折叠/展开功能
+    if (reset) {
+        document.querySelectorAll('.experience-toggle').forEach(button => {
+            const detailsId = button.getAttribute('aria-controls');
+            const detailsElement = detailsId ? document.getElementById(detailsId) : null;
+            const wrapperElement = detailsId ? document.getElementById(detailsId.replace('details', 'wrapper')) : null;
+
+            button.setAttribute('aria-expanded', 'false');
+            if (detailsElement) detailsElement.classList.remove('expanded');
+            if (wrapperElement) wrapperElement.style.maxHeight = '0';
+        });
+    }
+
     function toggleExperienceDetails(detailsId) {
         const detailsElement = document.getElementById(detailsId);
         const wrapperElement = document.getElementById(detailsId.replace('details', 'wrapper'));
         const button = document.querySelector(`[aria-controls="${detailsId}"]`);
+        if (!detailsElement || !wrapperElement || !button) return;
+
         const isExpanded = button.getAttribute('aria-expanded') === 'true';
-        
+
         if (isExpanded) {
-            // 折叠当前项
             button.setAttribute('aria-expanded', 'false');
-            
-            // 设置max-height为0，开始折叠动画
             wrapperElement.style.maxHeight = '0';
-            
-            // 过渡完成后移除expanded类
             wrapperElement.addEventListener('transitionend', function removeExpandedClass() {
                 detailsElement.classList.remove('expanded');
                 wrapperElement.removeEventListener('transitionend', removeExpandedClass);
             }, { once: true });
         } else {
-            // 展开当前点击的项目
             button.setAttribute('aria-expanded', 'true');
             detailsElement.classList.add('expanded');
-            
-            // 设置一个足够大的高度值确保内容能够完全展开
-            // 通过scrollHeight来确定内容的真实高度
             wrapperElement.style.maxHeight = detailsElement.scrollHeight + 40 + 'px';
         }
     }
 
-    // 为展开/折叠按钮添加点击事件
-    toggleButtons.forEach(button => {
-        // 默认情况下，所有详情都是折叠的
-        const detailsId = button.getAttribute('aria-controls');
-        const detailsElement = document.getElementById(detailsId);
-        const wrapperElement = document.getElementById(detailsId.replace('details', 'wrapper'));
-        
-        // 初始化时设置为折叠状态
-        button.setAttribute('aria-expanded', 'false');
-        detailsElement.classList.remove('expanded');
-        wrapperElement.style.maxHeight = '0';
-        
-        button.addEventListener('click', function(e) {
-            e.stopPropagation(); // 阻止事件冒泡
-            toggleExperienceDetails(detailsId);
-        });
-    });
-    
-    // 为标题区域添加点击事件
-    clickableHeaders.forEach(header => {
-        const detailsId = header.getAttribute('data-controls');
-        
-        header.addEventListener('click', function(e) {
-            // 确保点击不是在按钮上
-            if (!e.target.closest('.experience-toggle')) {
-                toggleExperienceDetails(detailsId);
-            }
-        });
-    });
-    
-    // 为Logo添加点击事件
-    clickableLogos.forEach(logo => {
-        const detailsId = logo.getAttribute('data-controls');
-        
-        logo.addEventListener('click', function() {
-            toggleExperienceDetails(detailsId);
-        });
-    });
-    
-    // 窗口大小变化时重新计算高度
-    window.addEventListener('resize', function() {
-        document.querySelectorAll('.experience-details-wrapper').forEach(wrapper => {
-            const detailsId = wrapper.id.replace('wrapper', 'details');
-            const detailsElement = document.getElementById(detailsId);
-            const button = document.querySelector(`[aria-controls="${detailsId}"]`);
-            
-            if (button && button.getAttribute('aria-expanded') === 'true') {
-                wrapper.style.maxHeight = detailsElement.scrollHeight + 40 + 'px';
-            }
-        });
-    });
-}); 
+    return true;
+}
+
+window.initExperienceExpandCollapse = initExperienceExpandCollapse;
+
+document.addEventListener('DOMContentLoaded', function () {
+    initExperienceExpandCollapse({ reset: true });
+});

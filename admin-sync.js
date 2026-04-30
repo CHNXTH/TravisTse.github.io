@@ -915,48 +915,9 @@ function updateExperienceFrontend() {
         if (subsectionTitle) container.appendChild(subsectionTitle);
         if (projectsCarousel) container.appendChild(projectsCarousel);
         
-        console.log('重新绑定工作经历展开/折叠事件');
-        
-        // 重新绑定展开/折叠事件
-        document.querySelectorAll('.experience-header, .experience-logo').forEach(header => {
-            header.addEventListener('click', function() {
-                const detailsId = this.getAttribute('data-controls');
-                if (detailsId) {
-                    toggleDetails(detailsId);
-                }
-            });
-        });
-        
-        // 展开/折叠功能
-        function toggleDetails(detailsId) {
-            const wrapper = document.getElementById(detailsId + '-wrapper');
-            if (!wrapper) {
-                console.error('找不到工作经历详情容器:', detailsId + '-wrapper');
-                return;
-            }
-            
-            const button = document.querySelector(`[aria-controls="${detailsId}"]`);
-            if (!button) {
-                console.error('找不到控制按钮:', `[aria-controls="${detailsId}"]`);
-                return;
-            }
-            
-            const isExpanded = button.getAttribute('aria-expanded') === 'true';
-            
-            if (isExpanded) {
-                wrapper.style.maxHeight = '0';
-                wrapper.style.opacity = '0';
-                button.setAttribute('aria-expanded', 'false');
-                button.querySelector('i').style.transform = 'rotate(0deg)';
-            } else {
-                const details = document.getElementById(detailsId);
-                if (details) {
-                    wrapper.style.maxHeight = details.scrollHeight + 'px';
-                    wrapper.style.opacity = '1';
-                    button.setAttribute('aria-expanded', 'true');
-                    button.querySelector('i').style.transform = 'rotate(180deg)';
-                }
-            }
+        // 展开/折叠交互交给 script.js 的事件委托处理，确保同步重渲染后也能工作
+        if (typeof window.initExperienceExpandCollapse === 'function') {
+            window.initExperienceExpandCollapse({ reset: true });
         }
         
         console.log('工作经历前端更新完成');
