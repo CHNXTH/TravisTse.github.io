@@ -1483,165 +1483,209 @@ function initNavHighlight() {
 function initProjectsCarousel() {
     const projectsCarousel = document.querySelector('.projects-carousel');
     const projectsWrapper = document.querySelector('.projects-wrapper');
-    const projects = document.querySelectorAll('.project-item');
-    const dots = document.querySelectorAll('.carousel-dots .dot');
     const prevBtn = document.querySelector('.carousel-prev');
     const nextBtn = document.querySelector('.carousel-next');
-    
-    // 检查元素是否存在
-    if (!projectsCarousel || !projectsWrapper || projects.length === 0) {
-        return; // 如果元素不存在，则退出函数
+    const dotsContainer = document.querySelector('.carousel-dots');
+
+    if (!projectsCarousel || !projectsWrapper) {
+        return;
     }
-    
-    let currentIndex = 0;
-    let projectWidth = projects[0].offsetWidth + 20; // 项目宽度 + margin
-    let projectsPerView = getProjectsPerView();
-    let autoSlideInterval;
+
+    // Prevent double-binding when the section is re-rendered by sync.
+    if (projectsCarousel._carouselAbortController) {
+        projectsCarousel._carouselAbortController.abort();
+    }
+    const controller = new AbortController();
+    const { signal } = controller;
+    projectsCarousel._carouselAbortController = controller;
+
+    // Remove old clones (if any), then snapshot originals.
+    projectsWrapper.querySelectorAll('[data-project-clone="true"]').forEach((el) => el.remove());
+    const originals = Array.from(projectsWrapper.querySelectorAll('.project-item'));
+    if (!originals.length) {
+        return;
+    }
+
+    const originalCount = originals.length;
+    originals.forEach((item) => item.setAttribute('data-project-original', 'true'));
+
+    // Clone once to make a seamless loop.
+    originals.forEach((item) => {
+        const clone = item.cloneNode(true);
+        clone.setAttribute('data-project-clone', 'true');
+        clone.setAttribute('aria-hidden', 'true');
+        projectsWrapper.appendChild(clone);
+    });
+
+    const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+    // Measure stride (item width + margins).
+    const getStride = () => {
+        const first = originals[0];
+        const style = window.getComputedStyle(first);
+        const marginLeft = parseFloat(style.marginLeft) || 0;
+        const marginRight = parseFloat(style.marginRight) || 0;
+        return first.getBoundingClientRect().width + marginLeft + marginRight;
+    };
+
+    const getProjectsPerView = () => {
+        if (window.innerWidth > 992) return 3;
+        if (window.innerWidth > 768) return 2;
+        return 1;
+    };
+
+    let stride = getStride();
+    let resetPoint = stride * originalCount;
     let isHovered = false;
-    let maxVisibleIndex = Math.max(0, projects.length - projectsPerView);
-    let activeDotsPage = 0;
-    
-    // 根据屏幕宽度确定一次显示几个项目
-    function getProjectsPerView() {
-        if (window.innerWidth > 992) {
-            return 3; // 桌面设备显示3个
-        } else if (window.innerWidth > 768) {
-            return 2; // 平板设备显示2个
-        } else {
-            return 1; // 手机设备显示1个
+
+    // Auto marquee
+    const speedPxPerSec = 36; // constant speed to the left
+    let pausedUntil = 0; // timestamp (ms). Auto resumes after 10s of no user interaction.
+    let rafId = 0;
+    let lastTs = 0;
+    let manualAnim = null; // { from, to, start, duration }
+    let lastDotsUpdate = 0;
+
+    const nowMs = () => performance.now();
+
+    const normalizeScroll = () => {
+        // Keep scrollLeft inside [0, resetPoint)
+        if (!resetPoint) return;
+        while (projectsCarousel.scrollLeft >= resetPoint) {
+            projectsCarousel.scrollLeft -= resetPoint;
         }
-    }
-    
-    // 更新轮播位置
-    function updateCarousel() {
-        projectWidth = projects[0].offsetWidth + 20; // 重新计算项目宽度
-        projectsPerView = getProjectsPerView();
-        maxVisibleIndex = Math.max(0, projects.length - projectsPerView);
-        
-        // 检查是否需要调整当前索引
-        if (currentIndex > maxVisibleIndex) {
-            currentIndex = maxVisibleIndex;
+        while (projectsCarousel.scrollLeft < 0) {
+            projectsCarousel.scrollLeft += resetPoint;
         }
-        
-        // 更新轮播位置
-        projectsWrapper.style.transform = `translateX(-${currentIndex * projectWidth}px)`;
-        
-        // 计算当前页面（为了导航点）
-        activeDotsPage = Math.floor(currentIndex / projectsPerView);
-        
-        // 更新导航点状态
-        dots.forEach((dot, index) => {
-            dot.classList.toggle('active', index === activeDotsPage);
-        });
-        
-        // 检查是否需要禁用前进/后退按钮
-        prevBtn.style.opacity = currentIndex === 0 ? '0.5' : '1';
-        nextBtn.style.opacity = currentIndex >= maxVisibleIndex ? '0.5' : '1';
-    }
-    
-    // 跳转到指定项目
-    function goToProject(index) {
-        currentIndex = Math.max(0, Math.min(index, maxVisibleIndex));
-        updateCarousel();
-    }
-    
-    // 下一个项目
-    function nextProject() {
-        goToProject(currentIndex + 1);
-    }
-    
-    // 上一个项目
-    function prevProject() {
-        goToProject(currentIndex - 1);
-    }
-    
-    // 跳转到指定的导航点
-    function goToDot(dotIndex) {
-        goToProject(dotIndex * projectsPerView);
-    }
-    
-    // 自动轮播
-    function startAutoSlide() {
-        stopAutoSlide();
-        autoSlideInterval = setInterval(() => {
-            if (!isHovered) {
-                if (currentIndex >= maxVisibleIndex) {
-                    goToProject(0); // 如果到达最后，回到第一个
-                } else {
-                    nextProject(); // 否则前进到下一个
-                }
-            }
-        }, 5000);
-    }
-    
-    // 停止自动轮播
-    function stopAutoSlide() {
-        clearInterval(autoSlideInterval);
-    }
-    
-    // 更新轮播初始状态
-    updateCarousel();
-    
-    // 添加按钮点击事件
-    prevBtn.addEventListener('click', prevProject);
-    nextBtn.addEventListener('click', nextProject);
-    
-    // 添加导航点点击事件
-    dots.forEach((dot, index) => {
-        dot.addEventListener('click', () => goToDot(index));
-    });
-    
-    // 鼠标悬停暂停自动轮播
-    projectsCarousel.addEventListener('mouseenter', () => {
-        isHovered = true;
-    });
-    
-    projectsCarousel.addEventListener('mouseleave', () => {
-        isHovered = false;
-    });
-    
-    // 监听窗口大小变化，更新轮播布局
-    window.addEventListener('resize', () => {
-        projectWidth = projects[0].offsetWidth + 20;
-        projectsPerView = getProjectsPerView();
-        maxVisibleIndex = Math.max(0, projects.length - projectsPerView);
-        updateCarousel();
-    });
-    
-    // 添加鼠标滚轮事件
+    };
+
+    const markInteraction = () => {
+        pausedUntil = nowMs() + 10_000;
+    };
+
+    const setActiveDots = () => {
+        if (!dotsContainer) return;
+        const dots = Array.from(dotsContainer.querySelectorAll('.dot'));
+        if (!dots.length) return;
+
+        const perView = getProjectsPerView();
+        const maxPage = Math.max(1, Math.ceil(originalCount / perView));
+        const pages = dots.slice(0, maxPage);
+
+        const index = Math.round((projectsCarousel.scrollLeft / stride)) % originalCount;
+        const page = Math.floor(index / perView);
+        pages.forEach((dot, i) => dot.classList.toggle('active', i === page));
+    };
+
+    const schedule = () => {
+        if (!rafId) {
+            rafId = window.requestAnimationFrame(tick);
+        }
+    };
+
+    const animateTo = (targetScrollLeft, duration = 420) => {
+        normalizeScroll();
+        manualAnim = {
+            from: projectsCarousel.scrollLeft,
+            to: targetScrollLeft,
+            start: nowMs(),
+            duration
+        };
+        schedule();
+    };
+
+    const stepByOneCard = (dir) => {
+        // dir: +1 next, -1 prev
+        stride = getStride();
+        resetPoint = stride * originalCount;
+        normalizeScroll();
+
+        markInteraction();
+        const from = projectsCarousel.scrollLeft;
+        let to = from + dir * stride;
+        if (to < 0) to += resetPoint;
+        if (to >= resetPoint) to -= resetPoint;
+        animateTo(to, 420);
+    };
+
+    const onPrev = () => stepByOneCard(-1);
+    const onNext = () => stepByOneCard(1);
+
+    if (prevBtn) prevBtn.addEventListener('click', onPrev, { signal });
+    if (nextBtn) nextBtn.addEventListener('click', onNext, { signal });
+
+    // Hover pauses marquee (but doesn't change the 10s idle timer).
+    projectsCarousel.addEventListener('mouseenter', () => { isHovered = true; }, { signal });
+    projectsCarousel.addEventListener('mouseleave', () => { isHovered = false; }, { signal });
+
+    // Wheel / touch counts as user interaction (pause for 10s)
     projectsCarousel.addEventListener('wheel', (e) => {
         e.preventDefault();
-        if (e.deltaY > 0) {
-            nextProject();
-        } else {
-            prevProject();
-        }
-    }, { passive: false });
-    
-    // 添加触摸滑动支持
+        if (e.deltaY > 0) onNext();
+        else onPrev();
+    }, { passive: false, signal });
+
     let touchStartX = 0;
     let touchEndX = 0;
-    
     projectsCarousel.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    
+    }, { passive: true, signal });
     projectsCarousel.addEventListener('touchend', (e) => {
         touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
-    }, { passive: true });
-    
-    function handleSwipe() {
         const swipeThreshold = 50;
-        if (touchEndX < touchStartX - swipeThreshold) {
-            nextProject();
-        } else if (touchEndX > touchStartX + swipeThreshold) {
-            prevProject();
+        if (touchEndX < touchStartX - swipeThreshold) onNext();
+        else if (touchEndX > touchStartX + swipeThreshold) onPrev();
+    }, { passive: true, signal });
+
+    window.addEventListener('resize', () => {
+        stride = getStride();
+        resetPoint = stride * originalCount;
+        normalizeScroll();
+    }, { signal });
+
+    const tick = (ts) => {
+        rafId = 0;
+        if (!lastTs) lastTs = ts;
+        const dt = Math.min(0.05, (ts - lastTs) / 1000); // cap at 50ms for stability
+        lastTs = ts;
+
+        stride = stride || getStride();
+        resetPoint = resetPoint || stride * originalCount;
+
+        // Manual animation (linear for predictable "one card" motion)
+        if (manualAnim) {
+            const t = (nowMs() - manualAnim.start) / manualAnim.duration;
+            if (t >= 1) {
+                projectsCarousel.scrollLeft = manualAnim.to;
+                manualAnim = null;
+                normalizeScroll();
+            } else {
+                const p = clamp(t, 0, 1);
+                projectsCarousel.scrollLeft = manualAnim.from + (manualAnim.to - manualAnim.from) * p;
+            }
+        } else {
+            const idleOk = nowMs() >= pausedUntil;
+            if (!isHovered && idleOk) {
+                projectsCarousel.scrollLeft += speedPxPerSec * dt;
+                normalizeScroll();
+            }
         }
-    }
-    
-    // 启动自动轮播
-    startAutoSlide();
+
+        // Dots update throttled (avoid flicker during marquee)
+        if (nowMs() - lastDotsUpdate > 200) {
+            setActiveDots();
+            lastDotsUpdate = nowMs();
+        }
+
+        schedule();
+    };
+
+    // Ensure we start at a stable spot (important after re-render).
+    stride = getStride();
+    resetPoint = stride * originalCount;
+    normalizeScroll();
+    setActiveDots();
+    schedule();
 }
 
 // AI聊天相关功能
