@@ -11,3 +11,6 @@ required = ["DEEPSEEK_API_KEY", "ADMIN_SESSION_SECRET", "ADMIN_BOOTSTRAP_PASSWOR
 
 [[kv_namespaces]]
 binding = "SITE_DATA"
+
+# Note: This project stores uploaded images in Workers KV (SITE_DATA) by default
+# so it works even when R2 is not enabled on the account.

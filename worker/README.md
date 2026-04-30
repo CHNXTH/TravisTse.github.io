@@ -21,3 +21,17 @@ The Worker reads `DEEPSEEK_API_KEY` from `.dev.vars` during local development.
    `wrangler deploy`
 
 After deploy, copy the returned `https://<worker>.workers.dev` URL into `/chat-config.js`.
+
+## Asset uploads (recommended)
+This Worker supports uploading images (avatar, logos, project covers, social icons) to avoid the browser `localStorage` size limit.
+
+1) Deploy Worker:
+```bash
+npx wrangler deploy
+```
+
+If the admin page shows `Upload endpoint not found`, it usually means the Worker was not re-deployed after code changes.
+
+### Storage backend
+By default, uploads are stored in Workers KV (the existing `SITE_DATA` namespace) under keys like `asset_img/...`.
+This works even if R2 is not enabled on your Cloudflare account.
