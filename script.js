@@ -1499,17 +1499,18 @@ function initProjectsCarousel() {
     const { signal } = controller;
     projectsCarousel._carouselAbortController = controller;
 
+    // We animate ONLY the wrapper transform. Do NOT scroll the carousel container,
+    // otherwise the controls will move with the content.
+    projectsCarousel.scrollLeft = 0;
+    projectsCarousel.style.overflow = 'hidden';
+
     // Remove old clones (if any), then snapshot originals.
     projectsWrapper.querySelectorAll('[data-project-clone="true"]').forEach((el) => el.remove());
     const originals = Array.from(projectsWrapper.querySelectorAll('.project-item'));
-    if (!originals.length) {
-        return;
-    }
-
+    if (!originals.length) return;
     const originalCount = originals.length;
-    originals.forEach((item) => item.setAttribute('data-project-original', 'true'));
 
-    // Clone once to make a seamless loop.
+    // Clone once to make an endless loop.
     originals.forEach((item) => {
         const clone = item.cloneNode(true);
         clone.setAttribute('data-project-clone', 'true');
@@ -1517,16 +1518,8 @@ function initProjectsCarousel() {
         projectsWrapper.appendChild(clone);
     });
 
+    const prefersReduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
-
-    // Measure stride (item width + margins).
-    const getStride = () => {
-        const first = originals[0];
-        const style = window.getComputedStyle(first);
-        const marginLeft = parseFloat(style.marginLeft) || 0;
-        const marginRight = parseFloat(style.marginRight) || 0;
-        return first.getBoundingClientRect().width + marginLeft + marginRight;
-    };
 
     const getProjectsPerView = () => {
         if (window.innerWidth > 992) return 3;
@@ -1534,75 +1527,104 @@ function initProjectsCarousel() {
         return 1;
     };
 
-    let stride = getStride();
-    let resetPoint = stride * originalCount;
-    let isHovered = false;
+    const getStride = () => {
+        const first = projectsWrapper.querySelector('.project-item');
+        if (!first) return 0;
+        const style = window.getComputedStyle(first);
+        const marginLeft = parseFloat(style.marginLeft) || 0;
+        const marginRight = parseFloat(style.marginRight) || 0;
+        return first.getBoundingClientRect().width + marginLeft + marginRight;
+    };
 
-    // Auto marquee
-    const speedPxPerSec = 36; // constant speed to the left
-    let pausedUntil = 0; // timestamp (ms). Auto resumes after 10s of no user interaction.
+    // Wrapper should feel smooth.
+    projectsWrapper.style.willChange = 'transform';
+    projectsWrapper.style.transition = 'none';
+
+    // Auto marquee (slower, constant)
+    const speedPxPerSec = 18;
+    let isHovered = false;
+    let pausedUntil = 0; // resume after 10s idle
     let rafId = 0;
     let lastTs = 0;
     let manualAnim = null; // { from, to, start, duration }
-    let lastDotsUpdate = 0;
+    let stride = 0;
+    let resetPoint = 0;
+    let offsetPx = 0; // how far we've moved to the left
 
     const nowMs = () => performance.now();
 
-    const normalizeScroll = () => {
-        // Keep scrollLeft inside [0, resetPoint)
+    const measure = () => {
+        const oldStride = stride || 0;
+        const newStride = getStride();
+        if (!newStride) return;
+        stride = newStride;
+        resetPoint = stride * originalCount;
+        if (oldStride > 0 && Math.abs(oldStride - stride) > 0.5) {
+            // Keep the same fractional index when resizing.
+            const idx = offsetPx / oldStride;
+            offsetPx = idx * stride;
+        }
+        offsetPx = ((offsetPx % resetPoint) + resetPoint) % resetPoint;
+    };
+
+    const applyTransform = () => {
+        // translate3d for GPU acceleration
+        projectsWrapper.style.transform = `translate3d(${-offsetPx}px, 0, 0)`;
+    };
+
+    const normalizeOffset = () => {
         if (!resetPoint) return;
-        while (projectsCarousel.scrollLeft >= resetPoint) {
-            projectsCarousel.scrollLeft -= resetPoint;
-        }
-        while (projectsCarousel.scrollLeft < 0) {
-            projectsCarousel.scrollLeft += resetPoint;
-        }
+        offsetPx = ((offsetPx % resetPoint) + resetPoint) % resetPoint;
     };
 
     const markInteraction = () => {
         pausedUntil = nowMs() + 10_000;
     };
 
-    const setActiveDots = () => {
+    const ensureDots = () => {
         if (!dotsContainer) return;
-        const dots = Array.from(dotsContainer.querySelectorAll('.dot'));
-        if (!dots.length) return;
-
         const perView = getProjectsPerView();
-        const maxPage = Math.max(1, Math.ceil(originalCount / perView));
-        const pages = dots.slice(0, maxPage);
-
-        const index = Math.round((projectsCarousel.scrollLeft / stride)) % originalCount;
-        const page = Math.floor(index / perView);
-        pages.forEach((dot, i) => dot.classList.toggle('active', i === page));
-    };
-
-    const schedule = () => {
-        if (!rafId) {
-            rafId = window.requestAnimationFrame(tick);
+        const pages = Math.max(1, Math.ceil(originalCount / perView));
+        const existing = Array.from(dotsContainer.querySelectorAll('.dot'));
+        if (existing.length !== pages) {
+            dotsContainer.innerHTML = '';
+            for (let i = 0; i < pages; i += 1) {
+                const dot = document.createElement('span');
+                dot.className = 'dot' + (i === 0 ? ' active' : '');
+                dot.setAttribute('data-index', String(i));
+                dotsContainer.appendChild(dot);
+            }
         }
     };
 
-    const animateTo = (targetScrollLeft, duration = 420) => {
-        normalizeScroll();
-        manualAnim = {
-            from: projectsCarousel.scrollLeft,
-            to: targetScrollLeft,
-            start: nowMs(),
-            duration
-        };
+    const setActiveDots = () => {
+        if (!dotsContainer || !stride) return;
+        const dots = Array.from(dotsContainer.querySelectorAll('.dot'));
+        if (!dots.length) return;
+        const perView = getProjectsPerView();
+        const index = Math.round(offsetPx / stride) % originalCount;
+        const page = Math.floor(index / perView);
+        dots.forEach((dot, i) => dot.classList.toggle('active', i === page));
+    };
+
+    const schedule = () => {
+        if (!rafId) rafId = window.requestAnimationFrame(tick);
+    };
+
+    const animateTo = (toOffset, duration = 420) => {
+        normalizeOffset();
+        manualAnim = { from: offsetPx, to: toOffset, start: nowMs(), duration };
         schedule();
     };
 
     const stepByOneCard = (dir) => {
-        // dir: +1 next, -1 prev
-        stride = getStride();
-        resetPoint = stride * originalCount;
-        normalizeScroll();
-
+        if (prefersReduce) return;
+        measure();
+        if (!stride) return;
         markInteraction();
-        const from = projectsCarousel.scrollLeft;
+        const from = offsetPx;
         let to = from + dir * stride;
+        // wrap within the loop
         if (to < 0) to += resetPoint;
         if (to >= resetPoint) to -= resetPoint;
         animateTo(to, 420);
@@ -1614,11 +1636,25 @@ function initProjectsCarousel() {
     if (prevBtn) prevBtn.addEventListener('click', onPrev, { signal });
     if (nextBtn) nextBtn.addEventListener('click', onNext, { signal });
 
-    // Hover pauses marquee (but doesn't change the 10s idle timer).
-    projectsCarousel.addEventListener('mouseenter', () => { isHovered = true; }, { signal });
-    projectsCarousel.addEventListener('mouseleave', () => { isHovered = false; }, { signal });
+    // Dots click: jump to page (pause auto)
+    if (dotsContainer) {
+        dotsContainer.addEventListener('click', (e) => {
+            const dot = e.target.closest('.dot');
+            if (!dot) return;
+            const pageIndex = parseInt(dot.getAttribute('data-index') || '0', 10) || 0;
+            measure();
+            const perView = getProjectsPerView();
+            const targetIndex = clamp(pageIndex * perView, 0, Math.max(0, originalCount - 1));
+            markInteraction();
+            animateTo(targetIndex * stride, 420);
+        }, { signal });
+    }
 
-    // Wheel / touch counts as user interaction (pause for 10s)
+    // Hover pauses marquee immediately.
+    projectsCarousel.addEventListener('pointerenter', () => { isHovered = true; }, { signal });
+    projectsCarousel.addEventListener('pointerleave', () => { isHovered = false; }, { signal });
+
+    // Wheel / touch: treat as user interaction (pause for 10s)
     projectsCarousel.addEventListener('wheel', (e) => {
         e.preventDefault();
         if (e.deltaY > 0) onNext();
@@ -1637,53 +1673,63 @@ function initProjectsCarousel() {
         else if (touchEndX > touchStartX + swipeThreshold) onPrev();
     }, { passive: true, signal });
 
+    const ro = new ResizeObserver(() => {
+        measure();
+        applyTransform();
+        ensureDots();
+        setActiveDots();
+    });
+    ro.observe(projectsCarousel);
+    ro.observe(projectsWrapper);
+    signal.addEventListener('abort', () => ro.disconnect());
+
     window.addEventListener('resize', () => {
-        stride = getStride();
-        resetPoint = stride * originalCount;
-        normalizeScroll();
+        measure();
+        applyTransform();
+        ensureDots();
+        setActiveDots();
     }, { signal });
 
     const tick = (ts) => {
         rafId = 0;
         if (!lastTs) lastTs = ts;
-        const dt = Math.min(0.05, (ts - lastTs) / 1000); // cap at 50ms for stability
+        const dt = Math.min(0.05, (ts - lastTs) / 1000);
         lastTs = ts;
 
-        stride = stride || getStride();
-        resetPoint = resetPoint || stride * originalCount;
+        measure();
+        if (!stride || !resetPoint) {
+            schedule();
+            return;
+        }
 
         // Manual animation (linear for predictable "one card" motion)
         if (manualAnim) {
             const t = (nowMs() - manualAnim.start) / manualAnim.duration;
             if (t >= 1) {
-                projectsCarousel.scrollLeft = manualAnim.to;
+                offsetPx = manualAnim.to;
                 manualAnim = null;
-                normalizeScroll();
+                normalizeOffset();
             } else {
                 const p = clamp(t, 0, 1);
-                projectsCarousel.scrollLeft = manualAnim.from + (manualAnim.to - manualAnim.from) * p;
+                offsetPx = manualAnim.from + (manualAnim.to - manualAnim.from) * p;
             }
         } else {
             const idleOk = nowMs() >= pausedUntil;
-            if (!isHovered && idleOk) {
-                projectsCarousel.scrollLeft += speedPxPerSec * dt;
-                normalizeScroll();
+            if (!prefersReduce && !isHovered && idleOk) {
+                offsetPx += speedPxPerSec * dt;
+                // Avoid stutter: wrap immediately without huge while-loops
+                if (offsetPx >= resetPoint) offsetPx -= resetPoint;
             }
         }
 
-        // Dots update throttled (avoid flicker during marquee)
-        if (nowMs() - lastDotsUpdate > 200) {
-            setActiveDots();
-            lastDotsUpdate = nowMs();
-        }
-
+        applyTransform();
+        setActiveDots();
         schedule();
     };
 
-    // Ensure we start at a stable spot (important after re-render).
-    stride = getStride();
-    resetPoint = stride * originalCount;
-    normalizeScroll();
+    measure();
+    ensureDots();
+    applyTransform();
     setActiveDots();
     schedule();
 }
