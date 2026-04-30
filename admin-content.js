@@ -326,9 +326,49 @@ function initExperienceSection() {
         const file = e.target.files[0];
         if (file) {
             const url = URL.createObjectURL(file);
-            document.getElementById('exp-logo-preview').src = url;
+            const preview = document.getElementById('exp-logo-preview');
+            preview.src = url;
+            updateExperienceLogoInvertUI({ file, logoPath: file.name || '' });
         }
     });
+
+    // Invert toggle (only meaningful for monochrome SVGs)
+    const invertToggle = document.getElementById('exp-logo-invert');
+    if (invertToggle) {
+        invertToggle.addEventListener('change', () => {
+            const preview = document.getElementById('exp-logo-preview');
+            if (preview) {
+                preview.setAttribute('data-invert-on-dark', invertToggle.checked ? 'true' : 'false');
+            }
+        });
+    }
+}
+
+function isSvgLikeAsset({ file, logoPath }) {
+    if (file && typeof file.type === 'string' && file.type.toLowerCase() === 'image/svg+xml') {
+        return true;
+    }
+    const path = String(logoPath || '');
+    if (path.startsWith('data:image/svg+xml')) return true;
+    return /\.svg(\?|#|$)/i.test(path);
+}
+
+function updateExperienceLogoInvertUI({ file, logoPath, checked }) {
+    const row = document.getElementById('exp-logo-invert-row');
+    const toggle = document.getElementById('exp-logo-invert');
+    const preview = document.getElementById('exp-logo-preview');
+    if (!row || !toggle || !preview) {
+        return;
+    }
+
+    const isSvg = isSvgLikeAsset({ file, logoPath });
+    row.style.display = isSvg ? 'block' : 'none';
+    if (!isSvg) {
+        toggle.checked = false;
+    } else if (typeof checked === 'boolean') {
+        toggle.checked = checked;
+    }
+    preview.setAttribute('data-invert-on-dark', toggle.checked ? 'true' : 'false');
 }
 
 // 加载工作经历项
@@ -380,6 +420,7 @@ function loadExperienceItems() {
             
             // 确保logo路径有效
             let logoSrc = experience.logoPath || 'assets/images/placeholder-logo.png';
+            const invertAttr = experience.logoInvertOnDark ? 'data-invert-on-dark="true"' : 'data-invert-on-dark="false"';
             
             itemElement.innerHTML = `
                 <div class="item-header">
@@ -396,8 +437,8 @@ function loadExperienceItems() {
                 <div class="item-body">
                     <div style="display: flex; margin-bottom: 15px;">
                         <div class="item-logo">
-                            <img src="${logoSrc}" alt="${escapeHtml(experience.company || '')}" style="max-width: 80px; max-height: 80px;" onerror="this.src='assets/images/placeholder-logo.png'">
-                        </div>
+	                            <img ${invertAttr} src="${logoSrc}" alt="${escapeHtml(experience.company || '')}" style="max-width: 80px; max-height: 80px;" onerror="this.src='assets/images/placeholder-logo.png'">
+	                        </div>
                         <div style="margin-left: 15px; flex-grow: 1;">
                             <div class="item-field">
                                 <div class="field-label">职位/角色</div>
@@ -488,6 +529,8 @@ function openExperienceModal(experience = null) {
     document.getElementById('exp-id').value = '';
     document.getElementById('exp-logo-path').value = '';
     document.getElementById('exp-logo-upload').value = '';
+    const invertToggle = document.getElementById('exp-logo-invert');
+    if (invertToggle) invertToggle.checked = false;
     
     if (experience) {
         // 编辑模式
@@ -498,13 +541,18 @@ function openExperienceModal(experience = null) {
         document.getElementById('exp-details').value = experienceDetailsToText(experience.details);
         document.getElementById('exp-id').value = experience.id;
         document.getElementById('exp-logo-path').value = experience.logoPath || '';
+        const invert = Boolean(experience.logoInvertOnDark);
+        if (invertToggle) invertToggle.checked = invert;
         
         if (experience.logoPath) {
             document.getElementById('exp-logo-preview').src = experience.logoPath;
         }
+
+        updateExperienceLogoInvertUI({ logoPath: experience.logoPath || '', checked: invert });
     } else {
         // 添加模式
         modalTitle.textContent = '添加工作经历';
+        updateExperienceLogoInvertUI({ logoPath: '', checked: false });
     }
     
     // 显示模态框
@@ -520,6 +568,7 @@ function saveExperience() {
     const detailsText = document.getElementById('exp-details').value.trim();
     const id = document.getElementById('exp-id').value;
     let logoPath = document.getElementById('exp-logo-path').value;
+    const logoInvertOnDark = Boolean(document.getElementById('exp-logo-invert')?.checked);
     
     // 验证必填字段
     if (!company) {
@@ -537,7 +586,7 @@ function saveExperience() {
                 if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
                     const uploaded = await window.cloudflareApi.uploadAdminAsset(logoFile);
                     logoPath = uploaded.url;
-                    saveExperienceData(id, company, meta, time, detailsText, logoPath);
+                    saveExperienceData(id, company, meta, time, detailsText, logoPath, logoInvertOnDark);
                     return;
                 }
 
@@ -545,7 +594,7 @@ function saveExperience() {
                     if (dataUrl) {
                         logoPath = dataUrl;
                     }
-                    saveExperienceData(id, company, meta, time, detailsText, logoPath);
+                    saveExperienceData(id, company, meta, time, detailsText, logoPath, logoInvertOnDark);
                 });
             } catch (e) {
                 console.error('Logo上传失败:', e);
@@ -555,11 +604,11 @@ function saveExperience() {
         return;
     }
 
-    saveExperienceData(id, company, meta, time, detailsText, logoPath);
+    saveExperienceData(id, company, meta, time, detailsText, logoPath, logoInvertOnDark);
 }
 
 // 保存工作经历数据
-function saveExperienceData(id, company, meta, time, detailsText, logoPath) {
+function saveExperienceData(id, company, meta, time, detailsText, logoPath, logoInvertOnDark) {
     try {
         console.log('准备保存工作经历数据...');
         // 准备数据
@@ -568,7 +617,8 @@ function saveExperienceData(id, company, meta, time, detailsText, logoPath) {
             meta,
             time,
             details: experienceDetailsFromText(detailsText),
-            logoPath
+            logoPath,
+            logoInvertOnDark: Boolean(logoInvertOnDark)
         };
         
         // 确保experience数组存在

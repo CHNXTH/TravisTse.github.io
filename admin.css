@@ -46,6 +46,33 @@ body {
     line-height: 1.6;
 }
 
+/* Experience logo: optional invert-in-dark (mainly for monochrome SVGs like NIO) */
+@media (prefers-color-scheme: dark) {
+    .logo-preview img[data-invert-on-dark="true"],
+    .item-logo img[data-invert-on-dark="true"] {
+        filter: brightness(0) invert(1);
+    }
+}
+
+.checkbox-row {
+    margin-top: 10px;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--admin-secondary);
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--admin-primary);
+}
+
 /* 登录页面样式 */
 .admin-login {
     display: flex;

@@ -193,14 +193,20 @@
                                 </button>
                             </div>
                             <div class="modal-body">
-                                <div class="form-group">
-                                    <label for="exp-logo">公司Logo</label>
-                                    <div class="logo-preview">
-                                        <img id="exp-logo-preview" src="assets/images/placeholder-logo.png" alt="公司Logo">
-                                    </div>
-                                    <input type="file" id="exp-logo-upload" accept="image/*">
-                                    <p class="help-text">推荐使用透明背景的PNG或SVG格式</p>
-                                </div>
+	                                <div class="form-group">
+	                                    <label for="exp-logo">公司Logo</label>
+	                                    <div class="logo-preview">
+	                                        <img id="exp-logo-preview" src="assets/images/placeholder-logo.png" alt="公司Logo">
+	                                    </div>
+	                                    <input type="file" id="exp-logo-upload" accept="image/*">
+	                                    <div class="checkbox-row" id="exp-logo-invert-row">
+	                                        <label class="checkbox-label">
+	                                            <input type="checkbox" id="exp-logo-invert">
+	                                            深色模式反白（仅单色 SVG）
+	                                        </label>
+	                                    </div>
+	                                    <p class="help-text">推荐使用透明背景的PNG或SVG格式</p>
+	                                </div>
                                 <div class="form-group">
                                     <label for="exp-company">公司/项目名称</label>
                                     <input type="text" id="exp-company" placeholder="如：IKEA China - Digital Innovation Center">

@@ -1844,10 +1844,10 @@ footer p {
     filter: brightness(0) invert(1); /* 使PNG变为白色 */
   }
 
-  /* 深色模式下NIO logo变为白色 */
-  .experience-logo img[alt="NIO Logo"] {
-    filter: brightness(0) invert(1);
-  }
+	  /* 深色模式：仅对标记为“反白”的单色 SVG logo 做反色，不影响 PNG */
+	  .experience-logo img[data-invert-on-dark="true"] {
+	    filter: brightness(0) invert(1);
+	  }
 
   /* 深色模式下鼠标悬停时变为小红书红色 */
   .social-icon:hover .custom-icon {

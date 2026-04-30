@@ -387,6 +387,7 @@ function extractExperienceData(dataObj) {
             // 获取logo
             const logoElement = item.querySelector('.experience-logo img');
             const logoPath = logoElement ? logoElement.src : '';
+            const logoInvertOnDark = !!(logoElement && String(logoElement.getAttribute('data-invert-on-dark') || '').toLowerCase() === 'true');
             console.log(`工作经历 ${index+1} logo:`, logoPath);
             
             // 获取公司名称
@@ -418,7 +419,8 @@ function extractExperienceData(dataObj) {
                 meta,
                 time,
                 details,
-                logoPath
+                logoPath,
+                logoInvertOnDark
             };
             
             experiences.push(experience);
@@ -879,10 +881,16 @@ function updateExperienceFrontend() {
                     `;
                 }
                 
+                const isSvgLogo =
+                    /\.svg(\?|#|$)/i.test(logoUrl) ||
+                    /^data:image\/svg\+xml/i.test(logoUrl);
+                const invertAttr =
+                    experience.logoInvertOnDark && isSvgLogo ? 'data-invert-on-dark="true"' : 'data-invert-on-dark="false"';
+
                 // 构造HTML
                 experienceItem.innerHTML = `
                     <div class="experience-logo" data-controls="${safeId}-details" title="Click to expand details">
-                        <img src="${logoUrl}" alt="${experience.company} Logo" onerror="this.src='assets/images/placeholder-logo.png'">
+                        <img ${invertAttr} src="${logoUrl}" alt="${experience.company} Logo" onerror="this.src='assets/images/placeholder-logo.png'">
                     </div>
                     <div class="experience-content">
                         <div class="experience-header" data-controls="${safeId}-details" title="Click to expand details">
