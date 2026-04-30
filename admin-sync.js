@@ -881,11 +881,9 @@ function updateExperienceFrontend() {
                     `;
                 }
                 
-                const isSvgLogo =
-                    /\.svg(\?|#|$)/i.test(logoUrl) ||
-                    /^data:image\/svg\+xml/i.test(logoUrl);
-                const invertAttr =
-                    experience.logoInvertOnDark && isSvgLogo ? 'data-invert-on-dark="true"' : 'data-invert-on-dark="false"';
+                // `logoInvertOnDark` is an explicit per-item choice from admin.
+                // Do not rely on URL extension checks here (some SVG URLs may not end with `.svg`).
+                const invertAttr = experience.logoInvertOnDark ? 'data-invert-on-dark="true"' : 'data-invert-on-dark="false"';
 
                 // 构造HTML
                 experienceItem.innerHTML = `

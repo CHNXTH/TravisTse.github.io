@@ -45,7 +45,7 @@
   --code-tok-op: #000000;
 }
 
-@media (prefers-color-scheme: dark) {
+	@media (prefers-color-scheme: dark) {
   :root {
     --primary-color: #f5f5f7;
     --secondary-color: #a1a1a6;
@@ -1844,7 +1844,7 @@ footer p {
     filter: brightness(0) invert(1); /* 使PNG变为白色 */
   }
 
-	  /* 深色模式：仅对标记为“反白”的单色 SVG logo 做反色，不影响 PNG */
+	  /* 深色模式：仅对标记为“反白”的 logo 做反色（通常用于单色 SVG） */
 	  .experience-logo img[data-invert-on-dark="true"] {
 	    filter: brightness(0) invert(1);
 	  }
@@ -1852,7 +1852,12 @@ footer p {
   /* 深色模式下鼠标悬停时变为小红书红色 */
   .social-icon:hover .custom-icon {
     filter: invert(37%) sepia(74%) saturate(7482%) hue-rotate(336deg) brightness(100%) contrast(101%);
-  }
+	}
+
+/* Some parts of the site also use a `.dark-mode` class (set by JS). Make the invert robust. */
+html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
+  filter: brightness(0) invert(1);
+}
 }
 
 /* 在文件末尾添加 Recent Projects 样式 */

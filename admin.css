@@ -54,6 +54,12 @@ body {
     }
 }
 
+/* In case admin UI is ever toggled via a class (future-proof). */
+html.dark-mode .logo-preview img[data-invert-on-dark="true"],
+html.dark-mode .item-logo img[data-invert-on-dark="true"] {
+    filter: brightness(0) invert(1);
+}
+
 .checkbox-row {
     margin-top: 10px;
 }
