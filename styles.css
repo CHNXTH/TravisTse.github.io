@@ -25,6 +25,24 @@
   --country-stroke: #F4F4F4;
   --footprint-color: #0066ff;
   --footer-bg: var(--light-gray);
+
+  /* Hero "code" summary + interactive glow */
+  --hero-code-bg: rgba(6, 24, 44, 0.06);
+  --hero-code-border: rgba(15, 23, 42, 0.10);
+  --hero-code-text: rgba(15, 23, 42, 0.86);
+  --hero-code-accent: rgba(0, 113, 227, 0.95);
+
+  --hero-glow-blue: rgba(0, 123, 255, 0.18);
+  --hero-glow-orange: rgba(255, 140, 0, 0.12);
+
+  /* VS Code-like token colors (light-ish) */
+  --code-tok-kw: #AF00DB;
+  --code-tok-type: #267F99;
+  --code-tok-fn: #795E26;
+  --code-tok-var: #001080;
+  --code-tok-str: #A31515;
+  --code-tok-num: #098658;
+  --code-tok-op: #000000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -53,6 +71,23 @@
     --country-stroke: #444444;
     --footprint-color: #0082fc;
     --footer-bg: #252525;
+
+    --hero-code-bg: rgba(7, 12, 20, 0.62);
+    --hero-code-border: rgba(148, 206, 255, 0.14);
+    --hero-code-text: rgba(210, 230, 255, 0.88);
+    --hero-code-accent: rgba(138, 180, 255, 0.95);
+
+    --hero-glow-blue: rgba(0, 130, 252, 0.22);
+    --hero-glow-orange: rgba(255, 164, 57, 0.14);
+
+    /* VS Code Dark+ token colors */
+    --code-tok-kw: #C586C0;
+    --code-tok-type: #4EC9B0;
+    --code-tok-fn: #DCDCAA;
+    --code-tok-var: #9CDCFE;
+    --code-tok-str: #CE9178;
+    --code-tok-num: #B5CEA8;
+    --code-tok-op: rgba(210, 230, 255, 0.88);
   }
 }
 
@@ -474,6 +509,10 @@ main {
   max-width: 90%;
   margin: 0 auto;
   overflow: hidden;
+
+  /* Default glow position (updated via JS on desktop hover) */
+  --hero-glow-x: 80%;
+  --hero-glow-y: 30%;
 }
 
 .hero .container::before {
@@ -481,8 +520,12 @@ main {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(60% 70% at 80% 30%, rgba(0, 123, 255, 0.18), transparent 60%),
-    radial-gradient(70% 80% at 20% 80%, rgba(255, 107, 107, 0.10), transparent 62%),
+    radial-gradient(60% 70% at var(--hero-glow-x) var(--hero-glow-y), var(--hero-glow-blue), transparent 60%),
+    radial-gradient(
+      70% 80% at calc(100% - var(--hero-glow-x)) calc(100% - var(--hero-glow-y)),
+      var(--hero-glow-orange),
+      transparent 62%
+    ),
     linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.18));
   pointer-events: none;
   z-index: 0;
@@ -517,9 +560,36 @@ main {
   display: block;
   margin-top: 16px;
   max-width: 560px;
-  font-size: 18px;
-  line-height: 1.65;
-  color: var(--secondary-color);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--hero-code-text);
+  background: var(--hero-code-bg);
+  border: 1px solid var(--hero-code-border);
+  border-left: 3px solid var(--hero-code-accent);
+  padding: 12px 14px;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.hero-summary .code-tok-kw { color: var(--code-tok-kw); }
+.hero-summary .code-tok-type { color: var(--code-tok-type); }
+.hero-summary .code-tok-fn { color: var(--code-tok-fn); }
+.hero-summary .code-tok-var { color: var(--code-tok-var); }
+.hero-summary .code-tok-str { color: var(--code-tok-str); }
+.hero-summary .code-tok-num { color: var(--code-tok-num); }
+.hero-summary .code-tok-op { color: var(--code-tok-op); opacity: 0.9; }
+
+.hero-summary .code-tok-kw,
+.hero-summary .code-tok-type,
+.hero-summary .code-tok-fn,
+.hero-summary .code-tok-var,
+.hero-summary .code-tok-str,
+.hero-summary .code-tok-num,
+.hero-summary .code-tok-op {
+  font-weight: 600;
 }
 
 .hero-cta {
@@ -628,6 +698,20 @@ main {
   flex-direction: column;
 }
 
+/* Desktop: give the avatar a stable left "column" so it sits centered on the left side
+   instead of being pushed too far to the edge by the (wide) text column. */
+@media (min-width: 769px) {
+  .avatar-container {
+    flex: 0 0 320px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .avatar-container {
+    flex-basis: 360px;
+  }
+}
+
 .name {
   font-size: 42px;
   font-weight: 700;
@@ -692,9 +776,11 @@ main {
     max-width: 640px;
   }
 
-  .avatar-container {
-    flex: 0 0 auto;
-  }
+	  .avatar-container {
+	    /* Give the left side a stable "column" width so the avatar sits centered
+	       in the left region instead of hugging the edge. */
+		    flex: 0 0 420px;
+		  }
 
   /* desktop keeps the same display, but with better scale */
 
@@ -1709,12 +1795,16 @@ footer p {
     background-clip: text;
   }
 
-  .hero .container::before {
-    background:
-      radial-gradient(60% 70% at 80% 30%, rgba(0, 130, 252, 0.22), transparent 60%),
-      radial-gradient(70% 80% at 20% 80%, rgba(245, 185, 234, 0.10), transparent 62%),
-      linear-gradient(135deg, rgba(30, 30, 30, 0.55), rgba(30, 30, 30, 0.10));
-  }
+	  .hero .container::before {
+	    background:
+	      radial-gradient(60% 70% at var(--hero-glow-x) var(--hero-glow-y), var(--hero-glow-blue), transparent 60%),
+	      radial-gradient(
+	        70% 80% at calc(100% - var(--hero-glow-x)) calc(100% - var(--hero-glow-y)),
+	        var(--hero-glow-orange),
+	        transparent 62%
+	      ),
+	      linear-gradient(135deg, rgba(30, 30, 30, 0.55), rgba(30, 30, 30, 0.10));
+	  }
 
   .hero-btn-ghost {
     background: rgba(0, 0, 0, 0.22);

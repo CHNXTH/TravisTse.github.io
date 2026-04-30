@@ -143,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 重组hero区域布局
     reorganizeHeroLayout();
     updateDynamicAgeDisplays();
+    initHeroPointerDispersion();
 
     // 项目轮播功能
     initProjectsCarousel();
@@ -155,6 +156,108 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+function initHeroPointerDispersion() {
+    const heroContainer = document.querySelector('.hero .container');
+    if (!heroContainer) {
+        return;
+    }
+
+    // Only enable the effect on devices where it feels right (desktop hover + fine pointer).
+    const canHover = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!canHover || reduceMotion) {
+        return;
+    }
+
+    // Start position matches the CSS fallback. We keep the last position on leave (no snap-back),
+    // and add a tiny inertial drift to avoid a "hard stop".
+    const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+    let posX = 80;
+    let posY = 30;
+    let targetX = posX;
+    let targetY = posY;
+    let velX = 0;
+    let velY = 0;
+    let rafId = 0;
+
+    let lastMoveTs = 0;
+    let lastMoveX = posX;
+    let lastMoveY = posY;
+
+    const write = () => {
+        heroContainer.style.setProperty('--hero-glow-x', `${posX.toFixed(2)}%`);
+        heroContainer.style.setProperty('--hero-glow-y', `${posY.toFixed(2)}%`);
+    };
+
+    write();
+
+    const tick = () => {
+        // A small spring towards target, plus damping for a "floaty" but controlled feel.
+        const stiffness = 0.12;
+        const damping = 0.78;
+
+        velX = (velX + (targetX - posX) * stiffness) * damping;
+        velY = (velY + (targetY - posY) * stiffness) * damping;
+        posX = clamp(posX + velX, 0, 100);
+        posY = clamp(posY + velY, 0, 100);
+        write();
+
+        const stillMoving =
+            Math.abs(velX) + Math.abs(velY) > 0.04 ||
+            Math.abs(targetX - posX) + Math.abs(targetY - posY) > 0.04;
+
+        if (stillMoving) {
+            rafId = window.requestAnimationFrame(tick);
+        } else {
+            rafId = 0;
+        }
+    };
+
+    const kick = () => {
+        if (!rafId) {
+            rafId = window.requestAnimationFrame(tick);
+        }
+    };
+
+    const onMove = (event) => {
+        const rect = heroContainer.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
+        const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
+        targetX = x;
+        targetY = y;
+
+        const now = (typeof event.timeStamp === 'number' && event.timeStamp > 0) ? event.timeStamp : performance.now();
+        const dt = Math.max(8, now - (lastMoveTs || now)); // ms
+        const dx = x - lastMoveX;
+        const dy = y - lastMoveY;
+
+        // Estimate velocity in "percent per frame" to keep it stable across refresh rates.
+        const scale = 16 / dt;
+        velX = dx * scale;
+        velY = dy * scale;
+
+        lastMoveTs = now;
+        lastMoveX = x;
+        lastMoveY = y;
+
+        kick();
+    };
+
+    const onLeave = () => {
+        // Keep the current target (no snap). Add a small drift in the direction of the last velocity.
+        const drift = 8; // percent
+        targetX = clamp(posX + velX * drift, 0, 100);
+        targetY = clamp(posY + velY * drift, 0, 100);
+        kick();
+    };
+
+    heroContainer.addEventListener('pointermove', onMove, { passive: true });
+    heroContainer.addEventListener('pointerleave', onLeave, { passive: true });
+}
 
 function calculateAgeFromBirthdate(birthdateString) {
     const birthdate = new Date(birthdateString);
@@ -216,7 +319,7 @@ function reorganizeHeroLayout() {
         'data-zh',
         'AI 产品与交互设计方向，建筑背景出身。我关注清晰表达、体验细节，以及把真正能用的东西做出来。'
     );
-    summary.textContent = summary.getAttribute('data-en');
+    setHeroSummaryHighlighted(summary, 'en');
 
     const cta = document.createElement('div');
     cta.className = 'hero-cta';
@@ -247,6 +350,87 @@ function reorganizeHeroLayout() {
     // 清空原容器并添加新结构
     heroContainer.innerHTML = '';
     heroContainer.appendChild(heroContent);
+}
+
+function escapeHtml(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function buildHighlightedHtml(text, rules) {
+    const source = String(text || '');
+    if (!source) return '';
+
+    const matches = [];
+    for (const rule of rules) {
+        const re = new RegExp(rule.re.source, rule.re.flags.includes('g') ? rule.re.flags : `${rule.re.flags}g`);
+        let m;
+        while ((m = re.exec(source))) {
+            matches.push({
+                start: m.index,
+                end: m.index + m[0].length,
+                cls: rule.cls,
+                len: m[0].length
+            });
+            // Avoid zero-length infinite loops.
+            if (m[0].length === 0) re.lastIndex += 1;
+        }
+    }
+
+    if (!matches.length) return escapeHtml(source);
+
+    matches.sort((a, b) => (a.start - b.start) || (b.len - a.len));
+    const picked = [];
+    let cursor = 0;
+    for (const m of matches) {
+        if (m.start < cursor) continue;
+        picked.push(m);
+        cursor = m.end;
+    }
+
+    let out = '';
+    let i = 0;
+    for (const m of picked) {
+        out += escapeHtml(source.slice(i, m.start));
+        out += `<span class="${m.cls}">${escapeHtml(source.slice(m.start, m.end))}</span>`;
+        i = m.end;
+    }
+    out += escapeHtml(source.slice(i));
+    return out;
+}
+
+function setHeroSummaryHighlighted(summaryEl, lang) {
+    if (!summaryEl) return;
+    const raw =
+        summaryEl.getAttribute(`data-${lang}`) ||
+        summaryEl.getAttribute('data-en') ||
+        summaryEl.textContent ||
+        '';
+
+    const enRules = [
+        { re: /\bAI\b/i, cls: 'code-tok-type' },
+        { re: /\b(product|interaction|design)\b/gi, cls: 'code-tok-var' },
+        { re: /\barchitecture\b/gi, cls: 'code-tok-kw' },
+        { re: /\bclarity\b/gi, cls: 'code-tok-fn' },
+        { re: /\bcraft\b/gi, cls: 'code-tok-fn' },
+        { re: /\bshipping\b/gi, cls: 'code-tok-fn' },
+        { re: /[+.,]/g, cls: 'code-tok-op' }
+    ];
+
+    const zhRules = [
+        { re: /\bAI\b/g, cls: 'code-tok-type' },
+        { re: /产品|交互设计|交互|设计/g, cls: 'code-tok-var' },
+        { re: /建筑|建筑背景/g, cls: 'code-tok-kw' },
+        { re: /清晰表达|体验细节|做出来/g, cls: 'code-tok-fn' },
+        { re: /[+，。、]/g, cls: 'code-tok-op' }
+    ];
+
+    const rules = lang && String(lang).toLowerCase().startsWith('zh') ? zhRules : enRules;
+    summaryEl.innerHTML = buildHighlightedHtml(raw, rules);
 }
 
 // 语言切换功能
@@ -494,7 +678,7 @@ function initLanguageToggle() {
     }
     
     // 更新页面语言
-	    function updatePageLanguage() {
+		    function updatePageLanguage() {
 	        // 更新导航链接
 	        document.querySelectorAll('.nav-link').forEach(link => {
 	            const key = link.getAttribute('href').substring(1);
@@ -528,10 +712,10 @@ function initLanguageToggle() {
 	            if (kickerSpan) kickerSpan.textContent = kickerText;
 	        }
 
-	        const heroSummary = document.querySelector('.hero-summary');
-	        if (heroSummary) {
-	            heroSummary.textContent = heroSummary.getAttribute(`data-${currentLang}`) || heroSummary.getAttribute('data-en') || heroSummary.textContent;
-	        }
+		        const heroSummary = document.querySelector('.hero-summary');
+		        if (heroSummary) {
+		            setHeroSummaryHighlighted(heroSummary, currentLang);
+		        }
 
 	        const heroCta = document.querySelector('.hero-cta');
 	        if (heroCta) {
