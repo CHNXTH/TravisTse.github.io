@@ -73,6 +73,11 @@
             throw new Error('Missing file');
         }
 
+        const base = getWorkerBaseUrl();
+        if (!base) {
+            throw new Error('Missing TRAVIS_AI_API_URL (Worker URL). Please set it in chat-config.js.');
+        }
+
         const token = getAdminToken();
         if (!token) {
             const err = new Error('Missing admin token');
@@ -93,7 +98,11 @@
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            const error = new Error(data && data.error ? data.error : 'Upload failed');
+            let message = data && data.error ? data.error : 'Upload failed';
+            if (response.status === 404 && message === 'Not found') {
+                message = 'Upload endpoint not found. Please redeploy the Cloudflare Worker to the latest version, then try again.';
+            }
+            const error = new Error(message);
             error.status = response.status;
             error.payload = data;
             throw error;
