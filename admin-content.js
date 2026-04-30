@@ -362,7 +362,8 @@ function loadExperienceItems() {
             itemElement.setAttribute('data-id', experience.id);
             
             // 截断显示详情，如果太长的话
-            let displayDetails = experience.details || '';
+            const detailsText = experienceDetailsToText(experience.details);
+            let displayDetails = detailsText;
             if (displayDetails.length > 150) {
                 displayDetails = displayDetails.substring(0, 150) + '...';
             }
@@ -430,9 +431,8 @@ function loadExperienceItems() {
 // 格式化工作内容详情
 function formatDetails(details) {
     if (!details) return '';
-    
-    // 将文本按行分割
-    const lines = details.split('\n');
+
+    const lines = Array.isArray(details) ? details : String(details).split('\n');
     
     // 转换为HTML列表
     return '<ul class="details-list">' + 
@@ -447,6 +447,21 @@ function formatDetails(details) {
             return '';
         }).join('') + 
     '</ul>';
+}
+
+function experienceDetailsToText(details) {
+    if (Array.isArray(details)) {
+        return details.join('\n');
+    }
+    return typeof details === 'string' ? details : '';
+}
+
+function experienceDetailsFromText(text) {
+    const raw = String(text || '');
+    return raw
+        .split('\n')
+        .map((line) => line.trim().replace(/^[-*]\s*/, '').trim())
+        .filter(Boolean);
 }
 
 // 打开工作经历模态框
@@ -470,7 +485,7 @@ function openExperienceModal(experience = null) {
         document.getElementById('exp-company').value = experience.company || '';
         document.getElementById('exp-meta').value = experience.meta || '';
         document.getElementById('exp-time').value = experience.time || '';
-        document.getElementById('exp-details').value = experience.details || '';
+        document.getElementById('exp-details').value = experienceDetailsToText(experience.details);
         document.getElementById('exp-id').value = experience.id;
         document.getElementById('exp-logo-path').value = experience.logoPath || '';
         
@@ -492,7 +507,7 @@ function saveExperience() {
     const company = document.getElementById('exp-company').value.trim();
     const meta = document.getElementById('exp-meta').value.trim();
     const time = document.getElementById('exp-time').value.trim();
-    const details = document.getElementById('exp-details').value.trim();
+    const detailsText = document.getElementById('exp-details').value.trim();
     const id = document.getElementById('exp-id').value;
     let logoPath = document.getElementById('exp-logo-path').value;
     
@@ -510,18 +525,18 @@ function saveExperience() {
         loadImage(logoFile, function(dataUrl) {
             if (dataUrl) {
                 logoPath = dataUrl;
-                saveExperienceData(id, company, meta, time, details, logoPath);
+                saveExperienceData(id, company, meta, time, detailsText, logoPath);
             } else {
-                saveExperienceData(id, company, meta, time, details, logoPath);
+                saveExperienceData(id, company, meta, time, detailsText, logoPath);
             }
         });
     } else {
-        saveExperienceData(id, company, meta, time, details, logoPath);
+        saveExperienceData(id, company, meta, time, detailsText, logoPath);
     }
 }
 
 // 保存工作经历数据
-function saveExperienceData(id, company, meta, time, details, logoPath) {
+function saveExperienceData(id, company, meta, time, detailsText, logoPath) {
     try {
         console.log('准备保存工作经历数据...');
         // 准备数据
@@ -529,7 +544,7 @@ function saveExperienceData(id, company, meta, time, details, logoPath) {
             company,
             meta,
             time,
-            details,
+            details: experienceDetailsFromText(detailsText),
             logoPath
         };
         

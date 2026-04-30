@@ -6,6 +6,55 @@
 // 标记是否已经从前端提取数据
 window.frontendDataExtracted = false;
 
+// 前端/同步桥统一使用这一份数据结构（与admin一致）
+let websiteData = {};
+
+function normalizeWebsiteData(data) {
+    const normalized = data || {};
+    normalized.profile = normalized.profile || {};
+    normalized.education = Array.isArray(normalized.education) ? normalized.education : [];
+    normalized.experience = Array.isArray(normalized.experience) ? normalized.experience : [];
+    normalized.projects = Array.isArray(normalized.projects) ? normalized.projects : [];
+    normalized.papers = Array.isArray(normalized.papers) ? normalized.papers : [];
+    normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
+    normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
+    normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.settings = normalized.settings || { password: '725500@20020303' };
+    normalized.meta = normalized.meta || {};
+
+    // experience.details 统一成 string[]（兼容旧的多行字符串）
+    normalized.experience = normalized.experience.map((exp) => {
+        const cloned = exp && typeof exp === 'object' ? { ...exp } : {};
+        const d = cloned.details;
+        if (Array.isArray(d)) {
+            cloned.details = d.map((s) => String(s || '').trim()).filter(Boolean);
+        } else if (typeof d === 'string') {
+            cloned.details = d
+                .split('\n')
+                .map((line) => line.trim().replace(/^[-*]\s*/, '').trim())
+                .filter(Boolean);
+        } else if (d == null) {
+            cloned.details = [];
+        } else {
+            cloned.details = [String(d).trim()].filter(Boolean);
+        }
+        return cloned;
+    });
+
+    return normalized;
+}
+
+function loadWebsiteDataFromStorage() {
+    try {
+        const raw = localStorage.getItem('websiteData');
+        websiteData = normalizeWebsiteData(raw ? JSON.parse(raw) : {});
+    } catch (e) {
+        console.warn('读取localStorage.websiteData失败，使用空数据回退:', e);
+        websiteData = normalizeWebsiteData({});
+    }
+    return websiteData;
+}
+
 // 生成唯一ID函数 - 确保在admin-sync.js中也能使用
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -49,11 +98,16 @@ function calculateDynamicAge() {
         try {
             const remoteData = await window.cloudflareApi.getPublicContent();
             if (remoteData && remoteData.content && isMeaningfulPublicContent(remoteData.content)) {
+                websiteData = normalizeWebsiteData(remoteData.content);
                 localStorage.setItem('websiteData', JSON.stringify(remoteData.content));
                 localStorage.setItem('websiteDataSync', Date.now().toString());
                 localStorage.setItem('websiteDataSyncSource', 'cloudflare_public_content');
                 window.frontendDataExtracted = true;
                 console.debug('已从 Cloudflare 拉取公开网站内容');
+                // 尝试立即刷新前端展示（同一页内不会触发storage事件）
+                setTimeout(() => {
+                    if (typeof updateFrontend === 'function') updateFrontend();
+                }, 0);
                 return;
             }
 
@@ -148,73 +202,57 @@ function extractFrontendData() {
     
     try {
         // 获取当前websiteData（如果存在）
-        let websiteData = {};
-        try {
-            const existingData = localStorage.getItem('websiteData');
-            if (existingData) {
-                websiteData = JSON.parse(existingData);
-            }
-        } catch (e) {
-            console.error('读取现有数据失败，将创建新数据:', e);
-        }
+        const dataObj = loadWebsiteDataFromStorage();
         
         // 确保所有数据结构都存在
-        websiteData.profile = websiteData.profile || {};
-        websiteData.education = websiteData.education || [];
-        websiteData.experience = websiteData.experience || [];
-        websiteData.projects = websiteData.projects || [];
-        websiteData.papers = websiteData.papers || [];
-        websiteData.awards = websiteData.awards || [];
-        websiteData.social = websiteData.social || [];
-        websiteData.footprints = websiteData.footprints || [];
-        websiteData.settings = websiteData.settings || { password: '725500@20020303' };
+        // normalizeWebsiteData已保证结构存在
         
         // 只有当字段为空时才提取数据（避免覆盖已有数据）
-        if (Object.keys(websiteData.profile).length === 0) {
-            extractProfileData(websiteData);
+        if (Object.keys(dataObj.profile).length === 0) {
+            extractProfileData(dataObj);
         } else {
             console.log('个人资料数据已存在，跳过提取');
         }
         
-        if (websiteData.education.length === 0) {
-            extractEducationData(websiteData);
+        if (dataObj.education.length === 0) {
+            extractEducationData(dataObj);
         } else {
             console.log('教育经历数据已存在，跳过提取');
         }
         
-        if (websiteData.experience.length === 0) {
-            extractExperienceData(websiteData);
+        if (dataObj.experience.length === 0) {
+            extractExperienceData(dataObj);
         } else {
             console.log('工作经历数据已存在，跳过提取');
         }
         
-        if (websiteData.projects.length === 0) {
-            extractProjectsData(websiteData);
+        if (dataObj.projects.length === 0) {
+            extractProjectsData(dataObj);
         } else {
             console.log('项目数据已存在，跳过提取');
         }
         
-        if (websiteData.papers.length === 0) {
-            extractPapersData(websiteData);
+        if (dataObj.papers.length === 0) {
+            extractPapersData(dataObj);
         } else {
             console.log('论文数据已存在，跳过提取');
         }
         
-        if (websiteData.awards.length === 0) {
-            extractAwardsData(websiteData);
+        if (dataObj.awards.length === 0) {
+            extractAwardsData(dataObj);
         } else {
             console.log('奖项数据已存在，跳过提取');
         }
         
-        if (websiteData.social.length === 0) {
-            extractSocialData(websiteData);
+        if (dataObj.social.length === 0) {
+            extractSocialData(dataObj);
         } else {
             console.log('社交媒体数据已存在，跳过提取');
         }
         
         // 添加元数据
-        if (!websiteData.meta) {
-            websiteData.meta = {
+        if (!dataObj.meta) {
+            dataObj.meta = {
                 version: '1.0',
                 created: new Date().toISOString(),
                 lastModified: new Date().toISOString(),
@@ -226,6 +264,7 @@ function extractFrontendData() {
         window.frontendDataExtracted = true;
         
         // 将提取的数据保存到localStorage
+        websiteData = normalizeWebsiteData(dataObj);
         localStorage.setItem('websiteData', JSON.stringify(websiteData));
         
         console.log('前端数据提取完成，已保存到localStorage');
@@ -368,8 +407,9 @@ function extractExperienceData(dataObj) {
             }
             
             const details = Array.from(detailsList)
-                .map(li => li.textContent)
-                .join('\n');
+                .map(li => (li.textContent || '').trim())
+                .map((line) => line.replace(/^[-*]\s*/, '').trim())
+                .filter(Boolean);
             
             // 确保每个工作经历都有唯一ID
             const experience = {
@@ -644,6 +684,9 @@ function initAutoSave() {
 function updateFrontend() {
     // 通过DOM操作更新前端视图
     try {
+        // 同步桥/其他脚本可能直接调用 updateFrontend，因此这里保证从存储加载最新数据
+        loadWebsiteDataFromStorage();
+
         // 1. 更新个人资料
         updateProfileFrontend();
         
@@ -819,20 +862,21 @@ function updateExperienceFrontend() {
                     logoUrl = 'assets/images/placeholder-logo.png';
                 }
                 
-                // 格式化工作内容为列表
+                // 格式化工作内容为列表（details 永远按 string[] 处理）
                 let detailsHtml = '';
-                if (experience.details) {
-                    const details = experience.details.split('\n')
-                        .filter(line => line.trim())
-                        .map(line => line.trim().replace(/^-\s*/, '').trim());
-                    
-                    if (details.length > 0) {
-                        detailsHtml = `
-                            <ul class="experience-details" id="${safeId}-details">
-                                ${details.map(detail => `<li>${detail}</li>`).join('')}
-                            </ul>
-                        `;
-                    }
+                const detailLines = Array.isArray(experience.details)
+                    ? experience.details
+                    : String(experience.details || '')
+                        .split('\n')
+                        .map((line) => line.trim().replace(/^[-*]\s*/, '').trim())
+                        .filter(Boolean);
+
+                if (detailLines.length > 0) {
+                    detailsHtml = `
+                        <ul class="experience-details" id="${safeId}-details">
+                            ${detailLines.map(detail => `<li>${detail}</li>`).join('')}
+                        </ul>
+                    `;
                 }
                 
                 // 构造HTML

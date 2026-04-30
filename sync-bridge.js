@@ -20,6 +20,18 @@ let syncState = {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('同步桥接初始化...');
     initSyncBridge();
+
+    // 如果存在Cloudflare公开内容源，则在前端页面尝试拉取最新云端数据
+    // 用于解决 admin(file://) 与前端(https://) 不同源导致的 localStorage 无法互通问题。
+    setTimeout(function() {
+        try {
+            if (!window.location.pathname.includes('admin')) {
+                refreshFromCloudflarePublicContent({ reason: 'dom_ready' });
+            }
+        } catch (e) {
+            console.warn('DOMContentLoaded 云端刷新失败:', e);
+        }
+    }, 250);
     
     // 强制从localStorage读取并应用最新数据 - 确保页面刷新时不丢失修改
     setTimeout(function() {
@@ -145,6 +157,10 @@ function initSyncBridge() {
         if (document.visibilityState === 'visible') {
             console.log('页面变为可见，检查数据更新...');
             try {
+                if (!window.location.pathname.includes('admin')) {
+                    refreshFromCloudflarePublicContent({ reason: 'visibility' });
+                }
+
                 // 页面变为可见时，始终检查最新数据并强制更新
                 if (typeof updateFrontend === 'function') {
                     console.log('页面变为可见，强制执行更新...');
@@ -319,12 +335,86 @@ window.checkSyncStatus = function() {
 
 // 将更新前端函数暴露给全局
 window.forceSyncUpdate = function() {
-    if (typeof updateFrontend === 'function') {
-        console.log('强制执行前端更新...');
-        updateFrontend();
-        return true;
-    } else {
+    try {
+        if (!window.location.pathname.includes('admin')) {
+            refreshFromCloudflarePublicContent({ reason: 'manual' });
+        }
+
+        if (typeof updateFrontend === 'function') {
+            console.log('强制执行前端更新...');
+            updateFrontend();
+            return true;
+        }
+
         console.error('updateFrontend函数不可用，无法执行更新');
+        return false;
+    } catch (e) {
+        console.error('强制更新失败:', e);
         return false;
     }
 }; 
+
+let cfRefreshInFlight = false;
+let cfLastRefreshAt = 0;
+
+function isMeaningfulPublicContent(content) {
+    if (!content || typeof content !== 'object') return false;
+    const education = Array.isArray(content.education) ? content.education.length : 0;
+    const experience = Array.isArray(content.experience) ? content.experience.length : 0;
+    const projects = Array.isArray(content.projects) ? content.projects.length : 0;
+    const papers = Array.isArray(content.papers) ? content.papers.length : 0;
+    const awards = Array.isArray(content.awards) ? content.awards.length : 0;
+    const social = Array.isArray(content.social) ? content.social.length : 0;
+    return (education + experience + projects + papers + awards + social) > 0;
+}
+
+function parseLastModified(value) {
+    if (!value) return 0;
+    const t = Date.parse(value);
+    return Number.isFinite(t) ? t : 0;
+}
+
+async function refreshFromCloudflarePublicContent({ reason } = {}) {
+    try {
+        if (cfRefreshInFlight) return false;
+        if (!window.cloudflareApi || typeof window.cloudflareApi.getPublicContent !== 'function') return false;
+        if (window.location.pathname.includes('admin')) return false;
+
+        const now = Date.now();
+        if (now - cfLastRefreshAt < 1500) return false; // 轻量节流
+        cfLastRefreshAt = now;
+        cfRefreshInFlight = true;
+
+        const remote = await window.cloudflareApi.getPublicContent();
+        const remoteContent = remote && remote.content ? remote.content : null;
+        if (!remoteContent || !isMeaningfulPublicContent(remoteContent)) {
+            return false;
+        }
+
+        const localRaw = localStorage.getItem('websiteData');
+        let local = null;
+        try { local = localRaw ? JSON.parse(localRaw) : null; } catch (e) { local = null; }
+
+        const remoteTs = parseLastModified(remoteContent.meta && remoteContent.meta.lastModified);
+        const localTs = parseLastModified(local && local.meta && local.meta.lastModified);
+        if (remoteTs && localTs && remoteTs <= localTs) {
+            return false;
+        }
+
+        localStorage.setItem('websiteData', JSON.stringify(remoteContent));
+        localStorage.setItem('websiteDataSync', String(Date.now()));
+        localStorage.setItem('websiteDataSyncSource', `cloudflare_refresh_${reason || 'unknown'}`);
+        console.log('已从Cloudflare刷新公开内容:', reason || 'unknown');
+
+        if (typeof updateFrontend === 'function') {
+            updateFrontend();
+        }
+
+        return true;
+    } catch (e) {
+        console.warn('从Cloudflare刷新公开内容失败:', e);
+        return false;
+    } finally {
+        cfRefreshInFlight = false;
+    }
+}
