@@ -97,6 +97,14 @@ export default {
             return handleAdminContent(request, env);
         }
 
+        if (url.pathname === '/api/admin/upload') {
+            return handleAdminUpload(request, env);
+        }
+
+        if (url.pathname.startsWith('/assets/')) {
+            return handleAssetGet(request, env, url.pathname.slice('/assets/'.length));
+        }
+
         return jsonResponse(request, { error: 'Not found' }, 404);
     }
 };
@@ -254,6 +262,102 @@ async function handleAdminContent(request, env) {
     return jsonResponse(request, { success: true, content }, 200);
 }
 
+async function handleAdminUpload(request, env) {
+    const auth = await requireAdminAuth(request, env);
+    if (!auth.ok) {
+        return auth.response;
+    }
+
+    if (request.method !== 'POST') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'POST, OPTIONS' });
+    }
+
+    if (!env.SITE_DATA) {
+        return jsonResponse(request, { error: 'Missing SITE_DATA binding' }, 500);
+    }
+
+    let form;
+    try {
+        form = await request.formData();
+    } catch (e) {
+        return jsonResponse(request, { error: 'Invalid form data' }, 400);
+    }
+
+    const file = form.get('file');
+    if (!file || typeof file === 'string') {
+        return jsonResponse(request, { error: 'Missing file' }, 400);
+    }
+
+    const contentType = file.type || 'application/octet-stream';
+    if (!contentType.startsWith('image/')) {
+        return jsonResponse(request, { error: 'Only image uploads are supported' }, 400);
+    }
+
+    const bytes = await file.arrayBuffer();
+    const maxBytes = 8 * 1024 * 1024; // keep admin uploads reasonable
+    if (bytes.byteLength > maxBytes) {
+        return jsonResponse(request, { error: `File too large (max ${maxBytes} bytes)` }, 413);
+    }
+
+    const key = buildAssetKey(file.name || '', contentType);
+    const base64 = arrayBufferToBase64(bytes);
+    await env.SITE_DATA.put(`asset_${key}`, JSON.stringify({
+        contentType,
+        base64,
+        size: bytes.byteLength,
+        uploadedAt: new Date().toISOString()
+    }));
+
+    const origin = new URL(request.url).origin;
+    return jsonResponse(request, {
+        key,
+        url: `${origin}/assets/${encodeURIComponent(key)}`,
+        size: bytes.byteLength,
+        contentType
+    }, 200);
+}
+
+async function handleAssetGet(request, env, key) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'GET, HEAD, OPTIONS' });
+    }
+
+    if (!env.SITE_DATA) {
+        return jsonResponse(request, { error: 'Missing SITE_DATA binding' }, 500);
+    }
+
+    const decodedKey = safeDecodeURIComponent(key);
+    if (!decodedKey) {
+        return jsonResponse(request, { error: 'Invalid asset key' }, 400);
+    }
+
+    const raw = await env.SITE_DATA.get(`asset_${decodedKey}`);
+    if (!raw) {
+        return jsonResponse(request, { error: 'Asset not found' }, 404);
+    }
+
+    let record;
+    try {
+        record = JSON.parse(raw);
+    } catch (e) {
+        return jsonResponse(request, { error: 'Corrupted asset record' }, 500);
+    }
+
+    const contentType = record && typeof record.contentType === 'string' ? record.contentType : 'application/octet-stream';
+    const base64 = record && typeof record.base64 === 'string' ? record.base64 : '';
+    if (!base64) {
+        return jsonResponse(request, { error: 'Corrupted asset record' }, 500);
+    }
+
+    const bytes = base64ToUint8Array(base64);
+    const headers = new Headers();
+    headers.set('Content-Type', contentType);
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    Object.entries(corsHeaders(request)).forEach(([k, v]) => headers.set(k, v));
+
+    return new Response(request.method === 'HEAD' ? null : bytes, { status: 200, headers });
+}
+
 async function requireAdminAuth(request, env) {
     if (!env.ADMIN_SESSION_SECRET) {
         return {
@@ -281,6 +385,42 @@ async function requireAdminAuth(request, env) {
     }
 
     return { ok: true, payload };
+}
+
+function buildAssetKey(filename, contentType) {
+    const safeName = String(filename || '').replace(/[^\w.\-]+/g, '_').slice(0, 80);
+    const extFromName = safeName.includes('.') ? safeName.split('.').pop() : '';
+    const extFromType = contentType.includes('/') ? contentType.split('/')[1] : '';
+    const ext = (extFromName || extFromType || 'bin').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const rand = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return `img/${Date.now()}-${rand}.${ext}`;
+}
+
+function safeDecodeURIComponent(value) {
+    try {
+        return decodeURIComponent(value);
+    } catch (e) {
+        return '';
+    }
+}
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
+function base64ToUint8Array(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
 }
 
 async function readWebsiteContent(env) {

@@ -1769,22 +1769,25 @@ footer p {
 
 /* 项目轮播样式 */
 #recent-projects {
-    margin: 60px 0;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    padding: 40px 0;
+    /* NOTE: 这个 id 挂在 <h3> 上，所以这里只做标题自身的间距控制，
+       不要把它当成整段 section 来加大 padding/margin，否则会造成巨大的空白。 */
+    scroll-margin-top: 96px;
+    margin: 22px 0 14px;
+    padding: 0;
+    background: none;
+    color: inherit;
 }
 
 .projects-carousel {
     position: relative;
-    margin: 30px 0;
+    margin: 18px 0 12px;
     overflow: hidden;
 }
 
 .projects-wrapper {
     display: flex;
     transition: transform 0.5s ease-in-out;
-    margin-bottom: 30px;
+    margin-bottom: 18px;
 }
 
 .project-item {
