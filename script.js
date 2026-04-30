@@ -1491,10 +1491,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="ai-avatar">
                 <img src="assets/images/avatar-round.png" alt="AI Avatar">
             </div>
-            <div class="ai-message-content">
-                <p>${message}</p>
-            </div>
+            <div class="ai-message-content"></div>
         `;
+
+        const contentElement = aiMessageElement.querySelector('.ai-message-content');
+        contentElement.appendChild(formatAIMessage(message));
+
         messagesContainer.appendChild(aiMessageElement);
         scrollToBottom();
     }
@@ -1539,50 +1541,95 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
+
+    function formatAIMessage(message) {
+        const container = document.createElement('div');
+        container.className = 'ai-message-text';
+
+        const cleanedMessage = (message || '')
+            .replace(/\r\n/g, '\n')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/^---+$/gm, '')
+            .trim();
+
+        if (!cleanedMessage) {
+            const paragraph = document.createElement('p');
+            paragraph.textContent = '';
+            container.appendChild(paragraph);
+            return container;
+        }
+
+        const blocks = cleanedMessage.split(/\n\s*\n/).filter(Boolean);
+
+        blocks.forEach((block) => {
+            const lines = block
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean);
+
+            if (lines.length === 0) {
+                return;
+            }
+
+            const isBulletList = lines.every((line) => /^[-*•]\s+/.test(line));
+            const isOrderedList = lines.every((line) => /^\d+[.)]\s+/.test(line));
+
+            if (isBulletList || isOrderedList) {
+                const list = document.createElement(isOrderedList ? 'ol' : 'ul');
+                list.className = 'ai-message-list';
+
+                lines.forEach((line) => {
+                    const item = document.createElement('li');
+                    item.textContent = line.replace(/^([-*•]|\d+[.)])\s+/, '');
+                    list.appendChild(item);
+                });
+
+                container.appendChild(list);
+                return;
+            }
+
+            const paragraph = document.createElement('p');
+            paragraph.textContent = lines.join('\n');
+            container.appendChild(paragraph);
+        });
+
+        return container;
+    }
     
-    // 调用DeepSeek API获取回复
+    function getChatApiUrl() {
+        const configuredBase = window.TRAVIS_AI_API_URL || '';
+        const normalizedBase = configuredBase.replace(/\/+$/, '');
+        return normalizedBase ? `${normalizedBase}/api/chat` : '/api/chat';
+    }
+
+    // 通过Cloudflare Worker代理调用AI接口，避免在前端暴露密钥
     async function fetchAIResponse(message) {
         try {
-            // DeepSeek API调用
-            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            const response = await fetch(getChatApiUrl(), {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer DEEPSEEK_API_KEY' // 实际使用时需替换为真实的API密钥
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    model: 'deepseek-chat', // 根据DeepSeek的实际模型名称调整
-                    messages: [
-                        {
-                            role: 'system',
-                            content: 'You are Travis\'s AI assistant, helping website visitors answer questions about Travis\'s education, experience, skills, etc. Please respond in English in a friendly and professional tone.'
-                        },
-                        {
-                            role: 'user',
-                            content: message
-                        }
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 512
-                })
+                body: JSON.stringify({ message })
             });
-            
-            // 解析API响应
+
             const data = await response.json();
-            
-            if (data.choices && data.choices.length > 0) {
-                const aiResponse = data.choices[0].message.content;
+
+            if (!response.ok) {
+                const errorMessage = data && data.error ? data.error : 'Unknown API error';
+                throw new Error(errorMessage);
+            }
+
+            if (data.reply) {
+                const aiResponse = data.reply;
                 addAIMessage(aiResponse);
             } else {
-                // 如果没有得到有效响应，显示错误消息
                 addAIMessage("I'm sorry, I couldn't generate a response at this time. Please try again later.");
             }
-            
         } catch (error) {
             console.error('Error fetching AI response:', error);
             removeTypingIndicator();
-            
-            // 在API调用失败时提供备用响应
+
             addAIMessage('Thank you for your message! I\'m Travis\'s AI assistant. I\'m currently in development and having trouble connecting to my backend. Please try again later or contact Travis directly through the social media links at the bottom of the page.');
         }
     }

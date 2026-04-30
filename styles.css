@@ -2077,6 +2077,34 @@ footer p {
     border-bottom-left-radius: 5px;
 }
 
+.ai-message-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.ai-message-text p {
+    margin: 0;
+}
+
+.ai-message-text p + p {
+    margin-top: 10px;
+}
+
+.ai-message-list {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.ai-message-list + .ai-message-list,
+.ai-message-text p + .ai-message-list,
+.ai-message-list + p {
+    margin-top: 10px;
+}
+
+.ai-message-list li + li {
+    margin-top: 6px;
+}
+
 .user-message-content {
     background: linear-gradient(135deg, #9447FF, #F165F8);
     color: white;
