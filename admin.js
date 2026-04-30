@@ -978,7 +978,7 @@ function updateMonitorPanel() {
             syncStatus.style.color = 'orange';
         }
         
-        // 计算存储使用量
+        // 计算本地缓存使用量（localStorage上限通常约5MB，图片base64很容易占满）
         const dataStr = localStorage.getItem('websiteData');
         if (dataStr) {
             const bytes = new Blob([dataStr]).size;

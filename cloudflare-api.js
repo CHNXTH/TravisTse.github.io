@@ -68,6 +68,40 @@
         });
     }
 
+    async function uploadAdminAsset(file) {
+        if (!file) {
+            throw new Error('Missing file');
+        }
+
+        const token = getAdminToken();
+        if (!token) {
+            const err = new Error('Missing admin token');
+            err.status = 401;
+            throw err;
+        }
+
+        const form = new FormData();
+        form.append('file', file, file.name || 'upload');
+
+        const response = await fetch(getApiUrl('/api/admin/upload'), {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            body: form,
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const error = new Error(data && data.error ? data.error : 'Upload failed');
+            error.status = response.status;
+            error.payload = data;
+            throw error;
+        }
+
+        return data;
+    }
+
     async function getPublicContent() {
         return request('/api/content', { method: 'GET' });
     }
@@ -83,6 +117,7 @@
         login,
         getAdminContent,
         saveAdminContent,
+        uploadAdminAsset,
         getPublicContent,
         logout,
     };

@@ -14,11 +14,8 @@ function initProjectsSection() {
     document.getElementById('project-image-upload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('project-image-preview').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            const url = URL.createObjectURL(file);
+            document.getElementById('project-image-preview').src = url;
         }
     });
 }
@@ -134,17 +131,30 @@ function saveProject() {
     
     // 如果有新上传的图片，需要先处理图片上传
     if (imageFile) {
-        loadImage(imageFile, function(dataUrl) {
-            if (dataUrl) {
-                imagePath = dataUrl;
-                saveProjectData(id, title, link, imagePath);
-            } else {
-                saveProjectData(id, title, link, imagePath);
+        (async () => {
+            try {
+                if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
+                    const uploaded = await window.cloudflareApi.uploadAdminAsset(imageFile);
+                    imagePath = uploaded.url;
+                    saveProjectData(id, title, link, imagePath);
+                    return;
+                }
+
+                loadImage(imageFile, function(dataUrl) {
+                    if (dataUrl) {
+                        imagePath = dataUrl;
+                    }
+                    saveProjectData(id, title, link, imagePath);
+                });
+            } catch (e) {
+                console.error('项目图片上传失败:', e);
+                showMessage(`项目图片上传失败: ${e.message}`, 'error');
             }
-        });
-    } else {
-        saveProjectData(id, title, link, imagePath);
+        })();
+        return;
     }
+
+    saveProjectData(id, title, link, imagePath);
 }
 
 // 保存项目数据
@@ -547,11 +557,8 @@ function initSocialSection() {
     document.getElementById('social-custom-icon-upload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('social-custom-icon-preview').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            const url = URL.createObjectURL(file);
+            document.getElementById('social-custom-icon-preview').src = url;
         }
     });
 }
@@ -703,14 +710,26 @@ function saveSocial() {
         const iconFile = document.getElementById('social-custom-icon-upload').files[0];
         if (iconFile) {
             shouldProcessIcon = true;
-            loadImage(iconFile, function(dataUrl) {
-                if (dataUrl) {
-                    iconPath = dataUrl;
-                    saveSocialData(id, type, name, link, iconPath);
-                } else {
-                    saveSocialData(id, type, name, link, iconPath);
+            (async () => {
+                try {
+                    if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
+                        const uploaded = await window.cloudflareApi.uploadAdminAsset(iconFile);
+                        iconPath = uploaded.url;
+                        saveSocialData(id, type, name, link, iconPath);
+                        return;
+                    }
+
+                    loadImage(iconFile, function(dataUrl) {
+                        if (dataUrl) {
+                            iconPath = dataUrl;
+                        }
+                        saveSocialData(id, type, name, link, iconPath);
+                    });
+                } catch (e) {
+                    console.error('社交图标上传失败:', e);
+                    showMessage(`社交图标上传失败: ${e.message}`, 'error');
                 }
-            });
+            })();
         }
     }
     

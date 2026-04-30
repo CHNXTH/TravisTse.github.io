@@ -23,27 +23,40 @@ function initProfileSection() {
     avatarUpload.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('current-avatar').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            // local preview only (do not store base64 in websiteData)
+            const url = URL.createObjectURL(file);
+            document.getElementById('current-avatar').src = url;
         }
     });
     
     // 保存头像按钮
-    document.getElementById('save-avatar').addEventListener('click', function() {
+    document.getElementById('save-avatar').addEventListener('click', async function() {
         const file = avatarUpload.files[0];
         if (file) {
-            loadImage(file, function(dataUrl) {
-                if (dataUrl) {
-                    // 保存头像
+            try {
+                // Prefer uploading to Cloudflare (R2) to avoid localStorage base64 limits.
+                if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
+                    const uploaded = await window.cloudflareApi.uploadAdminAsset(file);
                     websiteData.profile = websiteData.profile || {};
-                    websiteData.profile.avatar = dataUrl;
-                    saveWebsiteData();
-                    showMessage('头像已更新', 'success');
+                    websiteData.profile.avatar = uploaded.url;
+                    await saveWebsiteData();
+                    showMessage('头像已上传并更新', 'success');
+                    return;
                 }
-            });
+
+                // Fallback (local-only): still uses base64 and may hit localStorage limits.
+                loadImage(file, function(dataUrl) {
+                    if (dataUrl) {
+                        websiteData.profile = websiteData.profile || {};
+                        websiteData.profile.avatar = dataUrl;
+                        saveWebsiteData();
+                        showMessage('头像已更新(本地缓存)', 'success');
+                    }
+                });
+            } catch (e) {
+                console.error('头像上传失败:', e);
+                showMessage(`头像上传失败: ${e.message}`, 'error');
+            }
         } else {
             showMessage('请先选择头像图片', 'warning');
         }
@@ -312,11 +325,8 @@ function initExperienceSection() {
     logoUpload.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('exp-logo-preview').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            const url = URL.createObjectURL(file);
+            document.getElementById('exp-logo-preview').src = url;
         }
     });
 }
@@ -522,17 +532,30 @@ function saveExperience() {
     
     // 如果有新上传的Logo，需要先处理Logo上传
     if (logoFile) {
-        loadImage(logoFile, function(dataUrl) {
-            if (dataUrl) {
-                logoPath = dataUrl;
-                saveExperienceData(id, company, meta, time, detailsText, logoPath);
-            } else {
-                saveExperienceData(id, company, meta, time, detailsText, logoPath);
+        (async () => {
+            try {
+                if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
+                    const uploaded = await window.cloudflareApi.uploadAdminAsset(logoFile);
+                    logoPath = uploaded.url;
+                    saveExperienceData(id, company, meta, time, detailsText, logoPath);
+                    return;
+                }
+
+                loadImage(logoFile, function(dataUrl) {
+                    if (dataUrl) {
+                        logoPath = dataUrl;
+                    }
+                    saveExperienceData(id, company, meta, time, detailsText, logoPath);
+                });
+            } catch (e) {
+                console.error('Logo上传失败:', e);
+                showMessage(`Logo上传失败: ${e.message}`, 'error');
             }
-        });
-    } else {
-        saveExperienceData(id, company, meta, time, detailsText, logoPath);
+        })();
+        return;
     }
+
+    saveExperienceData(id, company, meta, time, detailsText, logoPath);
 }
 
 // 保存工作经历数据
