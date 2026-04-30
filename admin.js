@@ -539,6 +539,13 @@ async function forceCloudSyncFromSiteIfEmpty() {
 }
 
 async function fetchHomeDocument() {
+    // When admin is opened via file://, browsers generally block fetch() for local files.
+    // In that case, fall back to a file picker so the user can select index.html manually.
+    if (window.location && window.location.protocol === 'file:') {
+        showMessage('检测到通过本地文件(file://)打开后台，无法自动读取主页。请在弹窗中选择你的 index.html 用于同步。', 'warning');
+        return await pickHomeDocumentFromFile();
+    }
+
     const tried = [];
     const origin = window.location.origin;
     const pathname = window.location.pathname || '/';
@@ -563,6 +570,47 @@ async function fetchHomeDocument() {
     }
 
     throw new Error(`无法加载主页 index.html（已尝试：${tried.join(', ')}）`);
+}
+
+function pickHomeDocumentFromFile() {
+    return new Promise((resolve, reject) => {
+        try {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'text/html,.html';
+            input.style.position = 'fixed';
+            input.style.left = '-9999px';
+
+            input.addEventListener('change', () => {
+                const file = input.files && input.files[0];
+                input.remove();
+
+                if (!file) {
+                    reject(new Error('未选择文件'));
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const html = String(reader.result || '');
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        resolve(doc);
+                    } catch (e) {
+                        reject(new Error('解析 index.html 失败，请确认选择的是主页文件'));
+                    }
+                };
+                reader.onerror = () => reject(new Error('读取文件失败，请重试'));
+                reader.readAsText(file);
+            }, { once: true });
+
+            document.body.appendChild(input);
+            input.click();
+        } catch (e) {
+            reject(new Error('无法打开文件选择器，请改用 https 方式打开 admin.html'));
+        }
+    });
 }
 
 function assertExtractedContentUseful(extracted, actionLabel) {
