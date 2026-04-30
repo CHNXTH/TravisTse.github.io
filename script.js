@@ -199,6 +199,31 @@ function reorganizeHeroLayout() {
     // 创建个人信息容器
     const heroInfo = document.createElement('div');
     heroInfo.className = 'hero-info';
+
+    const kicker = document.createElement('div');
+    kicker.className = 'hero-kicker';
+    kicker.setAttribute('data-en', "HELLO, I'M");
+    kicker.setAttribute('data-zh', '你好，我是');
+    kicker.innerHTML = `<span class="hero-kicker-dot" aria-hidden="true"></span><span class="hero-kicker-text">HELLO, I'M</span>`;
+
+    const summary = document.createElement('p');
+    summary.className = 'hero-summary';
+    summary.setAttribute(
+        'data-en',
+        'AI product + interaction design, with an architecture background. I care about clarity, craft, and shipping things people actually use.'
+    );
+    summary.setAttribute(
+        'data-zh',
+        'AI 产品与交互设计方向，建筑背景出身。我关注清晰表达、体验细节，以及把真正能用的东西做出来。'
+    );
+    summary.textContent = summary.getAttribute('data-en');
+
+    const cta = document.createElement('div');
+    cta.className = 'hero-cta';
+    cta.innerHTML = `
+        <a class="hero-btn hero-btn-primary" href="#experience">Explore Experience</a>
+        <a class="hero-btn hero-btn-ghost" href="#recent-projects">View Projects</a>
+    `;
     
     // 创建位置信息
     const locationInfo = document.createElement('div');
@@ -208,9 +233,12 @@ function reorganizeHeroLayout() {
     locationInfo.style.alignItems = 'center';
     
     // 重组结构
+    heroInfo.appendChild(kicker);
     heroInfo.appendChild(nameElement.cloneNode(true));
     heroInfo.appendChild(locationInfo);
     heroInfo.appendChild(contactInfo.cloneNode(true));
+    heroInfo.appendChild(summary);
+    heroInfo.appendChild(cta);
     
     // 将头像和信息容器添加到hero内容容器
     heroContent.appendChild(avatarContainer);
@@ -466,12 +494,12 @@ function initLanguageToggle() {
     }
     
     // 更新页面语言
-    function updatePageLanguage() {
-        // 更新导航链接
-        document.querySelectorAll('.nav-link').forEach(link => {
-            const key = link.getAttribute('href').substring(1);
-            link.textContent = translations[currentLang][`nav_${key}`];
-        });
+	    function updatePageLanguage() {
+	        // 更新导航链接
+	        document.querySelectorAll('.nav-link').forEach(link => {
+	            const key = link.getAttribute('href').substring(1);
+	            link.textContent = translations[currentLang][`nav_${key}`];
+	        });
         
         // 更新侧边栏链接
         document.querySelectorAll('.sidebar-link').forEach(link => {
@@ -487,15 +515,47 @@ function initLanguageToggle() {
             }
         });
         
-        // 更新姓名显示
-        if (nameElement) {
-            nameElement.textContent = nameElement.getAttribute(`data-${currentLang}`);
-        }
-        
-        // 更新教育经历
-        const educationItems = document.querySelectorAll('.education-item');
-        if(educationItems.length >= 3) {
-            // 香港城市大学
+	        // 更新姓名显示
+	        if (nameElement) {
+	            nameElement.textContent = nameElement.getAttribute(`data-${currentLang}`);
+	        }
+
+	        // 更新Hero文案（桌面端展示）
+	        const heroKicker = document.querySelector('.hero-kicker');
+	        if (heroKicker) {
+	            const kickerText = heroKicker.getAttribute(`data-${currentLang}`) || heroKicker.getAttribute('data-en') || '';
+	            const kickerSpan = heroKicker.querySelector('.hero-kicker-text');
+	            if (kickerSpan) kickerSpan.textContent = kickerText;
+	        }
+
+	        const heroSummary = document.querySelector('.hero-summary');
+	        if (heroSummary) {
+	            heroSummary.textContent = heroSummary.getAttribute(`data-${currentLang}`) || heroSummary.getAttribute('data-en') || heroSummary.textContent;
+	        }
+
+	        const heroCta = document.querySelector('.hero-cta');
+	        if (heroCta) {
+	            const ctaMap = {
+	                'en': ['Explore Experience', 'View Projects'],
+	                'zh-CN': ['查看经历', '查看项目'],
+	                'zh-TW': ['查看經歷', '查看項目']
+	            };
+	            const [t1, t2] = ctaMap[currentLang] || ctaMap.en;
+	            const links = heroCta.querySelectorAll('a');
+	            if (links[0]) links[0].textContent = t1;
+	            if (links[1]) links[1].textContent = t2;
+	        }
+
+	        // 更新Hero位置
+	        const locationEl = document.querySelector('.location-info');
+	        if (locationEl && translations[currentLang]['location']) {
+	            locationEl.innerHTML = `<i class="fas fa-map-marker-alt"></i>${translations[currentLang]['location']}`;
+	        }
+	        
+	        // 更新教育经历
+	        const educationItems = document.querySelectorAll('.education-item');
+	        if(educationItems.length >= 3) {
+	            // 香港城市大学
             const cityU = educationItems[0];
             cityU.querySelector('h3').textContent = translations[currentLang]['education_cityu'];
             cityU.querySelector('.education-meta').textContent = translations[currentLang]['education_cityu_meta'];
