@@ -2605,3 +2605,42 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   }
 } 
+
+/* ---------------------------------------------------------------------------
+   Cursor overrides (must be late in the file)
+   Some components set `cursor: pointer;` later in the stylesheet, which can
+   override the SVG cursor. This block forces the custom cursors on desktop
+   for all interactive UI (without affecting mobile/touch).
+--------------------------------------------------------------------------- */
+@media (hover: hover) and (pointer: fine) {
+  html,
+  body {
+    cursor: url("assets/cursor/cursor-arrow.svg") 6 5, auto !important;
+  }
+
+  /* Interactive targets across the site */
+  a,
+  button,
+  [role="button"],
+  input,
+  textarea,
+  select,
+  label,
+  .nav-link,
+  #search-button,
+  #language-toggle,
+  .hamburger-menu,
+  .search-result-item,
+  .search-close,
+  .experience-header,
+  .experience-toggle,
+  .carousel-prev,
+  .carousel-next,
+  .dot,
+  .floating-chat-button,
+  .hero-btn,
+  .experience-logo,
+  .project-link {
+    cursor: url("assets/cursor/cursor-hand.svg") 11 7, pointer !important;
+  }
+}
