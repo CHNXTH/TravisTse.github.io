@@ -807,7 +807,10 @@ function initLanguageToggle() {
         }
         
         // 更新页脚版权信息
-        document.querySelector('footer p').textContent = translations[currentLang]['footer_copyright'];
+        const copyrightEl = document.getElementById('copyright-text') || document.querySelector('footer p');
+        if (copyrightEl) {
+            copyrightEl.textContent = translations[currentLang]['footer_copyright'];
+        }
         
         // 更新语言切换按钮文本
         langText.textContent = translations[currentLang]['lang_toggle'];
@@ -2164,6 +2167,351 @@ function initExperienceExpandCollapse(options = {}) {
 
 window.initExperienceExpandCollapse = initExperienceExpandCollapse;
 
+function initConnectWaveFooter() {
+    const canvas = document.getElementById('connect-wave-canvas');
+    if (!canvas) return false;
+
+    // Respect reduced motion preferences.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return false;
+
+    const section = canvas.closest('.connect-footer-section') || canvas.parentElement;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx || !section) return false;
+
+    let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    let w = 0;
+    let h = 0;
+
+    // Pointer state (desktop) + inertia on leave.
+    const pointerFine = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const pointer = {
+        active: false,
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        targetX: 0,
+        targetY: 0,
+        lastX: 0,
+        lastY: 0,
+        lastT: 0,
+    };
+
+    function getVar(name, fallback) {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    }
+
+    function resize() {
+        const rect = section.getBoundingClientRect();
+        w = Math.max(1, Math.floor(rect.width));
+        h = Math.max(1, Math.floor(rect.height));
+        dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    resize();
+
+    const state = {
+        t: 0,
+        grid: [],
+        cols: 0,
+        rows: 0,
+        tmp: null,
+    };
+
+    function buildGrid() {
+        // 3D "space wave" point field: a regular grid in X-Z with perspective projection.
+        const cols = Math.max(72, Math.min(150, Math.floor(w / 9)));
+        const rows = Math.max(30, Math.min(66, Math.floor(h / 13)));
+        state.cols = cols;
+        state.rows = rows;
+        state.grid = new Array(cols * rows);
+
+        // Depth distribution: far (large z) is denser, near is sparser.
+        // t: 0..1 from near->far. Use ease-out curve so samples pack towards far end.
+        // Stronger depth non-linearity so far field packs tighter (more "distance" feel).
+        const zGamma = 3.25;
+        for (let zi = 0; zi < rows; zi++) {
+            const t = zi / (rows - 1);
+            const v = 1 - Math.pow(1 - t, zGamma);
+            for (let xi = 0; xi < cols; xi++) {
+                const u = xi / (cols - 1);
+                const s = 0.92 + 0.32 * (0.5 + 0.5 * Math.sin(xi * 0.28 + zi * 0.18));
+                state.grid[zi * cols + xi] = { u, v, size: s };
+            }
+        }
+
+        state.tmp = null;
+    }
+
+    buildGrid();
+
+    function onPointerMove(e) {
+        const rect = section.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const now = performance.now();
+
+        if (!pointer.active) {
+            pointer.active = true;
+            pointer.lastT = now;
+            pointer.lastX = x;
+            pointer.lastY = y;
+        }
+
+        const dt = Math.max(8, now - pointer.lastT);
+        pointer.vx = (x - pointer.lastX) / dt;
+        pointer.vy = (y - pointer.lastY) / dt;
+        pointer.lastT = now;
+        pointer.lastX = x;
+        pointer.lastY = y;
+
+        pointer.targetX = x;
+        pointer.targetY = y;
+    }
+
+    function onPointerEnter(e) {
+        if (!pointerFine) return;
+        onPointerMove(e);
+    }
+
+    function onPointerLeave() {
+        if (!pointerFine) return;
+        // Keep the last position (no snap-back) and add a tiny inertial drift.
+        pointer.active = false;
+        pointer.targetX = pointer.lastX + pointer.vx * 220;
+        pointer.targetY = pointer.lastY + pointer.vy * 220;
+    }
+
+    if (pointerFine) {
+        section.addEventListener('pointerenter', onPointerEnter, { passive: true });
+        section.addEventListener('pointermove', onPointerMove, { passive: true });
+        section.addEventListener('pointerleave', onPointerLeave, { passive: true });
+    }
+
+    let rafId = 0;
+    let lastFrameT = performance.now();
+
+    function tick() {
+        const nowT = performance.now();
+        const dtMs = Math.min(48, Math.max(8, nowT - lastFrameT));
+        lastFrameT = nowT;
+        // Slower, more "gentle" motion.
+        state.t += (dtMs / 1000) * 0.55;
+
+        // Smoothly follow target; when not active, ease towards inertial target.
+        const follow = pointer.active ? 0.12 : 0.06;
+        pointer.x += (pointer.targetX - pointer.x) * follow;
+        pointer.y += (pointer.targetY - pointer.y) * follow;
+
+        // Gentle decay of inertial target so it doesn't drift forever.
+        if (!pointer.active) {
+            pointer.targetX += (w * 0.5 - pointer.targetX) * 0.003;
+            pointer.targetY += (h * 0.60 - pointer.targetY) * 0.003;
+        }
+
+        ctx.clearRect(0, 0, w, h);
+
+        const dot = getVar('--connect-wave-dot', 'rgba(0,0,0,0.10)');
+        const dotStrong = getVar('--connect-wave-dot-strong', 'rgba(0,0,0,0.16)');
+
+        // Keep the footer clean: no "random dust" layer (it reads as noisy/chaotic).
+
+        const mx = pointerFine ? pointer.x : w * 0.5;
+        const my = pointerFine ? pointer.y : h * 0.55;
+
+        const pu = Math.max(0, Math.min(1, mx / w));
+        const pv = Math.max(0, Math.min(1, my / h));
+
+        const worldW = w * 1.35;
+        const depth = Math.max(650, Math.min(1100, w * 0.95));
+        const baseY = h * 0.52;
+
+        // Camera controls (subtle): yaw responds to pointer X; pitch responds to pointer Y.
+        const yaw = (pu - 0.5) * 0.38;
+        const pitch = -0.62 + (pv - 0.5) * 0.22;
+        const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+        const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+
+        // Perspective
+        const f = Math.max(720, Math.min(1200, w * 1.05));
+
+        const t = state.t;
+        // Make near field more dynamic and far field calmer (near "deep", far "shallow").
+        const ampNear = Math.min(48, h * 0.14);
+        const ampFar = Math.min(7, h * 0.022);
+
+        // Pointer ripple center in world space
+        const rippleX = (pu - 0.5) * worldW;
+        const rippleZ = (0.15 + pv * 0.75) * depth;
+        const rippleR2 = Math.max((worldW * 0.20) ** 2, 260 ** 2);
+
+        // Project all points once, then draw faint neighbor links + points.
+        const cols = state.cols || 0;
+        const rows = state.rows || 0;
+        const n = state.grid.length;
+        if (!state.tmp || state.tmp.n !== n) {
+            state.tmp = {
+                n,
+                sx: new Float32Array(n),
+                sy: new Float32Array(n),
+                depthK: new Float32Array(n),
+                alpha: new Float32Array(n),
+                size: new Float32Array(n),
+                fall: new Float32Array(n),
+                on: new Uint8Array(n),
+            };
+        }
+
+        const tmp = state.tmp;
+        for (let i = 0; i < n; i++) {
+            const p = state.grid[i];
+            const x = (p.u - 0.5) * worldW;
+            const z = p.v * depth;
+            const depthK = z / depth;
+            const nearK = 1 - depthK;
+            const amp = ampNear * (1 - depthK) + ampFar * depthK;
+
+            const nx = (p.u - 0.5);
+            const nz = depthK;
+            const wave =
+                Math.sin((nx * 1.85 + t * 0.55) * Math.PI * 2) * amp * 0.56 +
+                Math.sin((nz * 2.45 + t * 0.44) * Math.PI * 2) * amp * 0.52 +
+                Math.sin(((nx * 1.10 + nz * 0.98) * 1.75 + t * 0.35) * Math.PI * 2) * amp * 0.32;
+
+            const dx = x - rippleX;
+            const dz = z - rippleZ;
+            const dist2 = dx * dx + dz * dz;
+            const fall = Math.exp(-dist2 / rippleR2);
+            const ripple = Math.sin(t * 1.35 - Math.sqrt(dist2) / 54) * (amp * 0.85) * fall;
+            const y = wave + ripple;
+
+            let xr = x * cosY + z * sinY;
+            let zr = -x * sinY + z * cosY;
+            let yr = y;
+
+            const yr2 = yr * cosP - zr * sinP;
+            const zr2 = yr * sinP + zr * cosP;
+            yr = yr2;
+            zr = zr2;
+
+            zr += f * 0.55;
+            const scale = f / (f + zr);
+
+            const sx = w * 0.5 + xr * scale;
+            const sy = baseY + yr * scale;
+            const on = !(sx < -30 || sx > w + 30 || sy < -30 || sy > h + 30);
+
+            tmp.sx[i] = sx;
+            tmp.sy[i] = sy;
+            tmp.depthK[i] = depthK;
+            tmp.fall[i] = fall;
+            tmp.size[i] = (0.88 + nearK * 2.05) * p.size * scale;
+            // Stronger depth contrast: far fades quickly, near stays visible.
+            const alphaDepth = Math.pow(Math.max(0, nearK), 1.25);
+            tmp.alpha[i] = (0.010 + alphaDepth * 0.24) * (0.76 + 0.24 * fall);
+            tmp.on[i] = on ? 1 : 0;
+        }
+
+        // Very subtle neighbor links: draw from far->near so overlap feels "3D".
+        // Only connect right + down neighbors (near-neighbor graph).
+        const linkBase = 0.040;
+        ctx.lineWidth = 1;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = dot;
+
+        for (let pass = 0; pass < 2; pass++) {
+            for (let zi = 0; zi < rows; zi++) {
+                for (let xi = 0; xi < cols; xi++) {
+                    const i = zi * cols + xi;
+                    if (!tmp.on[i]) continue;
+
+                    const d = tmp.depthK[i];
+                    if (pass === 0 && d < 0.5) continue;
+                    if (pass === 1 && d >= 0.5) continue;
+
+                    // Depth fade: far links are fainter, near links a bit stronger.
+                    const nearK = 1 - d;
+                    const aDepth = Math.pow(Math.max(0, nearK), 1.15);
+                    const a = Math.min(0.16, linkBase + aDepth * 0.11) * (0.62 + 0.38 * tmp.fall[i]);
+                    if (a <= 0.01) continue;
+
+                    const x0 = tmp.sx[i], y0 = tmp.sy[i];
+                    ctx.globalAlpha = a;
+
+                    // Right neighbor
+                    if (xi + 1 < cols) {
+                        const j = i + 1;
+                        if (tmp.on[j]) {
+                            ctx.beginPath();
+                            ctx.moveTo(x0, y0);
+                            ctx.lineTo(tmp.sx[j], tmp.sy[j]);
+                            ctx.stroke();
+                        }
+                    }
+                    // Down neighbor
+                    if (zi + 1 < rows) {
+                        const j = i + cols;
+                        if (tmp.on[j]) {
+                            ctx.beginPath();
+                            ctx.moveTo(x0, y0);
+                            ctx.lineTo(tmp.sx[j], tmp.sy[j]);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Points (far->near) so "near" sits on top.
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < n; i++) {
+                if (!tmp.on[i]) continue;
+                const d = tmp.depthK[i];
+                if (pass === 0 && d < 0.5) continue;
+                if (pass === 1 && d >= 0.5) continue;
+
+                ctx.globalAlpha = tmp.alpha[i];
+                ctx.fillStyle = tmp.fall[i] > 0.25 ? dotStrong : dot;
+                ctx.beginPath();
+                ctx.arc(tmp.sx[i], tmp.sy[i], tmp.size[i], 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.globalAlpha = 1;
+        rafId = requestAnimationFrame(tick);
+    }
+
+    rafId = requestAnimationFrame(tick);
+
+    const ro = new ResizeObserver(() => {
+        resize();
+        buildGrid();
+    });
+    ro.observe(section);
+
+    // Expose a tiny handle for debugging if needed.
+    canvas.__waveCleanup = () => {
+        cancelAnimationFrame(rafId);
+        ro.disconnect();
+        if (pointerFine) {
+            section.removeEventListener('pointerenter', onPointerEnter);
+            section.removeEventListener('pointermove', onPointerMove);
+            section.removeEventListener('pointerleave', onPointerLeave);
+        }
+    };
+
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     initExperienceExpandCollapse({ reset: true });
+    initConnectWaveFooter();
 });
