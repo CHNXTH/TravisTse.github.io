@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     reorganizeHeroLayout();
     updateDynamicAgeDisplays();
     initHeroPointerDispersion();
+    initCustomCursor();
 
     // 项目轮播功能
     initProjectsCarousel();
@@ -156,6 +157,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+function initCustomCursor() {
+    const root = document.documentElement;
+
+    const canHover = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!canHover || reduceMotion) return;
+
+    if (root.classList.contains('has-custom-cursor')) return;
+    root.classList.add('has-custom-cursor');
+
+    const dot = document.createElement('div');
+    dot.className = 'custom-cursor-dot';
+    const ring = document.createElement('div');
+    ring.className = 'custom-cursor-ring';
+    document.body.appendChild(ring);
+    document.body.appendChild(dot);
+
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let ringX = targetX;
+    let ringY = targetY;
+    let rafId = 0;
+    let hasMoved = false;
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    const render = () => {
+        rafId = 0;
+        if (!hasMoved) return;
+        ringX = lerp(ringX, targetX, 0.18);
+        ringY = lerp(ringY, targetY, 0.18);
+        ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate3d(-50%, -50%, 0)`;
+        dot.style.transform = `translate3d(${targetX}px, ${targetY}px, 0) translate3d(-50%, -50%, 0)`;
+        rafId = window.requestAnimationFrame(render);
+    };
+
+    const schedule = () => {
+        if (!rafId) rafId = window.requestAnimationFrame(render);
+    };
+
+    const onMove = (e) => {
+        hasMoved = true;
+        targetX = e.clientX;
+        targetY = e.clientY;
+        schedule();
+    };
+
+    const onDown = () => ring.classList.add('is-down');
+    const onUp = () => ring.classList.remove('is-down');
+
+    const isInteractive = (el) => !!(el && el.closest('a, button, .hero-btn, .experience-logo, .project-link, input, textarea, select, label'));
+    const onOver = (e) => { if (isInteractive(e.target)) ring.classList.add('is-hover'); };
+    const onOut = (e) => {
+        const to = e.relatedTarget;
+        if (to && isInteractive(to)) return;
+        ring.classList.remove('is-hover');
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerdown', onDown, { passive: true });
+    window.addEventListener('pointerup', onUp, { passive: true });
+    window.addEventListener('pointercancel', onUp, { passive: true });
+    document.addEventListener('pointerover', onOver, { passive: true });
+    document.addEventListener('pointerout', onOut, { passive: true });
+}
 
 function initHeroPointerDispersion() {
     const heroContainer = document.querySelector('.hero .container');
