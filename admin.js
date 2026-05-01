@@ -115,7 +115,11 @@ function initDefaultData() {
 	            email: 'chnxth@gmail.com',
 	            location: 'Shanghai',
 	            avatar: 'assets/images/avatar.jpg',
-	            flipAvatar: 'assets/images/avatar.jpg'
+	            flipAvatar: 'assets/images/avatar.jpg',
+	            summaryEn:
+	                'AI product + interaction design, with an architecture background. I care about clarity, craft, and shipping things people actually use.',
+	            summaryZh:
+	                'AI 产品与交互设计方向，建筑背景出身。我关注清晰表达、体验细节，以及把真正能用的东西做出来。'
 	        },
         education: [],
         experience: [],

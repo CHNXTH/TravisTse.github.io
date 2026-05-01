@@ -12,6 +12,8 @@ function initProfileSection() {
     document.getElementById('phone').value = profile.phone || '';
     document.getElementById('email').value = profile.email || '';
     document.getElementById('location').value = profile.location || '';
+    document.getElementById('summary-en').value = profile.summaryEn || '';
+    document.getElementById('summary-zh').value = profile.summaryZh || '';
     
     // 显示当前头像
     if (profile.avatar) {
@@ -119,6 +121,8 @@ function initProfileSection() {
         const phone = document.getElementById('phone').value.trim();
         const email = document.getElementById('email').value.trim();
         const location = document.getElementById('location').value.trim();
+        const summaryEn = document.getElementById('summary-en').value.trim();
+        const summaryZh = document.getElementById('summary-zh').value.trim();
         
         // 验证数据
         if (!nameEn || !nameZh) {
@@ -134,6 +138,8 @@ function initProfileSection() {
         websiteData.profile.phone = phone;
         websiteData.profile.email = email;
         websiteData.profile.location = location;
+        websiteData.profile.summaryEn = summaryEn;
+        websiteData.profile.summaryZh = summaryZh;
         
         saveWebsiteData();
         showMessage('个人信息已保存', 'success');

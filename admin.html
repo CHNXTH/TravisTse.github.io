@@ -119,14 +119,24 @@
                                 <label for="email">电子邮箱</label>
                                 <input type="email" id="email" placeholder="电子邮箱" value="chnxth@gmail.com">
                             </div>
-                            <div class="form-group">
-                                <label for="location">所在城市</label>
-                                <input type="text" id="location" placeholder="所在城市" value="Shanghai">
-                            </div>
-                            <button class="admin-btn" id="save-profile">保存信息</button>
-                        </div>
-                    </div>
-                </section>
+	                            <div class="form-group">
+	                                <label for="location">所在城市</label>
+	                                <input type="text" id="location" placeholder="所在城市" value="Shanghai">
+	                            </div>
+	                            <div class="form-group">
+	                                <label for="summary-en">个人简介（英文，支持颜色标注）</label>
+	                                <textarea id="summary-en" placeholder="Hero 英文简介"></textarea>
+	                                <p class="help-text">支持自动高亮关键词；也支持手动标注：[[type:AI]] [[kw:architecture]] [[fn:shipping]] [[var:interaction design]]</p>
+	                            </div>
+	                            <div class="form-group">
+	                                <label for="summary-zh">个人简介（中文，支持颜色标注）</label>
+	                                <textarea id="summary-zh" placeholder="Hero 中文简介"></textarea>
+	                                <p class="help-text">同上：可以用 [[type:AI]] / [[kw:建筑]] 等手动标注。</p>
+	                            </div>
+	                            <button class="admin-btn" id="save-profile">保存信息</button>
+	                        </div>
+	                    </div>
+	                </section>
 
                 <!-- 教育经历部分 -->
                 <section id="education-section" class="admin-section">

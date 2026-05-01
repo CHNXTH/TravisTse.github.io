@@ -143,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    // 重组hero区域布局
 	    reorganizeHeroLayout();
 	    initAvatarFlip();
+	    initHeroSummaryTypingOnce();
 	    updateDynamicAgeDisplays();
 	    initHeroPointerDispersion();
 
@@ -509,6 +510,39 @@ function buildHighlightedHtml(text, rules) {
     return out;
 }
 
+function parseManualHighlightMarkup(raw) {
+    // Format: [[type:AI]] [[kw:architecture]] [[fn:shipping]] [[var:interaction design]]
+    // Unknown tokens fall back to plain text (escaped).
+    const src = String(raw || '');
+    if (!src.includes('[[')) return null;
+
+    const tokenToClass = {
+        kw: 'code-tok-kw',
+        type: 'code-tok-type',
+        fn: 'code-tok-fn',
+        var: 'code-tok-var',
+        str: 'code-tok-str',
+        num: 'code-tok-num',
+        op: 'code-tok-op'
+    };
+
+    let out = '';
+    let i = 0;
+    const re = /\[\[\s*([a-zA-Z]+)\s*:\s*([\s\S]*?)\s*\]\]/g;
+    let m;
+    while ((m = re.exec(src))) {
+        out += escapeHtml(src.slice(i, m.index));
+        const key = String(m[1] || '').toLowerCase();
+        const text = String(m[2] || '');
+        const cls = tokenToClass[key];
+        if (cls) out += `<span class="${cls}">${escapeHtml(text)}</span>`;
+        else out += escapeHtml(m[0]);
+        i = m.index + m[0].length;
+    }
+    out += escapeHtml(src.slice(i));
+    return out;
+}
+
 function setHeroSummaryHighlighted(summaryEl, lang) {
     if (!summaryEl) return;
     const raw =
@@ -516,6 +550,13 @@ function setHeroSummaryHighlighted(summaryEl, lang) {
         summaryEl.getAttribute('data-en') ||
         summaryEl.textContent ||
         '';
+
+    // 1) Manual markup wins (lets admin assign colors precisely).
+    const manual = parseManualHighlightMarkup(raw);
+    if (manual != null) {
+        summaryEl.innerHTML = manual;
+        return;
+    }
 
     const enRules = [
         { re: /\bAI\b/i, cls: 'code-tok-type' },
@@ -537,6 +578,103 @@ function setHeroSummaryHighlighted(summaryEl, lang) {
 
     const rules = lang && String(lang).toLowerCase().startsWith('zh') ? zhRules : enRules;
     summaryEl.innerHTML = buildHighlightedHtml(raw, rules);
+}
+
+// Expose for admin-sync updates.
+window.setHeroSummaryHighlighted = setHeroSummaryHighlighted;
+
+function buildHeroSummaryTokens(rootEl) {
+    // Turn the highlighted markup into a flat token stream so we can animate "word by word"
+    // while preserving code-highlight spans.
+    const tokens = [];
+
+    const walk = (node, classes) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.nodeValue || '';
+            // Keep punctuation attached to the word (same token) to avoid weird spacing.
+            const parts = text.split(/(\s+)/);
+            for (const p of parts) {
+                if (!p) continue;
+                if (/^\s+$/.test(p)) {
+                    tokens.push({ type: 'space', text: p });
+                } else {
+                    tokens.push({ type: 'word', text: p, classes });
+                }
+            }
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const el = node;
+        const nextClasses = el.classList && el.classList.length
+            ? Array.from(new Set([...(classes || []), ...Array.from(el.classList)]))
+            : classes;
+
+        for (const child of Array.from(el.childNodes)) {
+            walk(child, nextClasses);
+        }
+    };
+
+    walk(rootEl, []);
+    return tokens;
+}
+
+function renderHeroSummaryTyping(summaryEl, lang) {
+    if (!summaryEl) return;
+
+    // Ensure we start from highlighted markup.
+    setHeroSummaryHighlighted(summaryEl, lang);
+    const tokens = buildHeroSummaryTokens(summaryEl);
+
+    // Rebuild with animated spans
+    summaryEl.innerHTML = '';
+    let delay = 0;
+    const step = 70; // ms per word
+    const maxDelay = 3200; // cap so it doesn't take forever on longer sentences
+
+    for (const t of tokens) {
+        if (t.type === 'space') {
+            // Keep a consistent, small space (avoid multiple spaces causing jitter)
+            summaryEl.appendChild(document.createTextNode(' '));
+            continue;
+        }
+        const span = document.createElement('span');
+        span.className = `typed-word${t.classes && t.classes.length ? ' ' + t.classes.join(' ') : ''}`;
+        span.textContent = t.text;
+        span.style.animationDelay = `${Math.min(delay, maxDelay)}ms`;
+        summaryEl.appendChild(span);
+        summaryEl.appendChild(document.createTextNode(' '));
+        delay += step;
+    }
+}
+
+let heroSummaryTypingActive = false;
+function stopHeroSummaryTyping() {
+    heroSummaryTypingActive = false;
+}
+window.stopHeroSummaryTyping = stopHeroSummaryTyping;
+
+function initHeroSummaryTypingOnce() {
+    const summaryEl = document.querySelector('.hero-summary');
+    if (!summaryEl) return;
+
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    // Only run on first page open/refresh (per-tab session).
+    const key = 'heroSummaryTypedV1';
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+
+    // Prevent live sync updates from fighting the animation.
+    heroSummaryTypingActive = true;
+    const lang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
+
+    // Small delay so initial sync (if any) can set profile.summary first.
+    window.setTimeout(() => {
+        if (!heroSummaryTypingActive) return;
+        renderHeroSummaryTyping(summaryEl, lang);
+    }, 180);
 }
 
 // 语言切换功能

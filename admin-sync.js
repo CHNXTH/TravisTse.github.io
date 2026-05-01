@@ -772,6 +772,23 @@ function updateProfileFrontend() {
     if (locationInfo) {
         locationInfo.innerHTML = `<i class="fas fa-map-marker-alt"></i>${profile.location || 'Shanghai'}`;
     }
+
+    // 更新 Hero 简介内容（并保持代码高亮）
+    const heroSummary = document.querySelector('.hero-summary');
+    if (heroSummary) {
+        if (profile.summaryEn) heroSummary.setAttribute('data-en', profile.summaryEn);
+        if (profile.summaryZh) heroSummary.setAttribute('data-zh', profile.summaryZh);
+
+        const currentLang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
+        if (typeof window.setHeroSummaryHighlighted === 'function') {
+            window.setHeroSummaryHighlighted(heroSummary, currentLang);
+        }
+
+        // If typing is active, stop it (content is being updated live).
+        if (typeof window.stopHeroSummaryTyping === 'function') {
+            window.stopHeroSummaryTyping();
+        }
+    }
 }
 
 // 更新教育经历前端

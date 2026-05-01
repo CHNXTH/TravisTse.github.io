@@ -623,6 +623,24 @@ main {
   word-break: break-word;
 }
 
+.hero-summary .typed-word {
+  opacity: 0;
+  display: inline-block;
+  transform: translateY(2px);
+  animation: heroWordIn 340ms ease forwards;
+  will-change: opacity, transform;
+}
+
+.hero-summary .typed-space {
+  display: inline-block;
+  width: 0.28em;
+}
+
+@keyframes heroWordIn {
+  from { opacity: 0; transform: translateY(6px); filter: blur(0.6px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
 .hero-summary .code-tok-kw { color: var(--code-tok-kw); }
 .hero-summary .code-tok-type { color: var(--code-tok-type); }
 .hero-summary .code-tok-fn { color: var(--code-tok-fn); }
