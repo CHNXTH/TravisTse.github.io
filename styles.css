@@ -2176,42 +2176,31 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #9447FF, #F165F8, #6F9EFF);
-    background-size: 300% 300%;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    /* Figma-like: calm blue orb */
+    background: radial-gradient(120% 120% at 30% 22%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%),
+                linear-gradient(135deg, #2C7BFF 0%, #0A5BFF 55%, #0848D6 100%);
+    box-shadow: 0 10px 24px rgba(0, 60, 190, 0.28), 0 6px 18px rgba(0, 0, 0, 0.22);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
     cursor: pointer;
     transition: all 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28); /* 苹果风格的弹性动画 */
-    animation: floatingPulse 3s ease-in-out infinite, gradientShift 8s ease infinite;
+    animation: floatingPulse 3.2s ease-in-out infinite;
 }
 
 @keyframes floatingPulse {
     0% {
         transform: scale(1);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 10px 24px rgba(0, 60, 190, 0.26), 0 6px 18px rgba(0, 0, 0, 0.20);
     }
     50% {
         transform: scale(1.05);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 15px rgba(148, 71, 255, 0.5);
+        box-shadow: 0 14px 30px rgba(0, 86, 255, 0.30), 0 10px 24px rgba(0, 0, 0, 0.22), 0 0 22px rgba(0, 113, 227, 0.25);
     }
     100% {
         transform: scale(1);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-    }
-}
-
-@keyframes gradientShift {
-    0% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
-    100% {
-        background-position: 0% 50%;
+        box-shadow: 0 10px 24px rgba(0, 60, 190, 0.26), 0 6px 18px rgba(0, 0, 0, 0.20);
     }
 }
 
@@ -2223,7 +2212,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 
 .floating-chat-button:hover {
     transform: scale(1.05);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 15px rgba(148, 71, 255, 0.5);
+    box-shadow: 0 16px 36px rgba(0, 86, 255, 0.34), 0 10px 26px rgba(0, 0, 0, 0.22), 0 0 26px rgba(0, 113, 227, 0.30);
     animation-play-state: paused;
 }
 
@@ -2239,11 +2228,16 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 }
 
 .chat-icon {
-    color: white;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 24px;
+}
+
+.chat-ai-icon {
+    width: 36px;
+    height: 36px;
+    display: block;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18));
 }
 
 .chat-tooltip {
