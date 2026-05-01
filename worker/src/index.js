@@ -1,7 +1,10 @@
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 const CONTENT_KEY = 'website_content_v1';
 const BACKUP_PREFIX = 'website_backup_';
-const TOKEN_TTL_SECONDS = 60 * 60 * 12;
+// Admin session token TTL.
+// Long-lived tokens are OK here because this is a single-user admin panel protected by a password,
+// and tokens are stored in sessionStorage (cleared on browser close by default).
+const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 const SITE_KNOWLEDGE = `
 Profile

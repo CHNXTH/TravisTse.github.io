@@ -20,6 +20,17 @@
         }
     }
 
+    function handleUnauthorized() {
+        // Token expired/invalid: clear both the token and the UI login flag.
+        setAdminToken('');
+        sessionStorage.removeItem('adminLoggedIn');
+        try {
+            window.dispatchEvent(new CustomEvent('cf-admin-unauthorized'));
+        } catch (_) {
+            // ignore
+        }
+    }
+
     async function request(path, options = {}) {
         const headers = {
             'Content-Type': 'application/json',
@@ -38,6 +49,9 @@
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+            if (response.status === 401) {
+                handleUnauthorized();
+            }
             const error = new Error(data && data.error ? data.error : 'Request failed');
             error.status = response.status;
             error.payload = data;
@@ -98,6 +112,9 @@
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
+            if (response.status === 401) {
+                handleUnauthorized();
+            }
             let message = data && data.error ? data.error : 'Upload failed';
             if (response.status === 404 && message === 'Not found') {
                 message = 'Upload endpoint not found. Please redeploy the Cloudflare Worker to the latest version, then try again.';

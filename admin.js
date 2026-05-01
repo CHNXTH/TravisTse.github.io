@@ -390,6 +390,16 @@ async function login(password) {
     }
 }
 
+// If Cloudflare admin token expires while the panel is open, force a clean re-login.
+window.addEventListener('cf-admin-unauthorized', () => {
+    try {
+        showMessage('登录已过期，请重新登录', 'warning');
+    } catch (_) {
+        // ignore
+    }
+    logout();
+});
+
 // 退出登录函数
 function logout() {
     // 清除登录状态
