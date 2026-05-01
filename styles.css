@@ -112,79 +112,26 @@ body {
   font-weight: 400;
 }
 
-/* Custom cursor (desktop only; enabled by JS via .has-custom-cursor) */
-:root {
-  --cursor-dot: rgba(0, 113, 227, 0.95);
-  --cursor-ring: rgba(0, 113, 227, 0.35);
-  --cursor-ring-strong: rgba(0, 113, 227, 0.60);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --cursor-dot: rgba(138, 180, 255, 0.95);
-    --cursor-ring: rgba(138, 180, 255, 0.30);
-    --cursor-ring-strong: rgba(138, 180, 255, 0.55);
+/* Cursor style (Figma-like): arrow + hand.
+   Desktop only via (hover:hover) + (pointer:fine); mobile keeps default cursors. */
+@media (hover: hover) and (pointer: fine) {
+  html,
+  body {
+    cursor: url("assets/cursor/cursor-arrow.svg") 12 10, auto;
   }
-}
 
-html.has-custom-cursor,
-html.has-custom-cursor body {
-  cursor: none;
-}
-
-html.has-custom-cursor a,
-html.has-custom-cursor button,
-html.has-custom-cursor input,
-html.has-custom-cursor textarea,
-html.has-custom-cursor select,
-html.has-custom-cursor label {
-  cursor: none;
-}
-
-.custom-cursor-dot,
-.custom-cursor-ring {
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate3d(-50%, -50%, 0);
-  will-change: transform, opacity;
-}
-
-.custom-cursor-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--cursor-dot);
-  box-shadow: 0 0 0 10px rgba(0, 113, 227, 0.06);
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-.custom-cursor-ring {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1.5px solid var(--cursor-ring);
-  background: rgba(0, 0, 0, 0);
-  opacity: 0;
-  transition: opacity 120ms ease, transform 140ms ease, border-color 140ms ease;
-}
-
-html.has-custom-cursor .custom-cursor-dot,
-html.has-custom-cursor .custom-cursor-ring {
-  opacity: 1;
-}
-
-.custom-cursor-ring.is-hover {
-  transform: translate3d(-50%, -50%, 0) scale(1.15);
-  border-color: var(--cursor-ring-strong);
-}
-
-.custom-cursor-ring.is-down {
-  transform: translate3d(-50%, -50%, 0) scale(0.88);
-  border-color: var(--cursor-ring-strong);
+  a,
+  button,
+  [role="button"],
+  .hero-btn,
+  .experience-logo,
+  .project-link,
+  input,
+  textarea,
+  select,
+  label {
+    cursor: url("assets/cursor/cursor-hand.svg") 16 10, pointer;
+  }
 }
 
 a {
