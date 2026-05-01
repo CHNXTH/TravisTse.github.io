@@ -107,15 +107,16 @@ function initDefaultData() {
     
     // 如果没有现有数据或解析失败，则创建默认数据
     websiteData = {
-        profile: {
-            nameEn: 'Travis Tse',
-            nameZh: '谢堂华',
-            age: '24',
-            phone: '15698010160',
-            email: 'chnxth@gmail.com',
-            location: 'Shanghai',
-            avatar: 'assets/images/avatar.jpg'
-        },
+	        profile: {
+	            nameEn: 'Travis Tse',
+	            nameZh: '谢堂华',
+	            age: '24',
+	            phone: '15698010160',
+	            email: 'chnxth@gmail.com',
+	            location: 'Shanghai',
+	            avatar: 'assets/images/avatar.jpg',
+	            flipAvatar: 'assets/images/avatar.jpg'
+	        },
         education: [],
         experience: [],
         projects: [],

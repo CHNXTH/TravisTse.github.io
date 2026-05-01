@@ -330,6 +330,12 @@ function extractProfileData(dataObj) {
         if (avatarImg) {
             dataObj.profile.avatar = avatarImg.src;
         }
+
+        // 提取翻转头像（背面头像）
+        const flipAvatarImg = document.querySelector('.avatar-img-back');
+        if (flipAvatarImg) {
+            dataObj.profile.flipAvatar = flipAvatarImg.src;
+        }
         
         // 提取地点
         const locationInfo = document.querySelector('.location-info');
@@ -735,6 +741,13 @@ function updateProfileFrontend() {
     const avatarImgs = document.querySelectorAll('.avatar-img');
     avatarImgs.forEach(img => {
         if (profile.avatar) img.src = profile.avatar;
+    });
+
+    // 更新翻转头像（背面头像）
+    const flipAvatars = document.querySelectorAll('.avatar-img-back');
+    flipAvatars.forEach(img => {
+        if (profile.flipAvatar) img.src = profile.flipAvatar;
+        else if (profile.avatar) img.src = profile.avatar;
     });
     
     // 更新小头像

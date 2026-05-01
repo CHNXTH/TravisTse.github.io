@@ -17,6 +17,13 @@ function initProfileSection() {
     if (profile.avatar) {
         document.getElementById('current-avatar').src = profile.avatar;
     }
+
+    // 显示当前翻转头像（背面头像）
+    if (profile.flipAvatar) {
+        document.getElementById('current-flip-avatar').src = profile.flipAvatar;
+    } else if (profile.avatar) {
+        document.getElementById('current-flip-avatar').src = profile.avatar;
+    }
     
     // 头像上传预览
     const avatarUpload = document.getElementById('avatar-upload');
@@ -26,6 +33,16 @@ function initProfileSection() {
             // local preview only (do not store base64 in websiteData)
             const url = URL.createObjectURL(file);
             document.getElementById('current-avatar').src = url;
+        }
+    });
+
+    // 翻转头像上传预览
+    const flipAvatarUpload = document.getElementById('flip-avatar-upload');
+    flipAvatarUpload.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            document.getElementById('current-flip-avatar').src = url;
         }
     });
     
@@ -59,6 +76,37 @@ function initProfileSection() {
             }
         } else {
             showMessage('请先选择头像图片', 'warning');
+        }
+    });
+
+    // 保存翻转头像按钮
+    document.getElementById('save-flip-avatar').addEventListener('click', async function() {
+        const file = flipAvatarUpload.files[0];
+        if (file) {
+            try {
+                if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
+                    const uploaded = await window.cloudflareApi.uploadAdminAsset(file);
+                    websiteData.profile = websiteData.profile || {};
+                    websiteData.profile.flipAvatar = uploaded.url;
+                    await saveWebsiteData();
+                    showMessage('翻转头像已上传并更新', 'success');
+                    return;
+                }
+
+                loadImage(file, function(dataUrl) {
+                    if (dataUrl) {
+                        websiteData.profile = websiteData.profile || {};
+                        websiteData.profile.flipAvatar = dataUrl;
+                        saveWebsiteData();
+                        showMessage('翻转头像已更新(本地缓存)', 'success');
+                    }
+                });
+            } catch (e) {
+                console.error('翻转头像上传失败:', e);
+                showMessage(`翻转头像上传失败: ${e.message}`, 'error');
+            }
+        } else {
+            showMessage('请先选择翻转头像图片', 'warning');
         }
     });
     

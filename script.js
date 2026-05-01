@@ -140,13 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
     heroBg.style.backgroundImage = "url('assets/images/background.jpg')";
     document.querySelector('.hero').prepend(heroBg);
     
-    // 重组hero区域布局
-    reorganizeHeroLayout();
-    updateDynamicAgeDisplays();
-    initHeroPointerDispersion();
+	    // 重组hero区域布局
+	    reorganizeHeroLayout();
+	    initAvatarFlip();
+	    updateDynamicAgeDisplays();
+	    initHeroPointerDispersion();
 
-    // 项目轮播功能
-    initProjectsCarousel();
+	    // 项目轮播功能
+	    initProjectsCarousel();
     
     // 立即检查是否是移动设备，并强制更新header状态
     if (window.innerWidth <= 768) {
@@ -155,7 +156,112 @@ document.addEventListener('DOMContentLoaded', () => {
             header.classList.remove('scrolled');
         }
     }
-});
+	});
+
+	function initAvatarFlip() {
+	    const inner = document.querySelector('.avatar-inner-circle');
+	    const flip = inner ? inner.querySelector('.avatar-flip') : null;
+	    if (!inner || !flip) return;
+
+	    const canHover =
+	        window.matchMedia &&
+	        window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	    const reduceMotion =
+	        window.matchMedia &&
+	        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	    const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+	    let hovering = false;
+	    let autoPending = false;
+	    let autoIntervalId = 0;
+
+	    let currentRx = 0;
+	    let currentRy = 0;
+	    let targetRx = 0;
+	    let targetRy = 0;
+	    let rafId = 0;
+
+	    const writeVars = () => {
+	        // Use a gentle ease so motion feels "soft" rather than robotic.
+	        const ease = 0.12;
+	        currentRx += (targetRx - currentRx) * ease;
+	        currentRy += (targetRy - currentRy) * ease;
+
+	        inner.style.setProperty('--avatar-hover-rx', `${currentRx.toFixed(2)}deg`);
+	        inner.style.setProperty('--avatar-hover-ry', `${currentRy.toFixed(2)}deg`);
+
+	        if (Math.abs(targetRx - currentRx) < 0.05 && Math.abs(targetRy - currentRy) < 0.05) {
+	            rafId = 0;
+	            return;
+	        }
+	        rafId = window.requestAnimationFrame(writeVars);
+	    };
+
+	    const ensureRaf = () => {
+	        if (!rafId) rafId = window.requestAnimationFrame(writeVars);
+	    };
+
+	    const toggleFlip = (fromAuto = false) => {
+	        if (fromAuto && hovering) {
+	            autoPending = true;
+	            return;
+	        }
+	        inner.classList.toggle('is-flipped');
+	    };
+
+	    const restartAuto = () => {
+	        if (reduceMotion) return;
+	        if (autoIntervalId) window.clearInterval(autoIntervalId);
+	        autoIntervalId = window.setInterval(() => toggleFlip(true), 10000);
+	    };
+
+	    // Click or keyboard activates a full flip.
+	    const onActivate = (e) => {
+	        if (e) e.preventDefault();
+	        toggleFlip(false);
+	        restartAuto();
+	    };
+	    flip.addEventListener('click', onActivate);
+	    flip.addEventListener('keydown', (e) => {
+	        if (e.key === 'Enter' || e.key === ' ') onActivate(e);
+	    });
+
+	    if (canHover && !reduceMotion) {
+	        flip.addEventListener('pointerenter', () => {
+	            hovering = true;
+	        });
+
+	        flip.addEventListener('pointerleave', () => {
+	            hovering = false;
+	            // Return to neutral, softly.
+	            targetRx = 0;
+	            targetRy = 0;
+	            ensureRaf();
+	            if (autoPending) {
+	                autoPending = false;
+	                toggleFlip(true);
+	            }
+	        });
+
+	        flip.addEventListener('pointermove', (e) => {
+	            const rect = inner.getBoundingClientRect();
+	            const x = (e.clientX - rect.left) / rect.width; // 0..1
+	            const y = (e.clientY - rect.top) / rect.height; // 0..1
+
+	            // 1/3 flip feel: keep Y-rotation within +/-60deg.
+	            const maxY = inner.classList.contains('is-flipped') ? 15 : 60;
+	            const maxX = 18;
+
+	            targetRy = clamp((x - 0.5) * 2 * maxY, -maxY, maxY);
+	            targetRx = clamp(-(y - 0.5) * 2 * maxX, -maxX, maxX);
+	            ensureRaf();
+	        });
+	    }
+
+	    // Start the 10s auto flip.
+	    restartAuto();
+	}
 
 function initHeroPointerDispersion() {
     const heroContainer = document.querySelector('.hero .container');
