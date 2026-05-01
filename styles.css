@@ -509,7 +509,8 @@ main {
   padding: 60px 0 40px;
   text-align: center;
   position: relative;
-  overflow: hidden;
+  /* Let the hero card shadow breathe; clip only the background layer if needed. */
+  overflow: visible;
   min-height: auto;
   display: flex;
   flex-direction: column;
@@ -1947,7 +1948,25 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     position: relative;
     /* 让标题下划线与卡片之间稍微“呼吸”一下 */
     margin: 26px 0 12px;
+    /* Controls need to cast shadows; clip only the moving track via .projects-viewport */
+    overflow: visible;
+}
+
+.projects-viewport {
+    position: relative;
     overflow: hidden;
+    /* Provide a bit of room so card shadows don't get clipped at the edges */
+    padding: 10px 4px 18px;
+    margin: -10px -4px 0;
+    border-radius: 12px; /* match project card rounding so edges don't feel "hard clipped" */
+
+    /* Soften the left/right cut with an edge fade (instead of a hard vertical crop) */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
 }
 
 .projects-wrapper {
