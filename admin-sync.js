@@ -784,10 +784,7 @@ function updateProfileFrontend() {
             window.setHeroSummaryHighlighted(heroSummary, currentLang);
         }
 
-        // If typing is active, stop it (content is being updated live).
-        if (typeof window.stopHeroSummaryTyping === 'function') {
-            window.stopHeroSummaryTyping();
-        }
+        // Let the initial word-by-word typing (on fresh load) pick up the latest data.
     }
 }
 

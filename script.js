@@ -649,8 +649,13 @@ function renderHeroSummaryTyping(summaryEl, lang) {
 }
 
 let heroSummaryTypingActive = false;
+let heroSummaryTypingTimerId = 0;
 function stopHeroSummaryTyping() {
     heroSummaryTypingActive = false;
+    if (heroSummaryTypingTimerId) {
+        window.clearTimeout(heroSummaryTypingTimerId);
+        heroSummaryTypingTimerId = 0;
+    }
 }
 window.stopHeroSummaryTyping = stopHeroSummaryTyping;
 
@@ -661,20 +666,17 @@ function initHeroSummaryTypingOnce() {
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) return;
 
-    // Only run on first page open/refresh (per-tab session).
-    const key = 'heroSummaryTypedV1';
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
-
-    // Prevent live sync updates from fighting the animation.
+    // Run on each page load (open or refresh). If the admin sync updates the text right after
+    // DOMContentLoaded, we delay slightly so we type the latest content.
     heroSummaryTypingActive = true;
     const lang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
 
-    // Small delay so initial sync (if any) can set profile.summary first.
-    window.setTimeout(() => {
+    // Delay to let initial sync (if any) apply profile.summary first.
+    heroSummaryTypingTimerId = window.setTimeout(() => {
+        heroSummaryTypingTimerId = 0;
         if (!heroSummaryTypingActive) return;
         renderHeroSummaryTyping(summaryEl, lang);
-    }, 180);
+    }, 650);
 }
 
 // 语言切换功能
