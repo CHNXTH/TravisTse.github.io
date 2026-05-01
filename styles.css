@@ -117,7 +117,8 @@ body {
 @media (hover: hover) and (pointer: fine) {
   html,
   body {
-    cursor: url("assets/cursor/cursor-arrow.svg") 12 10, auto;
+    /* Hotspot tuned for the SVG cursor shape */
+    cursor: url("assets/cursor/cursor-arrow.svg") 6 5, auto;
   }
 
   a,
@@ -130,7 +131,7 @@ body {
   textarea,
   select,
   label {
-    cursor: url("assets/cursor/cursor-hand.svg") 16 10, pointer;
+    cursor: url("assets/cursor/cursor-hand.svg") 11 7, pointer;
   }
 }
 
