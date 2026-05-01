@@ -545,6 +545,8 @@ function parseManualHighlightMarkup(raw) {
 
 function setHeroSummaryHighlighted(summaryEl, lang) {
     if (!summaryEl) return;
+    // During typing, do not let other flows overwrite the content (prevents duplication).
+    if (heroSummaryTypingLock) return;
     const raw =
         summaryEl.getAttribute(`data-${lang}`) ||
         summaryEl.getAttribute('data-en') ||
@@ -583,75 +585,101 @@ function setHeroSummaryHighlighted(summaryEl, lang) {
 // Expose for admin-sync updates.
 window.setHeroSummaryHighlighted = setHeroSummaryHighlighted;
 
-function buildHeroSummaryTokens(rootEl) {
-    // Turn the highlighted markup into a flat token stream so we can animate "word by word"
-    // while preserving code-highlight spans.
-    const tokens = [];
-
+function buildHeroSummarySegments(rootEl) {
+    // Flatten highlighted DOM into segments: { classes: string[], text: string }
+    const segments = [];
     const walk = (node, classes) => {
         if (node.nodeType === Node.TEXT_NODE) {
-            const text = node.nodeValue || '';
-            // Keep punctuation attached to the word (same token) to avoid weird spacing.
-            const parts = text.split(/(\s+)/);
-            for (const p of parts) {
-                if (!p) continue;
-                if (/^\s+$/.test(p)) {
-                    tokens.push({ type: 'space', text: p });
-                } else {
-                    tokens.push({ type: 'word', text: p, classes });
-                }
-            }
+            // Only keep code token classes. Never propagate container/layout classes like "hero-summary".
+            const safeClasses = (classes || []).filter((c) => String(c || '').startsWith('code-tok-'));
+            segments.push({ classes: safeClasses, text: node.nodeValue || '' });
             return;
         }
         if (node.nodeType !== Node.ELEMENT_NODE) return;
-
         const el = node;
-        const nextClasses = el.classList && el.classList.length
-            ? Array.from(new Set([...(classes || []), ...Array.from(el.classList)]))
-            : classes;
-
-        for (const child of Array.from(el.childNodes)) {
-            walk(child, nextClasses);
-        }
+        const own = el.classList && el.classList.length ? Array.from(el.classList) : [];
+        const nextClasses = own.length
+            ? Array.from(new Set([...(classes || []), ...own]))
+            : (classes || []);
+        for (const child of Array.from(el.childNodes)) walk(child, nextClasses);
     };
-
     walk(rootEl, []);
-    return tokens;
+    return segments.filter(s => s.text);
 }
 
 function renderHeroSummaryTyping(summaryEl, lang) {
     if (!summaryEl) return;
 
-    // Ensure we start from highlighted markup.
+    // Build the final highlighted content first.
+    const prevLock = heroSummaryTypingLock;
+    heroSummaryTypingLock = false;
     setHeroSummaryHighlighted(summaryEl, lang);
-    const tokens = buildHeroSummaryTokens(summaryEl);
+    heroSummaryTypingLock = prevLock;
+    const segments = buildHeroSummarySegments(summaryEl);
 
-    // Rebuild with animated spans
+    // ChatGPT-like: type characters into the existing layout (natural wrapping),
+    // while preserving highlight spans.
     summaryEl.innerHTML = '';
-    let delay = 0;
-    const step = 70; // ms per word
-    const maxDelay = 3200; // cap so it doesn't take forever on longer sentences
 
-    for (const t of tokens) {
-        if (t.type === 'space') {
-            // Keep a consistent, small space (avoid multiple spaces causing jitter)
-            summaryEl.appendChild(document.createTextNode(' '));
-            continue;
+    const totalChars = segments.reduce((n, s) => n + s.text.length, 0);
+    const totalMs = 5000;
+    const msPerChar = totalChars ? Math.max(12, Math.min(40, Math.floor(totalMs / totalChars))) : 20;
+
+    let segIndex = 0;
+    let charIndex = 0;
+    let currentSpan = null;
+    let currentSpanClassesKey = '';
+
+    const ensureSpan = (classes) => {
+        const key = (classes || []).join(' ');
+        if (!currentSpan || key !== currentSpanClassesKey) {
+            currentSpanClassesKey = key;
+            if (key) {
+                currentSpan = document.createElement('span');
+                currentSpan.className = key;
+                summaryEl.appendChild(currentSpan);
+            } else {
+                currentSpan = null;
+            }
         }
-        const span = document.createElement('span');
-        span.className = `typed-word${t.classes && t.classes.length ? ' ' + t.classes.join(' ') : ''}`;
-        span.textContent = t.text;
-        span.style.animationDelay = `${Math.min(delay, maxDelay)}ms`;
-        summaryEl.appendChild(span);
-        summaryEl.appendChild(document.createTextNode(' '));
-        delay += step;
-    }
+    };
+
+    const appendChar = (cls, ch) => {
+        ensureSpan(cls);
+        if (currentSpan) currentSpan.appendChild(document.createTextNode(ch));
+        else summaryEl.appendChild(document.createTextNode(ch));
+    };
+
+    const tick = () => {
+        if (!heroSummaryTypingActive) return;
+        if (segIndex >= segments.length) {
+            // Typing done: allow language/sync flows to rewrite normally.
+            heroSummaryTypingLock = false;
+            return;
+        }
+
+        const seg = segments[segIndex];
+        const ch = seg.text[charIndex];
+        appendChar(seg.classes, ch);
+        charIndex += 1;
+
+        if (charIndex >= seg.text.length) {
+            segIndex += 1;
+            charIndex = 0;
+        }
+
+        heroSummaryTypingTimerId = window.setTimeout(tick, msPerChar);
+    };
+
+    tick();
 }
 
 let heroSummaryTypingActive = false;
 let heroSummaryTypingTimerId = 0;
+let heroSummaryTypingLock = false;
 function stopHeroSummaryTyping() {
     heroSummaryTypingActive = false;
+    heroSummaryTypingLock = false;
     if (heroSummaryTypingTimerId) {
         window.clearTimeout(heroSummaryTypingTimerId);
         heroSummaryTypingTimerId = 0;
@@ -669,12 +697,15 @@ function initHeroSummaryTypingOnce() {
     // Run on each page load (open or refresh). If the admin sync updates the text right after
     // DOMContentLoaded, we delay slightly so we type the latest content.
     heroSummaryTypingActive = true;
+    heroSummaryTypingLock = true;
     const lang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
 
     // Delay to let initial sync (if any) apply profile.summary first.
     heroSummaryTypingTimerId = window.setTimeout(() => {
         heroSummaryTypingTimerId = 0;
         if (!heroSummaryTypingActive) return;
+        // Start from empty box and type once.
+        summaryEl.textContent = '';
         renderHeroSummaryTyping(summaryEl, lang);
     }, 650);
 }
