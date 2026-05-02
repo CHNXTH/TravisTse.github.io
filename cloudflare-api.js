@@ -132,6 +132,13 @@
         return request('/api/content', { method: 'GET' });
     }
 
+    async function polishKnowledge(payload) {
+        return request('/api/admin/knowledge/polish', {
+            method: 'POST',
+            body: JSON.stringify(payload || {}),
+        });
+    }
+
     function logout() {
         setAdminToken('');
     }
@@ -145,6 +152,7 @@
         saveAdminContent,
         uploadAdminAsset,
         getPublicContent,
+        polishKnowledge,
         logout,
     };
 })();

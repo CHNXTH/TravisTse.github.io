@@ -106,7 +106,7 @@ function initDefaultData() {
     console.log('未发现现有数据，创建默认数据...');
     
     // 如果没有现有数据或解析失败，则创建默认数据
-    websiteData = {
+	    websiteData = {
 	        profile: {
 	            nameEn: 'Travis Tse',
 	            nameZh: '谢堂华',
@@ -121,16 +121,17 @@ function initDefaultData() {
 	            summaryZh:
 	                'AI 产品与交互设计方向，建筑背景出身。我关注清晰表达、体验细节，以及把真正能用的东西做出来。'
 	        },
-        education: [],
-        experience: [],
-        projects: [],
-        papers: [],
-        awards: [],
-        social: [],
-        footprints: [],
-        settings: {
-            password: DEFAULT_PASSWORD
-        },
+	        education: [],
+	        experience: [],
+	        projects: [],
+	        papers: [],
+	        awards: [],
+	        knowledgeCards: [],
+	        social: [],
+	        footprints: [],
+	        settings: {
+	            password: DEFAULT_PASSWORD
+	        },
         meta: {
             version: '1.0',
             created: new Date().toISOString(),
@@ -463,6 +464,7 @@ async function prepareAdminPanel() {
         initProjectsSection();
         initPapersSection();
         initAwardsSection();
+        initKnowledgeSection();
         initSocialSection();
         initFootprintsSection();
         initSettingsSection();
@@ -492,6 +494,7 @@ function refreshAdminSections() {
     if (typeof loadProjectItems === 'function') loadProjectItems();
     if (typeof loadPaperItems === 'function') loadPaperItems();
     if (typeof loadAwardItems === 'function') loadAwardItems();
+    if (typeof loadKnowledgeItems === 'function') loadKnowledgeItems();
     if (typeof loadSocialItems === 'function') loadSocialItems();
     if (typeof loadFootprintItems === 'function') loadFootprintItems();
 }
@@ -506,6 +509,7 @@ function normalizeWebsiteData(data) {
     normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
     normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.knowledgeCards = Array.isArray(normalized.knowledgeCards) ? normalized.knowledgeCards : [];
     normalized.settings = normalized.settings || { password: DEFAULT_PASSWORD };
     normalized.meta = normalized.meta || {};
     return normalized;
@@ -888,6 +892,11 @@ function initFootprintsSection() {
 // 初始化设置部分
 function initSettingsSection() {
     // 将在第二部分代码中实现
+}
+
+// 初始化个人内容库部分
+function initKnowledgeSection() {
+    // 将在第三部分代码中实现（admin-modules.js）
 }
 
 // 初始化数据监控面板

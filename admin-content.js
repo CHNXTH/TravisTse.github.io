@@ -878,4 +878,5 @@ document.head.appendChild(detailsListStyle);
 window.initProjectsSection = initProjectsSection;
 window.initPapersSection = initPapersSection;
 window.initAwardsSection = initAwardsSection;
+window.initKnowledgeSection = initKnowledgeSection;
 window.initSocialSection = initSocialSection; 

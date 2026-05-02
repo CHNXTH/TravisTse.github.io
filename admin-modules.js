@@ -1,5 +1,227 @@
 // 后台管理系统JavaScript - 第三部分：项目、论文、奖项和社交媒体模块
 
+// 初始化个人内容库（用于聊天助手 RAG）
+function initKnowledgeSection() {
+    loadKnowledgeItems();
+
+    const addBtn = document.getElementById('add-knowledge');
+    const closeBtn = document.getElementById('close-knowledge-modal');
+    const saveBtn = document.getElementById('save-knowledge');
+    const polishBtn = document.getElementById('polish-knowledge');
+    const searchInput = document.getElementById('knowledge-search');
+
+    if (addBtn) addBtn.addEventListener('click', () => openKnowledgeModal());
+    if (closeBtn) closeBtn.addEventListener('click', () => {
+        document.getElementById('knowledge-modal').classList.remove('active');
+    });
+    if (saveBtn) saveBtn.addEventListener('click', saveKnowledgeCard);
+    if (polishBtn) polishBtn.addEventListener('click', polishKnowledgeSummary);
+    if (searchInput) searchInput.addEventListener('input', () => loadKnowledgeItems(searchInput.value));
+}
+
+function loadKnowledgeItems(query = '') {
+    const container = document.getElementById('knowledge-items');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const cards = Array.isArray(websiteData.knowledgeCards) ? websiteData.knowledgeCards : [];
+    const q = String(query || '').trim().toLowerCase();
+
+    const filtered = !q ? cards : cards.filter((c) => {
+        const hay = `${c.title || ''} ${(c.tags || []).join(',')} ${c.summary || ''}`.toLowerCase();
+        return hay.includes(q);
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+        const pa = Number(a.priority || 0);
+        const pb = Number(b.priority || 0);
+        if (pb !== pa) return pb - pa;
+        return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    });
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<p class="empty-message">暂无内容卡片。你可以点“添加内容卡片”来创建一条，用于聊天助手检索。</p>';
+        return;
+    }
+
+    sorted.forEach((card) => {
+        const item = document.createElement('div');
+        item.className = 'item-card fade-in';
+        item.setAttribute('data-id', card.id);
+
+        const enabled = card.enabled !== false;
+        const tags = Array.isArray(card.tags) ? card.tags : [];
+        const links = Array.isArray(card.links) ? card.links : [];
+
+        item.innerHTML = `
+            <div class="item-header">
+                <div class="item-title">${escapeHtml(card.title || 'Untitled')}</div>
+                <div class="item-actions">
+                    <button class="action-btn edit-btn" data-id="${escapeHtml(card.id)}" title="编辑">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" data-id="${escapeHtml(card.id)}" title="删除">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="item-body">
+                <div class="item-field">
+                    <div class="field-label">状态</div>
+                    <div class="field-value">${enabled ? '启用' : '停用'} · 优先级 ${Number(card.priority || 0)}</div>
+                </div>
+                <div class="item-field">
+                    <div class="field-label">标签</div>
+                    <div class="field-value">${escapeHtml(tags.join(', '))}</div>
+                </div>
+                <div class="item-field">
+                    <div class="field-label">摘要</div>
+                    <div class="field-value">${escapeHtml(card.summary || '')}</div>
+                </div>
+                ${links.length ? `
+                <div class="item-field">
+                    <div class="field-label">链接</div>
+                    <div class="field-value">${links.map((u) => `<a href="${escapeHtml(u)}" target="_blank">${escapeHtml(u)}</a>`).join('<br>')}</div>
+                </div>` : ''}
+            </div>
+        `;
+
+        container.appendChild(item);
+
+        item.querySelector('.edit-btn').addEventListener('click', () => editKnowledgeCard(card.id));
+        item.querySelector('.delete-btn').addEventListener('click', () => {
+            if (confirm('确定要删除此内容卡片吗？')) deleteKnowledgeCard(card.id);
+        });
+    });
+}
+
+function openKnowledgeModal(card = null) {
+    const modal = document.getElementById('knowledge-modal');
+    const title = document.getElementById('knowledge-modal-title');
+
+    document.getElementById('knowledge-title').value = '';
+    document.getElementById('knowledge-tags').value = '';
+    document.getElementById('knowledge-summary').value = '';
+    document.getElementById('knowledge-content').value = '';
+    document.getElementById('knowledge-links').value = '';
+    document.getElementById('knowledge-lang').value = '';
+    document.getElementById('knowledge-priority').value = 0;
+    document.getElementById('knowledge-enabled').checked = true;
+    document.getElementById('knowledge-id').value = '';
+
+    if (card) {
+        title.textContent = '编辑内容卡片';
+        document.getElementById('knowledge-title').value = card.title || '';
+        document.getElementById('knowledge-tags').value = (Array.isArray(card.tags) ? card.tags : []).join(', ');
+        document.getElementById('knowledge-summary').value = card.summary || '';
+        document.getElementById('knowledge-content').value = card.content || '';
+        document.getElementById('knowledge-links').value = (Array.isArray(card.links) ? card.links : []).join('\n');
+        document.getElementById('knowledge-lang').value = card.lang || '';
+        document.getElementById('knowledge-priority').value = Number(card.priority || 0);
+        document.getElementById('knowledge-enabled').checked = card.enabled !== false;
+        document.getElementById('knowledge-id').value = card.id;
+    } else {
+        title.textContent = '添加内容卡片';
+    }
+
+    modal.classList.add('active');
+}
+
+function saveKnowledgeCard() {
+    const title = document.getElementById('knowledge-title').value.trim();
+    const tagsRaw = document.getElementById('knowledge-tags').value.trim();
+    const summary = document.getElementById('knowledge-summary').value.trim();
+    const content = document.getElementById('knowledge-content').value.trim();
+    const linksRaw = document.getElementById('knowledge-links').value.trim();
+    const lang = document.getElementById('knowledge-lang').value.trim();
+    const priority = Number(document.getElementById('knowledge-priority').value || 0);
+    const enabled = document.getElementById('knowledge-enabled').checked;
+    const id = document.getElementById('knowledge-id').value.trim();
+
+    if (!title) {
+        showMessage('请填写标题', 'warning');
+        return;
+    }
+    if (!summary && !content) {
+        showMessage('请至少填写摘要或全文', 'warning');
+        return;
+    }
+
+    const tags = tagsRaw
+        ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+    const links = linksRaw
+        ? linksRaw.split('\n').map((t) => t.trim()).filter(Boolean)
+        : [];
+
+    const card = {
+        id: id || generateId(),
+        title,
+        tags,
+        summary,
+        content,
+        links,
+        lang,
+        priority,
+        enabled,
+        updatedAt: new Date().toISOString()
+    };
+
+    websiteData.knowledgeCards = Array.isArray(websiteData.knowledgeCards) ? websiteData.knowledgeCards : [];
+    const idx = websiteData.knowledgeCards.findIndex((c) => c.id === card.id);
+    if (idx >= 0) websiteData.knowledgeCards[idx] = card;
+    else websiteData.knowledgeCards.push(card);
+
+    saveWebsiteData();
+    loadKnowledgeItems(document.getElementById('knowledge-search')?.value || '');
+    document.getElementById('knowledge-modal').classList.remove('active');
+    showMessage(id ? '内容卡片已更新' : '内容卡片已添加', 'success');
+}
+
+function editKnowledgeCard(id) {
+    const cards = Array.isArray(websiteData.knowledgeCards) ? websiteData.knowledgeCards : [];
+    const card = cards.find((c) => c.id === id);
+    if (card) openKnowledgeModal(card);
+}
+
+function deleteKnowledgeCard(id) {
+    websiteData.knowledgeCards = (Array.isArray(websiteData.knowledgeCards) ? websiteData.knowledgeCards : []).filter((c) => c.id !== id);
+    saveWebsiteData();
+    loadKnowledgeItems(document.getElementById('knowledge-search')?.value || '');
+    showMessage('内容卡片已删除', 'success');
+}
+
+async function polishKnowledgeSummary() {
+    const content = document.getElementById('knowledge-content').value.trim();
+    const summaryEl = document.getElementById('knowledge-summary');
+    const title = document.getElementById('knowledge-title').value.trim();
+
+    if (!content && !title) {
+        showMessage('请先填写标题或全文，再用 AI 润色摘要', 'warning');
+        return;
+    }
+
+    try {
+        if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi && window.cloudflareApi.getAdminToken()) {
+            const res = await window.cloudflareApi.polishKnowledge({
+                title,
+                content,
+                summary: summaryEl.value.trim()
+            });
+            if (res && res.summary) summaryEl.value = res.summary;
+            if (res && Array.isArray(res.tags)) {
+                document.getElementById('knowledge-tags').value = res.tags.join(', ');
+            }
+            showMessage('已用 AI 生成/润色摘要', 'success');
+            return;
+        }
+        showMessage('未启用 Cloudflare 管理端，无法调用 AI 润色。请先在云端部署 Worker。', 'warning');
+    } catch (e) {
+        console.error('润色摘要失败:', e);
+        showMessage(`润色摘要失败: ${e.message}`, 'error');
+    }
+}
+
 // 初始化项目展示部分
 function initProjectsSection() {
     loadProjectItems();

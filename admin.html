@@ -48,18 +48,19 @@
 
         <div class="admin-content">
             <div class="admin-sidebar">
-                <ul class="admin-menu">
-                    <li class="active" data-target="profile-section"><i class="fas fa-user"></i> 个人资料</li>
-                    <li data-target="education-section"><i class="fas fa-graduation-cap"></i> 教育经历</li>
-                    <li data-target="experience-section"><i class="fas fa-briefcase"></i> 工作经历</li>
-                    <li data-target="projects-section"><i class="fas fa-project-diagram"></i> 项目展示</li>
-                    <li data-target="papers-section"><i class="fas fa-file-alt"></i> 论文与专利</li>
-                    <li data-target="awards-section"><i class="fas fa-trophy"></i> 奖项荣誉</li>
-                    <li data-target="footprints-section"><i class="fas fa-map-marker-alt"></i> 我的足迹</li>
-                    <li data-target="social-section"><i class="fas fa-share-alt"></i> 社交媒体</li>
-                    <li data-target="settings-section"><i class="fas fa-cog"></i> 网站设置</li>
-                </ul>
-            </div>
+	                <ul class="admin-menu">
+	                    <li class="active" data-target="profile-section"><i class="fas fa-user"></i> 个人资料</li>
+	                    <li data-target="education-section"><i class="fas fa-graduation-cap"></i> 教育经历</li>
+	                    <li data-target="experience-section"><i class="fas fa-briefcase"></i> 工作经历</li>
+	                    <li data-target="projects-section"><i class="fas fa-project-diagram"></i> 项目展示</li>
+	                    <li data-target="papers-section"><i class="fas fa-file-alt"></i> 论文与专利</li>
+	                    <li data-target="awards-section"><i class="fas fa-trophy"></i> 奖项荣誉</li>
+	                    <li data-target="knowledge-section"><i class="fas fa-book"></i> 个人内容库</li>
+	                    <li data-target="footprints-section"><i class="fas fa-map-marker-alt"></i> 我的足迹</li>
+	                    <li data-target="social-section"><i class="fas fa-share-alt"></i> 社交媒体</li>
+	                    <li data-target="settings-section"><i class="fas fa-cog"></i> 网站设置</li>
+	                </ul>
+	            </div>
 
             <div class="admin-main">
                 <!-- 个人资料部分 -->
@@ -138,8 +139,8 @@
 	                    </div>
 	                </section>
 
-                <!-- 教育经历部分 -->
-                <section id="education-section" class="admin-section">
+	                <!-- 教育经历部分 -->
+	                <section id="education-section" class="admin-section">
                     <h2 class="section-title">教育经历管理</h2>
                     <button class="admin-btn add-btn" id="add-education">
                         <i class="fas fa-plus"></i> 添加教育经历
@@ -191,7 +192,78 @@
                             </div>
                         </div>
                     </div>
-                </section>
+	                </section>
+
+	                <!-- 个人内容库部分 -->
+	                <section id="knowledge-section" class="admin-section">
+	                    <h2 class="section-title">个人内容库（用于聊天助手 RAG）</h2>
+	                    <div style="display:flex; gap: 10px; align-items:center; flex-wrap: wrap; margin-bottom: 14px;">
+	                        <button class="admin-btn add-btn" id="add-knowledge">
+	                            <i class="fas fa-plus"></i> 添加内容卡片
+	                        </button>
+	                        <input type="text" id="knowledge-search" placeholder="搜索标题/标签" style="flex: 1; min-width: 240px;">
+	                    </div>
+	                    <div class="items-container" id="knowledge-items"></div>
+
+	                    <div class="modal" id="knowledge-modal">
+	                        <div class="modal-content">
+	                            <div class="modal-header">
+	                                <h3 id="knowledge-modal-title">添加内容卡片</h3>
+	                                <button class="close-btn" id="close-knowledge-modal">
+	                                    <i class="fas fa-times"></i>
+	                                </button>
+	                            </div>
+	                            <div class="modal-body">
+	                                <div class="form-group">
+	                                    <label for="knowledge-title">标题</label>
+	                                    <input type="text" id="knowledge-title" placeholder="例如：NIO 实习｜智能座舱 AI 产品">
+	                                </div>
+	                                <div class="form-group">
+	                                    <label for="knowledge-tags">标签（逗号分隔）</label>
+	                                    <input type="text" id="knowledge-tags" placeholder="例如：NIO,AI 产品,智能座舱,RAG">
+	                                </div>
+	                                <div class="form-group">
+	                                    <label for="knowledge-summary">摘要（建议 80-200 字，用于省 token）</label>
+	                                    <textarea id="knowledge-summary" placeholder="用 2-4 句话概括：你希望聊天助手优先引用的内容"></textarea>
+	                                </div>
+	                                <div class="form-group">
+	                                    <label for="knowledge-content">全文（可选，只有问到细节时才会用到）</label>
+	                                    <textarea id="knowledge-content" placeholder="更长的内容、细节、方法、结果等"></textarea>
+	                                </div>
+	                                <div class="form-group">
+	                                    <label for="knowledge-links">链接（可选，每行一个 URL）</label>
+	                                    <textarea id="knowledge-links" placeholder="https://...\nhttps://..."></textarea>
+	                                </div>
+	                                <div style="display:flex; gap: 10px; flex-wrap: wrap;">
+	                                    <div class="form-group" style="flex: 1; min-width: 180px;">
+	                                        <label for="knowledge-lang">语言</label>
+	                                        <select id="knowledge-lang">
+	                                            <option value="">自动</option>
+	                                            <option value="en">English</option>
+	                                            <option value="zh">中文</option>
+	                                        </select>
+	                                    </div>
+	                                    <div class="form-group" style="flex: 1; min-width: 180px;">
+	                                        <label for="knowledge-priority">优先级（数字越大越靠前）</label>
+	                                        <input type="number" id="knowledge-priority" value="0">
+	                                    </div>
+	                                    <div class="form-group" style="flex: 1; min-width: 180px;">
+	                                        <label>
+	                                            <input type="checkbox" id="knowledge-enabled" checked>
+	                                            启用（参与聊天检索）
+	                                        </label>
+	                                    </div>
+	                                </div>
+	                                <input type="hidden" id="knowledge-id" value="">
+
+	                                <div style="display:flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px;">
+	                                    <button class="admin-btn" id="polish-knowledge">用 AI 润色摘要</button>
+	                                    <button class="admin-btn" id="save-knowledge">保存</button>
+	                                </div>
+	                            </div>
+	                        </div>
+	                    </div>
+	                </section>
 
                 <!-- 工作经历部分 -->
                 <section id="experience-section" class="admin-section">

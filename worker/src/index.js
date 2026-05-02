@@ -6,72 +6,29 @@ const BACKUP_PREFIX = 'website_backup_';
 // and tokens are stored in sessionStorage (cleared on browser close by default).
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
-const SITE_KNOWLEDGE = `
-Profile
-- Name: Travis Tse / 谢堂华 Travis Tse
-- Age shown on page: 24
-- Phone: +86 13020264160
-- Email: chnxth@gmail.com
-
-Education
-- City University of Hong Kong: MSc in Venture Creation, offer received, College of Innovation, QS 62.
-- East China University of Science and Technology: Design (Intelligent Product Interaction Design), 2025.09-2028.06. Focus: intelligent product design, industrial design engineering, AIGC design, large model training, service design.
-- Shandong Jianzhu University: Architecture (Green Building Design Direction), 2021.09-2025.06. GPA 3.91/5, Rank 2/159, National Scholarship and many national/provincial/university awards.
-
-Work Experience
-- NIO Headquarters (Shanghai), AI Product Manager for Intelligent Cockpit, 2025.10-2026.02. Work includes multimodal agents, proactive recommendation, travel memory video generation, in-cockpit AIGC, LLM latency optimization, RAG vehicle-manual Q&A, safety guardrails, QQ Music growth, karaoke algorithm evaluation, app ecosystem infrastructure, Android Auto/CarPlay integration, and user feedback analytics. Received full-time offer recommendation and internship rating A.
-- IKEA China Digital Innovation Center, Product Manager and Interaction Designer, 2024.07-2024.12. Worked on Global Product Collage and Fastdesign, templates for 20 countries, panorama module, AI 2D-to-3D design prototype, AR shopping prototype, image segmentation training support, and multiple product optimizations.
-- Smart Site360 Mini Program, Project Lead / Product Manager / UX Designer, 2024.05-2025.05. Integrated multimodal field research, GIS, LLMs, LDA topic modeling, and computer vision. Received provincial innovation project approval, software copyright, and invention patent application.
-- Matconstruct Mini Program, Project Lead / Product Manager / UX Designer, 2023.05-2023.09. Focused on architecture-material education with interviews, personas, data visualization, AR material construction, and LLM-assisted specification Q&A.
-- Google Cloud Build with AI, 2025.05. Explored GenAI opportunities, Vertex AI workflows, model evaluation, developer collaboration, and AI product upskilling.
-
-Recent Projects
-- MatConstruct-Architecture-Education-App
-- System Service Design Project-Ancient Village Catalyst
-- SmartSite360Architectural-design-research-APP
-- Green building renovation design
-- VR Workshop-Green Wisdom Inheritance and Innovation
-
-Papers and Patents
-- 2024.11: Research on Interactive Service System Design for Traditional Village Cultural Heritage under the Background of "Cultural Innovation", Travis Tse and Jiang Wang, 2024 Computational Design Academic Forum Annual Conference Proceedings, Tongji University Press.
-- 2024.12: Intelligent Interactive Service Design Empowering Rural Cultural Revitalization, based on Sandefan Village cultural heritage resource reconstruction using grounded theory and topic modeling, Qingrun Award undergraduate thesis competition.
-- 2024.06: A Mobile APP-based Urban Planning System, invention patent under review.
-- 2025.02: SmartSite360 Data-assisted Decision-making System, software copyright.
-
-Awards
-- National Scholarship (1‰)
-- First Prize in the VR Workshop for Science and Art Practice at the National University Student Art Exhibition and Performance
-- Special Prize (2) and First Prize in the National College Student Green Building Design Competition
-- Third Prize in the Qingrun Award National College Student Thesis Competition
-- First, Second, and Third Prizes in the China Good Ideas National Digital Art Design Competition
-- Second Prize (3) in the Future Designer National College Digital Art Design Competition
-- Third Prize in the National College Student English Competition
-`;
-
-const SYSTEM_PROMPT = `
+function buildSystemPrompt(knowledgeText) {
+    return `
 You are Travis Tse's website AI assistant.
 
 Your job is to answer like a polished personal-profile concierge for Travis, based only on the website knowledge provided below.
 
 Rules
 1. Use the website knowledge as your primary source of truth.
-2. If the user asks about Travis's background, experience, education, projects, awards, research, interests, or contact methods, answer with concrete details from the knowledge.
-3. If the question is partly outside the website content, answer the part you can support and then clearly say the rest is not explicitly stated on Travis's page.
-4. Do not invent employers, dates, degrees, awards, metrics, or personal preferences not grounded in the knowledge.
-5. Keep answers natural, specific, and warm. Do not sound like a generic AI assistant.
-6. When useful, summarize Travis as an AI product, design, and innovation-oriented profile spanning intelligent cockpit, digital product design, architecture, and AIGC.
-7. Match the user's language. If the user writes in Chinese, answer in Chinese. If the user writes in English, answer in English.
-8. When asked how to contact Travis, prefer the website contact info and mention that more links are available in the Connect section.
-9. When asked for opinions like "Is Travis a good fit?", give a grounded, evidence-based answer using the website details rather than vague praise.
-10. Be concise by default. Give a focused answer first, and only expand when the user asks for more detail.
-11. Do not use Markdown formatting symbols in the final answer. Do not use **bold**, headings with #, tables, or horizontal rules. Use plain sentences and simple lists only.
-12. Make the tone feel like a warm personal brand introduction: thoughtful, confident, interdisciplinary, and human.
-13. If the user asks what they should read, where they should start, or what best represents Travis, recommend 2 to 4 specific sections, experiences, or projects from the website and explain briefly why each one matters.
-14. For broad introduction questions, start with a short positioning sentence, then give a few concrete highlights.
+2. If the question is partly outside the website content, answer the part you can support and then clearly say the rest is not explicitly stated on Travis's page.
+3. Do not invent employers, dates, degrees, awards, metrics, or personal preferences not grounded in the knowledge.
+4. Keep answers natural, specific, and warm. Do not sound like a generic AI assistant.
+5. Match the user's language. If the user writes in Chinese, answer in Chinese. If the user writes in English, answer in English.
+6. Be concise by default. Give a focused answer first, and only expand when the user asks for more detail.
+7. Do not use Markdown formatting symbols in the final answer. Do not use **bold**, headings with #, tables, or horizontal rules. Use plain sentences and simple lists only.
+8. Use simple bullet points when helpful. Prefer the bullet character "•" (not "-" or "*") so it reads well.
+9. When useful, recommend 2 to 4 specific sections, experiences, or projects from the website and explain briefly why each one matters.
+10. If a relevant link exists in the knowledge, include it as a plain URL so it is clickable on the website.
+11. Only output URLs that appear verbatim in the Website Knowledge. Do not create or guess new URLs.
 
 Website Knowledge
-${SITE_KNOWLEDGE}
+${knowledgeText}
 `.trim();
+}
 
 export default {
     async fetch(request, env) {
@@ -104,6 +61,10 @@ export default {
             return handleAdminUpload(request, env);
         }
 
+        if (url.pathname === '/api/admin/knowledge/polish') {
+            return handleKnowledgePolish(request, env);
+        }
+
         if (url.pathname.startsWith('/assets/')) {
             return handleAssetGet(request, env, url.pathname.slice('/assets/'.length));
         }
@@ -129,6 +90,10 @@ async function handleChat(request, env) {
     }
 
     try {
+        const content = await readWebsiteContent(env);
+        const knowledgeText = buildKnowledgeForQuery(content, message);
+        const systemPrompt = buildSystemPrompt(knowledgeText);
+
         const upstreamResponse = await fetch(DEEPSEEK_API_URL, {
             method: 'POST',
             headers: {
@@ -138,7 +103,7 @@ async function handleChat(request, env) {
             body: JSON.stringify({
                 model: 'deepseek-v4-flash',
                 messages: [
-                    { role: 'system', content: SYSTEM_PROMPT },
+                    { role: 'system', content: systemPrompt },
                     { role: 'user', content: message }
                 ],
                 temperature: 0.7,
@@ -168,6 +133,337 @@ async function handleChat(request, env) {
             500
         );
     }
+}
+
+async function handleKnowledgePolish(request, env) {
+    const auth = await requireAdminAuth(request, env);
+    if (!auth.ok) {
+        return auth.response;
+    }
+
+    if (request.method !== 'POST') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { Allow: 'POST, OPTIONS' });
+    }
+
+    if (!env.DEEPSEEK_API_KEY) {
+        return jsonResponse(request, { error: 'Missing DEEPSEEK_API_KEY secret' }, 500);
+    }
+
+    const body = await safeJson(request);
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const content = typeof body.content === 'string' ? body.content.trim() : '';
+    const summary = typeof body.summary === 'string' ? body.summary.trim() : '';
+
+    const prompt = `
+You are helping Travis Tse maintain a personal knowledge card used for website Q&A.
+
+Task
+Create a concise summary (80-200 Chinese characters if Chinese, or 40-120 English words if English) that captures the key facts and outcomes.
+Also propose 3 to 8 tags (short phrases).
+
+Output format (JSON only)
+{"summary":"...","tags":["...","..."]}
+
+Input
+Title: ${title}
+Existing summary: ${summary}
+Full content: ${content}
+`.trim();
+
+    const upstreamResponse = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify({
+            model: 'deepseek-v4-flash',
+            messages: [
+                { role: 'system', content: 'You are a careful assistant that outputs strict JSON only.' },
+                { role: 'user', content: prompt },
+            ],
+            temperature: 0.4,
+            max_tokens: 256,
+            stream: false,
+        }),
+    });
+
+    const upstreamData = await upstreamResponse.json().catch(() => ({}));
+    if (!upstreamResponse.ok) {
+        const upstreamError = upstreamData && upstreamData.error
+            ? (upstreamData.error.message || upstreamData.error)
+            : 'DeepSeek request failed';
+        return jsonResponse(request, { error: upstreamError }, upstreamResponse.status);
+    }
+
+    const reply = extractReply(upstreamData);
+    let parsed = null;
+    try {
+        parsed = JSON.parse(reply);
+    } catch (_) {
+        // Try to salvage JSON if wrapped with text.
+        const m = reply && reply.match(/\{[\s\S]*\}/);
+        if (m) {
+            try { parsed = JSON.parse(m[0]); } catch (_) {}
+        }
+    }
+
+    if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.tags)) {
+        return jsonResponse(request, { error: 'AI returned invalid JSON' }, 502);
+    }
+
+    return jsonResponse(request, { summary: parsed.summary.trim(), tags: parsed.tags.filter(Boolean).slice(0, 12) }, 200);
+}
+
+function buildKnowledgeForQuery(content, userMessage) {
+    const manualCards = content && Array.isArray(content.knowledgeCards) ? content.knowledgeCards : [];
+    const enabledManualCards = manualCards.filter((c) => c && c.enabled !== false);
+
+    // Automatically derived cards from the structured website content. This keeps RAG in sync
+    // even when the user updates experience/projects/etc in the admin panel.
+    const derivedCards = buildDerivedCardsFromContent(content);
+    const enabledCards = [...enabledManualCards, ...derivedCards];
+
+    // Base profile info is tiny and always useful.
+    const profile = content && content.profile ? content.profile : {};
+    const base = [
+        'Profile',
+        `• Name: ${(profile.nameEn || 'Travis Tse')}${profile.nameZh ? ' / ' + profile.nameZh : ''}`,
+        profile.location ? `• Location: ${profile.location}` : '',
+        profile.email ? `• Email: ${profile.email}` : '',
+        profile.phone ? `• Phone: ${profile.phone}` : '',
+    ].filter(Boolean).join('\n');
+
+    if (enabledCards.length === 0) {
+        return `${base}\n\nNotes\n• No knowledge cards are configured yet.`;
+    }
+
+    const q = String(userMessage || '').toLowerCase();
+    const tokens = q.split(/[^a-z0-9\u4e00-\u9fff]+/).filter(Boolean).slice(0, 24);
+
+    const scoreCard = (c) => {
+        const title = String(c.title || '').toLowerCase();
+        const tagArr = Array.isArray(c.tags) ? c.tags.filter(Boolean).map((t) => String(t).toLowerCase()) : [];
+        const tags = tagArr.join(' ');
+        const summary = String(c.summary || '').toLowerCase();
+        let s = 0;
+
+        // Chinese-friendly matching: reward when the query directly contains any tag/title phrase.
+        // This avoids the "whole sentence as one token" issue for Chinese questions.
+        for (const tg of tagArr) {
+            if (tg && q.includes(tg)) s += 8;
+        }
+        if (title && q.includes(title)) s += 6;
+
+        for (const t of tokens) {
+            if (!t) continue;
+            if (title.includes(t)) s += 4;
+            if (tags.includes(t)) s += 3;
+            if (summary.includes(t)) s += 2;
+        }
+        s += Math.min(6, Math.max(0, Number(c.priority || 0))) * 0.4;
+        return s;
+    };
+
+    const ranked = enabledCards
+        .map((c) => ({ c, s: scoreCard(c) }))
+        .sort((a, b) => b.s - a.s);
+
+    const top = ranked.filter((x) => x.s > 0).slice(0, 5).map((x) => x.c);
+    const fallback = ranked.slice(0, 3).map((x) => x.c);
+    const picked = top.length ? top : fallback;
+
+    // "Need details" gate: only include full content when explicitly asked for specifics.
+    const needDetails = /细节|具体|怎么|如何|负责|做了什么|做过什么|干了什么|结果|影响|指标|数据|难点|方案|实现|实现细节|细节是什么|what did|how did|details|specifically/i.test(userMessage || '');
+
+    const blocks = picked.map((c, idx) => {
+        const tags = Array.isArray(c.tags) ? c.tags : [];
+        const links = Array.isArray(c.links) ? c.links : [];
+        const parts = [
+            `Card ${idx + 1}`,
+            `• Title: ${String(c.title || '').trim()}`,
+            tags.length ? `• Tags: ${tags.join(', ')}` : '',
+            c.summary ? `• Summary: ${String(c.summary).trim()}` : '',
+            needDetails && c.content ? `• Details: ${String(c.content).trim()}` : '',
+            links.length ? `• Links: ${links.join(' ')}` : '',
+        ].filter(Boolean);
+        return parts.join('\n');
+    }).join('\n\n');
+
+    return `${base}\n\nRelevant Cards\n${blocks}`;
+}
+
+function buildDerivedCardsFromContent(content) {
+    if (!content || typeof content !== 'object') return [];
+
+    const cards = [];
+    const pushCard = (card) => {
+        if (!card || !card.title || (!card.summary && !card.content)) return;
+        cards.push({
+            id: card.id || `auto_${cards.length + 1}`,
+            title: String(card.title || '').trim(),
+            tags: Array.isArray(card.tags) ? card.tags.filter(Boolean) : [],
+            summary: String(card.summary || '').trim(),
+            content: String(card.content || '').trim(),
+            links: Array.isArray(card.links) ? card.links.filter(Boolean) : [],
+            lang: card.lang || '',
+            priority: Number(card.priority || 0),
+            enabled: true,
+            updatedAt: content.meta && content.meta.lastModified ? content.meta.lastModified : '',
+            _auto: true,
+        });
+    };
+
+    // Profile (tiny, but helps routing)
+    if (content.profile) {
+        const p = content.profile;
+        pushCard({
+            id: 'auto_profile',
+            title: 'Profile Overview',
+            tags: ['profile', 'contact', 'about'],
+            summary: [
+                p.nameEn || p.nameZh ? `Name: ${(p.nameEn || '').trim()}${p.nameZh ? ' / ' + String(p.nameZh).trim() : ''}` : '',
+                p.location ? `Location: ${String(p.location).trim()}` : '',
+                p.email ? `Email: ${String(p.email).trim()}` : '',
+                p.phone ? `Phone: ${String(p.phone).trim()}` : '',
+            ].filter(Boolean).join(' · '),
+            content: '',
+            links: [],
+            priority: 1,
+        });
+    }
+
+    // Education
+    const education = Array.isArray(content.education) ? content.education : [];
+    education.forEach((e, idx) => {
+        const title = e.school || `Education ${idx + 1}`;
+        const summary = [e.meta, e.details, e.time, e.research, e.stats, e.awards].filter(Boolean).join(' | ');
+        pushCard({
+            id: `auto_edu_${e.id || idx + 1}`,
+            title: `Education: ${title}`,
+            tags: ['education', 'school'],
+            summary: summary,
+            content: '',
+            links: [],
+            priority: 0,
+        });
+    });
+
+    // Work Experience
+    const exp = Array.isArray(content.experience) ? content.experience : [];
+    exp.forEach((x, idx) => {
+        const company = x.company || `Experience ${idx + 1}`;
+        const detailsText = Array.isArray(x.details) ? x.details.join(' ') : String(x.details || '');
+        const summary = [x.meta, x.time].filter(Boolean).join(' | ');
+        const companyLower = String(company || '').toLowerCase();
+        const metaLower = String(x.meta || '').toLowerCase();
+        const expTags = new Set(['experience', 'work', 'job']);
+
+        // Basic keyword tags from company/meta to help routing.
+        for (const w of String(company || '').split(/[^a-z0-9\u4e00-\u9fff]+/i)) {
+            const t = String(w || '').trim();
+            if (t) expTags.add(t);
+        }
+        for (const w of String(x.meta || '').split(/[^a-z0-9\u4e00-\u9fff]+/i)) {
+            const t = String(w || '').trim();
+            if (t) expTags.add(t);
+        }
+
+        // Internship hints (very common user query in Chinese).
+        if (metaLower.includes('intern') || metaLower.includes('internship') || /\b(intern)\b/i.test(metaLower)) {
+            expTags.add('intern');
+            expTags.add('internship');
+            expTags.add('实习');
+        } else {
+            // Still add "实习" lightly to improve recall without relying on exact meta phrasing.
+            expTags.add('实习');
+        }
+
+        // Small bilingual alias map for common companies on the site (improves Chinese recall).
+        if (companyLower.includes('nio')) {
+            expTags.add('NIO');
+            expTags.add('蔚来');
+        }
+        if (companyLower.includes('ikea')) {
+            expTags.add('IKEA');
+            expTags.add('宜家');
+        }
+
+        pushCard({
+            id: `auto_exp_${x.id || idx + 1}`,
+            title: `Work Experience: ${company}`,
+            tags: Array.from(expTags),
+            summary: summary,
+            content: detailsText,
+            links: [],
+            priority: 0,
+        });
+    });
+
+    // Projects
+    const projects = Array.isArray(content.projects) ? content.projects : [];
+    projects.forEach((p, idx) => {
+        const title = p.title || `Project ${idx + 1}`;
+        pushCard({
+            id: `auto_project_${p.id || idx + 1}`,
+            title: `Project: ${title}`,
+            tags: ['project'],
+            summary: p.link ? `Link: ${p.link}` : '',
+            content: '',
+            links: p.link ? [p.link] : [],
+            priority: 0,
+        });
+    });
+
+    // Papers
+    const papers = Array.isArray(content.papers) ? content.papers : [];
+    papers.forEach((p, idx) => {
+        const title = p.title || `Paper ${idx + 1}`;
+        const summary = [p.time, p.authors].filter(Boolean).join(' | ');
+        const link = p.link ? String(p.link).trim() : '';
+        pushCard({
+            id: `auto_paper_${p.id || idx + 1}`,
+            title: `Paper/Patent: ${title}`,
+            tags: ['paper', 'patent', 'research'],
+            summary,
+            content: '',
+            links: link ? [link] : [],
+            priority: 0,
+        });
+    });
+
+    // Awards
+    const awards = Array.isArray(content.awards) ? content.awards : [];
+    awards.forEach((a, idx) => {
+        const title = a.title || `Award ${idx + 1}`;
+        const summary = [a.time, a.details].filter(Boolean).join(' | ');
+        pushCard({
+            id: `auto_award_${a.id || idx + 1}`,
+            title: `Award: ${title}`,
+            tags: ['award'],
+            summary,
+            content: '',
+            links: [],
+            priority: 0,
+        });
+    });
+
+    // Social links (help answer "how to contact")
+    const social = Array.isArray(content.social) ? content.social : [];
+    if (social.length) {
+        const links = social.map((s) => s && s.link ? String(s.link).trim() : '').filter(Boolean);
+        pushCard({
+            id: 'auto_social',
+            title: 'Connect Links',
+            tags: ['contact', 'social'],
+            summary: links.length ? `Links: ${links.slice(0, 8).join(' ')}` : '',
+            content: '',
+            links,
+            priority: 0,
+        });
+    }
+
+    return cards;
 }
 
 async function handlePublicContent(request, env) {
@@ -471,6 +767,7 @@ function normalizeWebsiteContent(content) {
     normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
     normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.knowledgeCards = Array.isArray(normalized.knowledgeCards) ? normalized.knowledgeCards : [];
     normalized.settings = normalized.settings || {};
     normalized.meta = normalized.meta || {};
     return normalized;
@@ -541,6 +838,11 @@ function sanitizeReply(reply) {
         .replace(/\*\*(.*?)\*\*/g, '$1')
         .replace(/^#{1,6}\s*/gm, '')
         .replace(/^---+$/gm, '')
+        // Prefer the "•" bullet style (consistent with the website prompt).
+        .replace(/^\s*\d+\.\s+/gm, '• ')
+        // Remove stray numbering lines like "3." that sometimes appear at the end.
+        .replace(/^\s*\d+\.\s*$/gm, '')
+        .replace(/\n{3,}/g, '\n\n')
         .trim();
 }
 

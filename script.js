@@ -2215,7 +2215,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/'/g, "&#039;");
     }
 
-    function formatAIMessage(message) {
+	    function formatAIMessage(message) {
         const container = document.createElement('div');
         container.className = 'ai-message-text';
 
@@ -2234,11 +2234,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const blocks = cleanedMessage.split(/\n\s*\n/).filter(Boolean);
 
-        blocks.forEach((block) => {
-            const lines = block
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean);
+	        function appendWithLinks(parent, text) {
+	            const src = String(text || '');
+	            const urlRe = /https?:\/\/[^\s<>()]+/g;
+	            let last = 0;
+	            let m;
+	            while ((m = urlRe.exec(src))) {
+	                const start = m.index;
+	                const end = start + m[0].length;
+	                if (start > last) parent.appendChild(document.createTextNode(src.slice(last, start)));
+	                const a = document.createElement('a');
+	                a.href = m[0];
+	                a.target = '_blank';
+	                a.rel = 'noopener noreferrer';
+	                a.textContent = m[0];
+	                parent.appendChild(a);
+	                last = end;
+	            }
+	            if (last < src.length) parent.appendChild(document.createTextNode(src.slice(last)));
+	        }
+
+	        blocks.forEach((block) => {
+	            const lines = block
+	                .split('\n')
+	                .map((line) => line.trim())
+	                .filter(Boolean);
 
             if (lines.length === 0) {
                 return;
@@ -2247,24 +2267,24 @@ document.addEventListener('DOMContentLoaded', function() {
             const isBulletList = lines.every((line) => /^[-*•]\s+/.test(line));
             const isOrderedList = lines.every((line) => /^\d+[.)]\s+/.test(line));
 
-            if (isBulletList || isOrderedList) {
-                const list = document.createElement(isOrderedList ? 'ol' : 'ul');
-                list.className = 'ai-message-list';
+	            if (isBulletList || isOrderedList) {
+	                const list = document.createElement(isOrderedList ? 'ol' : 'ul');
+	                list.className = 'ai-message-list';
 
-                lines.forEach((line) => {
-                    const item = document.createElement('li');
-                    item.textContent = line.replace(/^([-*•]|\d+[.)])\s+/, '');
-                    list.appendChild(item);
-                });
+	                lines.forEach((line) => {
+	                    const item = document.createElement('li');
+	                    appendWithLinks(item, line.replace(/^([-*•]|\d+[.)])\s+/, ''));
+	                    list.appendChild(item);
+	                });
 
-                container.appendChild(list);
-                return;
-            }
+	                container.appendChild(list);
+	                return;
+	            }
 
-            const paragraph = document.createElement('p');
-            paragraph.textContent = lines.join('\n');
-            container.appendChild(paragraph);
-        });
+	            const paragraph = document.createElement('p');
+	            appendWithLinks(paragraph, lines.join('\n'));
+	            container.appendChild(paragraph);
+	        });
 
         return container;
     }
