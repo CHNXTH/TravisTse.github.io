@@ -116,6 +116,11 @@ class FootprintsGlobe {
     this.mouseNdc = new THREE.Vector2(10, 10);
     this.hovered = null;
     this.tooltip = ensureTooltipEl();
+    this.tooltipPinnedUntil = 0;
+    this.pinnedData = null;
+    this.pinnedMarker = null;
+    this.tooltipHost = document.body;
+    this._tooltipCloseHandler = null;
 
     this._raf = 0;
     this._onResize = () => this.resize();
@@ -126,6 +131,7 @@ class FootprintsGlobe {
     this._onClick = () => this.onClick();
     this._onPointerDown = () => { this.userInteractingUntil = Date.now() + 12000; this.setAutoRotate(false); };
     this._onPointerUp = () => { this.userInteractingUntil = Date.now() + 12000; };
+    this._onFullscreenChange = () => this.handleFullscreenChange();
   }
 
   async init() {
@@ -193,6 +199,8 @@ class FootprintsGlobe {
     this.canvas.addEventListener('pointerenter', this._onPointerEnter, { passive: true });
     this.canvas.addEventListener('pointerleave', this._onCanvasLeave, { passive: true });
     this.canvas.addEventListener('click', this._onClick, { passive: true });
+    document.addEventListener('fullscreenchange', this._onFullscreenChange);
+    this.handleFullscreenChange();
 
     this.resize();
     this.start();
@@ -469,6 +477,10 @@ class FootprintsGlobe {
         if (!this.autoRotate) this.setAutoRotate(true);
       }
 
+      if (!this.isTooltipPinned() && !this.hovered && this.tooltip.style.visibility === 'visible') {
+        this.hideTooltip();
+      }
+
       this.controls.update();
       this.updateHover();
       this.renderer.render(this.scene, this.camera);
@@ -496,6 +508,8 @@ class FootprintsGlobe {
     // Keep tooltip following the cursor while hovering the same marker
     if (this.hovered && this.hovered.userData) {
       this.positionTooltip();
+    } else if (this.isTooltipPinned()) {
+      this.positionTooltip();
     }
   }
 
@@ -503,8 +517,11 @@ class FootprintsGlobe {
     if (this.hovered && this.hovered.userData) {
       this.setAutoRotate(false);
       this.userInteractingUntil = Date.now() + 12000;
+      this.tooltipPinnedUntil = Date.now() + 10000;
+      this.pinnedData = this.hovered.userData;
+      this.pinnedMarker = this.hovered;
       this.focusOnMarker(this.hovered);
-      this.showTooltip(this.hovered.userData, { pinned: true });
+      this.showTooltip(this.hovered.userData, { pinned: true, marker: this.hovered });
     }
   }
 
@@ -531,11 +548,15 @@ class FootprintsGlobe {
         const glow = marker.parent.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
         if (glow) glow.scale.setScalar(defaultScale * 2.0);
         this.setAutoRotate(false); // pause while hovering a marker
-        this.showTooltip(marker.userData);
+        if (!this.isTooltipPinned()) {
+          this.showTooltip(marker.userData);
+        }
       }
       else {
         this.canvas.style.cursor = 'grab';
-        this.hideTooltip();
+        if (!this.isTooltipPinned()) {
+          this.hideTooltip();
+        }
       }
     }
   }
@@ -568,7 +589,8 @@ class FootprintsGlobe {
     requestAnimationFrame(animate);
   }
 
-  showTooltip(data, { pinned } = {}) {
+  showTooltip(data, { pinned, marker } = {}) {
+    this.ensureTooltipHost();
     const safeImg = data.image ? String(data.image) : '';
     const title = data.name ? String(data.name) : 'Unknown';
     const date = data.date ? String(data.date) : '';
@@ -576,6 +598,7 @@ class FootprintsGlobe {
 
     this.tooltip.innerHTML = `
       <div class="lt-body" style="padding:14px 14px 12px;">
+        <button class="lt-close" type="button" aria-label="Close details" title="Close details">&times;</button>
         <div class="lt-title">${escapeHtml(title)}</div>
         ${date ? `<div class="lt-date" style="margin-top:6px;">${escapeHtml(date)}</div>` : ``}
         ${desc ? `<div class="lt-desc" style="margin-top:10px;">${escapeHtml(desc)}</div>` : ``}
@@ -583,39 +606,112 @@ class FootprintsGlobe {
       </div>
     `;
 
-    const rect = this.canvas.getBoundingClientRect();
-    // place near top-right of the cursor within the map area
-    const x = rect.left + ((this.mouseNdc.x + 1) / 2) * rect.width;
-    const y = rect.top + ((1 - (this.mouseNdc.y + 1) / 2)) * rect.height;
-    const left = x + 18;
-    const top = y - 120;
+    const closeBtn = this.tooltip.querySelector('.lt-close');
+    if (closeBtn) {
+      closeBtn.style.display = pinned ? 'inline-flex' : 'none';
+      closeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.clearPinnedTooltip();
+      }, { once: true });
+    }
+
+    const point = pinned && marker
+      ? this.getMarkerScreenPoint(marker)
+      : this.getCursorScreenPoint();
+    const left = point.x + 18;
+    const top = point.y - 120;
 
     this.tooltip.style.left = `${left}px`;
     this.tooltip.style.top = `${top}px`;
     this.tooltip.style.visibility = 'visible';
     this.tooltip.style.opacity = '1';
     this.tooltip.style.transform = 'translateY(0) scale(1)';
-    this.tooltip.style.pointerEvents = 'none';
+    this.tooltip.style.pointerEvents = pinned ? 'auto' : 'none';
 
     this.positionTooltip();
   }
 
   positionTooltip() {
-    const rect = this.canvas.getBoundingClientRect();
-    const cx = Number.isFinite(this._lastClientX) ? this._lastClientX : (rect.left + rect.width / 2);
-    const cy = Number.isFinite(this._lastClientY) ? this._lastClientY : (rect.top + rect.height / 2);
+    this.ensureTooltipHost();
+    const hostRect = this.tooltipHost === document.body
+      ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+      : this.tooltipHost.getBoundingClientRect();
+    const point = this.isTooltipPinned() && this.pinnedMarker
+      ? this.getMarkerScreenPoint(this.pinnedMarker)
+      : this.getCursorScreenPoint();
+    const cx = point.x;
+    const cy = point.y;
     const tooltipWidth = 320;
     const tooltipHeight = 260;
-    const left = clamp(cx + 18, 12, window.innerWidth - tooltipWidth - 12);
-    const top = clamp(cy - 120, 12, window.innerHeight - tooltipHeight - 12);
+    const left = clamp(cx - hostRect.left + 18, 12, hostRect.width - tooltipWidth - 12);
+    const top = clamp(cy - hostRect.top - 120, 12, hostRect.height - tooltipHeight - 12);
     this.tooltip.style.left = `${left}px`;
     this.tooltip.style.top = `${top}px`;
   }
 
   hideTooltip() {
+    if (this.isTooltipPinned()) return;
     this.tooltip.style.opacity = '0';
     this.tooltip.style.transform = 'translateY(10px) scale(0.98)';
     this.tooltip.style.visibility = 'hidden';
+  }
+
+  clearPinnedTooltip() {
+    this.tooltipPinnedUntil = 0;
+    this.pinnedData = null;
+    this.pinnedMarker = null;
+    this.tooltip.style.opacity = '0';
+    this.tooltip.style.transform = 'translateY(10px) scale(0.98)';
+    this.tooltip.style.visibility = 'hidden';
+    if (this.hovered && this.hovered.userData) {
+      this.showTooltip(this.hovered.userData);
+    }
+  }
+
+  isTooltipPinned() {
+    if (Date.now() <= this.tooltipPinnedUntil) return true;
+    if (this.tooltipPinnedUntil !== 0) {
+      this.tooltipPinnedUntil = 0;
+      this.pinnedData = null;
+      this.pinnedMarker = null;
+    }
+    return false;
+  }
+
+  getCursorScreenPoint() {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: Number.isFinite(this._lastClientX) ? this._lastClientX : (rect.left + rect.width / 2),
+      y: Number.isFinite(this._lastClientY) ? this._lastClientY : (rect.top + rect.height / 2)
+    };
+  }
+
+  getMarkerScreenPoint(marker) {
+    const world = marker.parent.getWorldPosition(new THREE.Vector3());
+    const projected = world.project(this.camera);
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: rect.left + ((projected.x + 1) / 2) * rect.width,
+      y: rect.top + ((-projected.y + 1) / 2) * rect.height
+    };
+  }
+
+  ensureTooltipHost() {
+    const desiredHost = document.fullscreenElement === this.container ? this.container : document.body;
+    const desiredPosition = desiredHost === document.body ? 'fixed' : 'absolute';
+    if (this.tooltipHost !== desiredHost || this.tooltip.parentElement !== desiredHost) {
+      desiredHost.appendChild(this.tooltip);
+      this.tooltipHost = desiredHost;
+    }
+    this.tooltip.style.position = desiredPosition;
+  }
+
+  handleFullscreenChange() {
+    this.ensureTooltipHost();
+    if (this.tooltip.style.visibility === 'visible') {
+      this.positionTooltip();
+    }
   }
 
   destroy() {
@@ -625,6 +721,7 @@ class FootprintsGlobe {
     this.canvas.removeEventListener('pointerenter', this._onPointerEnter);
     this.canvas.removeEventListener('pointerleave', this._onCanvasLeave);
     this.canvas.removeEventListener('click', this._onClick);
+    document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     this.hideTooltip();
     if (this.renderer) this.renderer.dispose();
   }

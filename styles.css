@@ -1340,9 +1340,15 @@ main {
     radial-gradient(circle at 12% 18%, rgba(255,255,255,0.95) 0 1.1px, transparent 1.5px),
     radial-gradient(circle at 22% 72%, rgba(255,255,255,0.7) 0 1px, transparent 1.4px),
     radial-gradient(circle at 36% 28%, rgba(255,255,255,0.55) 0 0.9px, transparent 1.3px),
+    radial-gradient(circle at 15% 38%, rgba(255,255,255,0.72) 0 0.95px, transparent 1.35px),
+    radial-gradient(circle at 28% 52%, rgba(255,255,255,0.60) 0 0.9px, transparent 1.3px),
+    radial-gradient(circle at 44% 12%, rgba(255,255,255,0.82) 0 1.0px, transparent 1.4px),
+    radial-gradient(circle at 57% 76%, rgba(255,255,255,0.64) 0 0.95px, transparent 1.35px),
     radial-gradient(circle at 68% 16%, rgba(255,255,255,0.85) 0 1.1px, transparent 1.5px),
+    radial-gradient(circle at 73% 44%, rgba(255,255,255,0.58) 0 0.9px, transparent 1.3px),
     radial-gradient(circle at 81% 62%, rgba(255,255,255,0.6) 0 0.9px, transparent 1.3px),
     radial-gradient(circle at 92% 26%, rgba(255,255,255,0.72) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 88% 82%, rgba(255,255,255,0.65) 0 0.95px, transparent 1.35px),
     radial-gradient(1000px 620px at 58% 42%, rgba(46, 124, 255, 0.18), transparent 62%),
     radial-gradient(1200px 700px at 55% 45%, rgba(7, 15, 36, 0.94), rgba(1, 3, 10, 0.99));
   border-radius: 12px;
@@ -1355,9 +1361,15 @@ html:not(.dark-mode) #map-container {
     radial-gradient(circle at 12% 18%, rgba(255,255,255,0.85) 0 1.1px, transparent 1.5px),
     radial-gradient(circle at 22% 72%, rgba(255,255,255,0.62) 0 1px, transparent 1.4px),
     radial-gradient(circle at 36% 28%, rgba(255,255,255,0.5) 0 0.9px, transparent 1.3px),
+    radial-gradient(circle at 15% 38%, rgba(255,255,255,0.68) 0 0.95px, transparent 1.35px),
+    radial-gradient(circle at 28% 52%, rgba(255,255,255,0.56) 0 0.9px, transparent 1.3px),
+    radial-gradient(circle at 44% 12%, rgba(255,255,255,0.74) 0 1.0px, transparent 1.4px),
+    radial-gradient(circle at 57% 76%, rgba(255,255,255,0.54) 0 0.95px, transparent 1.35px),
     radial-gradient(circle at 68% 16%, rgba(255,255,255,0.78) 0 1.1px, transparent 1.5px),
+    radial-gradient(circle at 73% 44%, rgba(255,255,255,0.52) 0 0.9px, transparent 1.3px),
     radial-gradient(circle at 81% 62%, rgba(255,255,255,0.55) 0 0.9px, transparent 1.3px),
     radial-gradient(circle at 92% 26%, rgba(255,255,255,0.68) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 88% 82%, rgba(255,255,255,0.58) 0 0.95px, transparent 1.35px),
     radial-gradient(1000px 620px at 58% 42%, rgba(50, 133, 255, 0.18), transparent 60%),
     radial-gradient(1200px 700px at 55% 45%, rgba(7, 16, 38, 0.96), rgba(1, 4, 12, 0.995));
 }
@@ -1597,6 +1609,36 @@ footer p {
 
 .location-thumbnail .lt-body {
   padding: 12px 12px 14px;
+  position: relative;
+}
+
+.location-thumbnail .lt-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 2;
+}
+
+.location-thumbnail .lt-close:hover {
+  transform: scale(1.04);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.96);
 }
 
 .location-thumbnail::after {
@@ -1668,6 +1710,16 @@ html:not(.dark-mode) .location-thumbnail .lt-date {
 }
 html:not(.dark-mode) .location-thumbnail .lt-desc {
   color: rgba(20, 30, 45, 0.82);
+}
+html:not(.dark-mode) .location-thumbnail .lt-close {
+  border-color: rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(20, 30, 45, 0.76);
+}
+html:not(.dark-mode) .location-thumbnail .lt-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: rgba(10, 16, 24, 0.96);
 }
 
 /* Responsive */
