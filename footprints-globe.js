@@ -95,6 +95,12 @@ class FootprintsGlobe {
     this.autoRotate = true;
     this.autoRotateSpeed = 0.075; // slower and softer
     this.userInteractingUntil = 0;
+    this.isCoarsePointer = !!(
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints > 0)
+    );
+    this.pointerDownInfo = null;
 
     this.globeGroup = new THREE.Group();
     this.scene.add(this.globeGroup);
@@ -129,6 +135,8 @@ class FootprintsGlobe {
     this._onPointerEnter = () => { this.userInteractingUntil = Date.now() + 1500; this.setAutoRotate(false); };
     this._onCanvasLeave = () => { this.hideTooltip(); this.userInteractingUntil = Date.now() + 1500; };
     this._onClick = () => this.onClick();
+    this._onPointerDownCanvas = (e) => this.onPointerDownCanvas(e);
+    this._onPointerUpCanvas = (e) => this.onPointerUpCanvas(e);
     this._onPointerDown = () => { this.userInteractingUntil = Date.now() + 12000; this.setAutoRotate(false); };
     this._onPointerUp = () => { this.userInteractingUntil = Date.now() + 12000; };
     this._onFullscreenChange = () => this.handleFullscreenChange();
@@ -198,6 +206,8 @@ class FootprintsGlobe {
     this.canvas.addEventListener('pointermove', this._onPointerMove, { passive: true });
     this.canvas.addEventListener('pointerenter', this._onPointerEnter, { passive: true });
     this.canvas.addEventListener('pointerleave', this._onCanvasLeave, { passive: true });
+    this.canvas.addEventListener('pointerdown', this._onPointerDownCanvas, { passive: true });
+    this.canvas.addEventListener('pointerup', this._onPointerUpCanvas, { passive: true });
     this.canvas.addEventListener('click', this._onClick, { passive: true });
     document.addEventListener('fullscreenchange', this._onFullscreenChange);
     this.handleFullscreenChange();
@@ -388,14 +398,14 @@ class FootprintsGlobe {
     this.hovered = null;
 
     const radius = 1.0;
-    const dotGeom = new THREE.SphereGeometry(0.013, 16, 16);
-    const glowGeom = new THREE.SphereGeometry(0.026, 18, 18);
-    const hitGeom = new THREE.SphereGeometry(0.065, 18, 18);
+    const dotGeom = new THREE.SphereGeometry(this.isCoarsePointer ? 0.018 : 0.013, 16, 16);
+    const glowGeom = new THREE.SphereGeometry(this.isCoarsePointer ? 0.034 : 0.026, 18, 18);
+    const hitGeom = new THREE.SphereGeometry(this.isCoarsePointer ? 0.12 : 0.065, 18, 18);
     const baseColor = new THREE.Color('#5bb6ff');
 
     for (const it of items || []) {
       const pos = latLngToVector3(it.lat, it.lng, radius * 1.01);
-      const scale = clamp(Math.sqrt(it.intensity || 5) / 3.2, 0.55, 1.8);
+      const scale = clamp(Math.sqrt(it.intensity || 5) / 3.2, this.isCoarsePointer ? 0.85 : 0.55, this.isCoarsePointer ? 2.2 : 1.8);
       const marker = new THREE.Group();
       marker.position.copy(pos);
       marker.lookAt(new THREE.Vector3(0, 0, 0));
@@ -473,7 +483,7 @@ class FootprintsGlobe {
       this.controls.autoRotate = this.autoRotate;
 
       // Resume auto-rotate if user hasn't interacted for a while and we're not hovering a marker.
-      if (Date.now() > this.userInteractingUntil && !this.hovered) {
+      if (Date.now() > this.userInteractingUntil && !this.hovered && !this.isTooltipPinned()) {
         if (!this.autoRotate) this.setAutoRotate(true);
       }
 
@@ -510,6 +520,34 @@ class FootprintsGlobe {
       this.positionTooltip();
     } else if (this.isTooltipPinned()) {
       this.positionTooltip();
+    }
+  }
+
+  onPointerDownCanvas(e) {
+    this.pointerDownInfo = {
+      x: e.clientX,
+      y: e.clientY,
+      t: performance.now(),
+      pointerType: e.pointerType || ''
+    };
+  }
+
+  onPointerUpCanvas(e) {
+    if (!this.isCoarsePointer || !this.pointerDownInfo) return;
+    const dx = e.clientX - this.pointerDownInfo.x;
+    const dy = e.clientY - this.pointerDownInfo.y;
+    const dt = performance.now() - this.pointerDownInfo.t;
+    this.pointerDownInfo = null;
+
+    // Treat a short, nearly-stationary touch as a tap on a footprint.
+    if ((e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === '') &&
+        dt < 360 &&
+        Math.hypot(dx, dy) < 16) {
+      const marker = this.pickMarkerFromClientPoint(e.clientX, e.clientY);
+      if (marker && marker.userData) {
+        this.hovered = marker;
+        this.onClick();
+      }
     }
   }
 
@@ -559,6 +597,17 @@ class FootprintsGlobe {
         }
       }
     }
+  }
+
+  pickMarkerFromClientPoint(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+    const ndc = new THREE.Vector2(x * 2 - 1, -(y * 2 - 1));
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hits = this.raycaster.intersectObjects(this.interactivePoints, false);
+    const hit = hits && hits[0] ? hits[0].object : null;
+    return hit && hit.userData ? hit.userData._visibleDot : null;
   }
 
   focusOnMarker(marker) {
@@ -720,6 +769,8 @@ class FootprintsGlobe {
     this.canvas.removeEventListener('pointermove', this._onPointerMove);
     this.canvas.removeEventListener('pointerenter', this._onPointerEnter);
     this.canvas.removeEventListener('pointerleave', this._onCanvasLeave);
+    this.canvas.removeEventListener('pointerdown', this._onPointerDownCanvas);
+    this.canvas.removeEventListener('pointerup', this._onPointerUpCanvas);
     this.canvas.removeEventListener('click', this._onClick);
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     this.hideTooltip();
