@@ -1042,9 +1042,142 @@ function initFootprintsSection() {
         document.getElementById('footprint-modal').classList.remove('active');
     });
     document.getElementById('save-footprint').addEventListener('click', saveFootprint);
+
+    const intensity = document.getElementById('footprint-intensity');
+    const intensityValue = document.getElementById('footprint-intensity-value');
+    if (intensity && intensityValue) {
+        intensity.addEventListener('input', () => {
+            intensityValue.textContent = String(intensity.value || '5');
+        });
+    }
+
+    initFootprintsPlaceSearch();
+    initFootprintsImagePreview();
     
     // 初始化拖拽排序
     initSortableItems('footprint-items');
+}
+
+function initFootprintsPlaceSearch() {
+    const input = document.getElementById('footprint-place-query');
+    const results = document.getElementById('footprint-place-results');
+    const meta = document.getElementById('footprint-place-selected-meta');
+    if (!input || !results || !meta) return;
+
+    let abort = null;
+    let debounceId = 0;
+
+    const setHidden = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = v == null ? '' : String(v);
+    };
+
+    const clearSelection = () => {
+        setHidden('footprint-place-id', '');
+        setHidden('footprint-place-displayName', '');
+        setHidden('footprint-place-city', '');
+        setHidden('footprint-place-country', '');
+        setHidden('footprint-place-countryCode', '');
+        setHidden('footprint-place-lat', '');
+        setHidden('footprint-place-lng', '');
+        meta.textContent = '';
+    };
+
+    const renderResults = (items) => {
+        if (!items || items.length === 0) {
+            results.classList.remove('active');
+            results.innerHTML = '';
+            return;
+        }
+        results.innerHTML = items.map((it, idx) => {
+            const label = escapeHtml(it.label || '');
+            const extra = escapeHtml(it.extra || '');
+            return `<div class="place-search-item" data-idx="${idx}"><div>${label}</div><div style="margin-top:4px;font-size:12px;opacity:.75;">${extra}</div></div>`;
+        }).join('');
+        results.classList.add('active');
+
+        Array.from(results.querySelectorAll('.place-search-item')).forEach((el) => {
+            el.addEventListener('click', () => {
+                const idx = Number(el.getAttribute('data-idx') || '0');
+                const picked = items[idx];
+                if (!picked) return;
+                input.value = picked.label || '';
+                setHidden('footprint-place-id', picked.id || '');
+                setHidden('footprint-place-displayName', picked.label || '');
+                // Prefer a meaningful city field; fall back to label (without country) if needed.
+                const city = picked.city || (picked.label ? String(picked.label).split(',')[0].trim() : '');
+                setHidden('footprint-place-city', city);
+                setHidden('footprint-place-country', picked.country || '');
+                setHidden('footprint-place-countryCode', picked.countryCode || '');
+                setHidden('footprint-place-lat', picked.lat);
+                setHidden('footprint-place-lng', picked.lng);
+                meta.textContent = `Lat: ${picked.lat}  Lng: ${picked.lng}`;
+                results.classList.remove('active');
+                results.innerHTML = '';
+            });
+        });
+    };
+
+    const query = async (q) => {
+        if (abort) abort.abort();
+        abort = new AbortController();
+        if (!window.cloudflareApi || !window.cloudflareApi.searchPlaces) {
+            throw new Error('Missing cloudflareApi.searchPlaces');
+        }
+        const data = await window.cloudflareApi.searchPlaces(q);
+        const mapped = (data && data.results) ? data.results : [];
+        renderResults(mapped);
+    };
+
+    input.addEventListener('input', () => {
+        const q = String(input.value || '').trim();
+        clearSelection();
+        if (debounceId) window.clearTimeout(debounceId);
+        if (q.length < 2) {
+            renderResults([]);
+            return;
+        }
+        debounceId = window.setTimeout(() => {
+            query(q).catch((e) => {
+                console.warn('Place search error:', e);
+                renderResults([]);
+            });
+        }, 220);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!results.classList.contains('active')) return;
+        const t = e.target;
+        if (t === input || results.contains(t)) return;
+        results.classList.remove('active');
+    });
+}
+
+function initFootprintsImagePreview() {
+    const file = document.getElementById('footprint-image-file');
+    const url = document.getElementById('footprint-image-url');
+    const preview = document.getElementById('footprint-image-preview');
+    if (!file || !url || !preview) return;
+
+    const render = (src) => {
+        preview.innerHTML = src ? `<img src="${src}" alt="">` : '';
+    };
+
+    file.addEventListener('change', () => {
+        const f = file.files && file.files[0];
+        if (!f) return render('');
+        const reader = new FileReader();
+        reader.onload = () => {
+            render(reader.result);
+        };
+        reader.readAsDataURL(f);
+    });
+
+    url.addEventListener('input', () => {
+        const v = String(url.value || '').trim();
+        if (!v) return;
+        render(v);
+    });
 }
 
 // 加载足迹列表
@@ -1060,13 +1193,21 @@ function loadFootprintItems() {
     }
     
     footprints.forEach(footprint => {
+        const place = footprint && footprint.place ? footprint.place : null;
+        const title = place && place.displayName
+            ? place.displayName
+            : `${footprint.city || ''}${footprint.country ? ', ' + footprint.country : ''}`;
+        const lat = place && isFinite(place.lat) ? place.lat : footprint.lat;
+        const lng = place && isFinite(place.lng) ? place.lng : footprint.lng;
+        const visitedAt = footprint.visitedAt || footprint.year || '';
+
         const itemElement = document.createElement('div');
         itemElement.className = 'item-card fade-in';
         itemElement.setAttribute('data-id', footprint.id);
         
         itemElement.innerHTML = `
             <div class="item-header">
-                <div class="item-title">${escapeHtml(footprint.city)}, ${escapeHtml(footprint.country)}</div>
+                <div class="item-title">${escapeHtml(title)}</div>
                 <div class="item-actions">
                     <button class="action-btn sort-handle" title="拖拽排序">
                         <i class="fas fa-grip-lines"></i>
@@ -1082,12 +1223,12 @@ function loadFootprintItems() {
             <div class="item-body">
                 <div class="item-field">
                     <div class="field-label">坐标</div>
-                    <div class="field-value">纬度: ${footprint.lat}, 经度: ${footprint.lng}</div>
+                    <div class="field-value">Lat: ${lat}, Lng: ${lng}</div>
                 </div>
-                ${footprint.year ? `
+                ${visitedAt ? `
                 <div class="item-field">
-                    <div class="field-label">访问年份</div>
-                    <div class="field-value">${escapeHtml(footprint.year)}</div>
+                    <div class="field-label">Time</div>
+                    <div class="field-value">${escapeHtml(visitedAt)}</div>
                 </div>
                 ` : ''}
                 ${footprint.description ? `
@@ -1122,24 +1263,59 @@ function openFootprintModal(footprint = null) {
     const modalTitle = document.getElementById('footprint-modal-title');
     
     // 重置表单
-    document.getElementById('footprint-city').value = '';
-    document.getElementById('footprint-country').value = '';
-    document.getElementById('footprint-lat').value = '';
-    document.getElementById('footprint-lng').value = '';
-    document.getElementById('footprint-year').value = '';
+    document.getElementById('footprint-place-query').value = '';
+    document.getElementById('footprint-place-results').classList.remove('active');
+    document.getElementById('footprint-place-results').innerHTML = '';
+    document.getElementById('footprint-place-selected-meta').textContent = '';
+    document.getElementById('footprint-visitedAt').value = '';
+    document.getElementById('footprint-intensity').value = '5';
+    document.getElementById('footprint-intensity-value').textContent = '5';
     document.getElementById('footprint-description').value = '';
+    document.getElementById('footprint-image-file').value = '';
+    document.getElementById('footprint-image-url').value = '';
+    document.getElementById('footprint-image-preview').innerHTML = '';
     document.getElementById('footprint-id').value = '';
+
+    document.getElementById('footprint-place-id').value = '';
+    document.getElementById('footprint-place-displayName').value = '';
+    document.getElementById('footprint-place-city').value = '';
+    document.getElementById('footprint-place-country').value = '';
+    document.getElementById('footprint-place-countryCode').value = '';
+    document.getElementById('footprint-place-lat').value = '';
+    document.getElementById('footprint-place-lng').value = '';
     
     if (footprint) {
         // 编辑模式
         modalTitle.textContent = '编辑足迹';
-        document.getElementById('footprint-city').value = footprint.city || '';
-        document.getElementById('footprint-country').value = footprint.country || '';
-        document.getElementById('footprint-lat').value = footprint.lat || '';
-        document.getElementById('footprint-lng').value = footprint.lng || '';
-        document.getElementById('footprint-year').value = footprint.year || '';
+        const place = footprint.place || null;
+        const displayName = place && place.displayName
+            ? place.displayName
+            : `${footprint.city || ''}${footprint.country ? ', ' + footprint.country : ''}`;
+
+        document.getElementById('footprint-place-query').value = displayName;
+        document.getElementById('footprint-place-id').value = place && place.id ? place.id : '';
+        document.getElementById('footprint-place-displayName').value = displayName;
+        document.getElementById('footprint-place-city').value = place && place.city ? place.city : (footprint.city || '');
+        document.getElementById('footprint-place-country').value = place && place.country ? place.country : (footprint.country || '');
+        document.getElementById('footprint-place-countryCode').value = place && place.countryCode ? place.countryCode : '';
+        document.getElementById('footprint-place-lat').value = place && isFinite(place.lat) ? place.lat : (footprint.lat || '');
+        document.getElementById('footprint-place-lng').value = place && isFinite(place.lng) ? place.lng : (footprint.lng || '');
+        document.getElementById('footprint-place-selected-meta').textContent = `Lat: ${document.getElementById('footprint-place-lat').value}  Lng: ${document.getElementById('footprint-place-lng').value}`;
+
+        document.getElementById('footprint-visitedAt').value = footprint.visitedAt || footprint.year || '';
+        document.getElementById('footprint-intensity').value = String(footprint.intensity || 5);
+        document.getElementById('footprint-intensity-value').textContent = String(footprint.intensity || 5);
         document.getElementById('footprint-description').value = footprint.description || '';
         document.getElementById('footprint-id').value = footprint.id;
+
+        const imageUrl =
+            (footprint.image && typeof footprint.image === 'object' ? (footprint.image.url || '') : footprint.image) ||
+            footprint.imageUrl ||
+            '';
+        if (imageUrl) {
+            document.getElementById('footprint-image-url').value = imageUrl;
+            document.getElementById('footprint-image-preview').innerHTML = `<img src="${imageUrl}" alt="">`;
+        }
     } else {
         // 添加模式
         modalTitle.textContent = '添加足迹';
@@ -1150,24 +1326,25 @@ function openFootprintModal(footprint = null) {
 }
 
 // 保存足迹
-function saveFootprint() {
+async function saveFootprint() {
     // 获取表单数据
-    const city = document.getElementById('footprint-city').value.trim();
-    const country = document.getElementById('footprint-country').value.trim();
-    const lat = document.getElementById('footprint-lat').value.trim();
-    const lng = document.getElementById('footprint-lng').value.trim();
-    const year = document.getElementById('footprint-year').value.trim();
+    const placeId = document.getElementById('footprint-place-id').value.trim();
+    const displayName = document.getElementById('footprint-place-displayName').value.trim() || document.getElementById('footprint-place-query').value.trim();
+    const city = document.getElementById('footprint-place-city').value.trim();
+    const country = document.getElementById('footprint-place-country').value.trim();
+    const countryCode = document.getElementById('footprint-place-countryCode').value.trim();
+    const lat = document.getElementById('footprint-place-lat').value.trim();
+    const lng = document.getElementById('footprint-place-lng').value.trim();
+    const visitedAt = document.getElementById('footprint-visitedAt').value.trim();
+    const intensity = Number(document.getElementById('footprint-intensity').value || 5);
     const description = document.getElementById('footprint-description').value.trim();
     const id = document.getElementById('footprint-id').value;
+    const imageUrl = document.getElementById('footprint-image-url').value.trim();
+    const imageFile = (document.getElementById('footprint-image-file').files || [])[0];
     
     // 验证必填字段
-    if (!city || !country) {
-        showMessage('请填写城市和国家', 'warning');
-        return;
-    }
-    
-    if (!lat || !lng) {
-        showMessage('请填写坐标', 'warning');
+    if (!displayName || !lat || !lng) {
+        showMessage('请先搜索并选择城市（会自动填充坐标）', 'warning');
         return;
     }
     
@@ -1177,14 +1354,36 @@ function saveFootprint() {
         return;
     }
     
+    let finalImageUrl = imageUrl;
+    if (imageFile) {
+        try {
+            if (window.cloudflareApi && window.cloudflareApi.uploadAdminAsset) {
+                const uploaded = await window.cloudflareApi.uploadAdminAsset(imageFile);
+                finalImageUrl = uploaded && uploaded.url ? uploaded.url : finalImageUrl;
+            }
+        } catch (e) {
+            console.error('上传图片失败:', e);
+            showMessage('图片上传失败: ' + (e.message || 'Unknown error'), 'error');
+            return;
+        }
+    }
+
     // 准备数据
     const footprint = {
-        city,
-        country,
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
-        year,
-        description
+        place: {
+            id: placeId || '',
+            displayName,
+            city,
+            country,
+            countryCode,
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            source: placeId ? 'photon' : 'manual'
+        },
+        visitedAt,
+        description,
+        intensity: isFinite(intensity) ? intensity : 5,
+        image: finalImageUrl ? { url: finalImageUrl, mode: imageFile ? 'upload' : 'url' } : { url: '', mode: '' }
     };
     
     if (id) {

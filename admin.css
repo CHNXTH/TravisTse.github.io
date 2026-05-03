@@ -519,6 +519,60 @@ button {
     margin-bottom: 10px;
 }
 
+/* Footprints place search (admin) */
+.place-search-results {
+    margin-top: 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.25);
+    max-height: 220px;
+    overflow: auto;
+    display: none;
+}
+
+.place-search-results.active {
+    display: block;
+}
+
+.place-search-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 13px;
+}
+
+.place-search-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.place-selected-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.range-value {
+    margin-top: 6px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.image-preview {
+    margin-top: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.image-preview img {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    display: block;
+}
+
 .item-field:last-child {
     margin-bottom: 0;
 }

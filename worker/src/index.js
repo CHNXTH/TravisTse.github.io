@@ -65,6 +65,10 @@ export default {
             return handleKnowledgePolish(request, env);
         }
 
+        if (url.pathname === '/api/places/search') {
+            return handlePlaceSearch(request);
+        }
+
         if (url.pathname.startsWith('/assets/')) {
             return handleAssetGet(request, env, url.pathname.slice('/assets/'.length));
         }
@@ -72,6 +76,51 @@ export default {
         return jsonResponse(request, { error: 'Not found' }, 404);
     }
 };
+
+async function handlePlaceSearch(request) {
+    if (request.method !== 'GET') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { Allow: 'GET, OPTIONS' });
+    }
+
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').trim();
+    if (q.length < 2) {
+        return jsonResponse(request, { results: [] }, 200);
+    }
+
+    // Photon (OpenStreetMap). Keep response small and CORS-friendly.
+    const upstream = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10`;
+    const r = await fetch(upstream, { headers: { Accept: 'application/json' } });
+    if (!r.ok) {
+        return jsonResponse(request, { error: 'Place search failed' }, 502);
+    }
+
+    const j = await r.json().catch(() => ({}));
+    const feats = (j && j.features) ? j.features : [];
+    const results = feats.map((f) => {
+        const p = f && f.properties ? f.properties : {};
+        const geom = f && f.geometry && Array.isArray(f.geometry.coordinates) ? f.geometry.coordinates : [];
+        const lng = geom[0];
+        const lat = geom[1];
+        const name = p.name || p.city || p.state || '';
+        const country = p.country || '';
+        const label = [name, country].filter(Boolean).join(', ');
+        const id = `photon:${p.osm_type || ''}:${p.osm_id || ''}`;
+        const extra = [p.state, p.type].filter(Boolean).join(' · ');
+        return {
+            id,
+            label,
+            extra,
+            city: p.city || p.name || '',
+            country,
+            countryCode: (p.countrycode || '').toUpperCase(),
+            lat: typeof lat === 'number' ? lat : parseFloat(lat),
+            lng: typeof lng === 'number' ? lng : parseFloat(lng),
+        };
+    }).filter((x) => x.label && isFinite(x.lat) && isFinite(x.lng));
+
+    return jsonResponse(request, { results }, 200);
+}
 
 async function handleChat(request, env) {
     if (request.method !== 'POST') {
@@ -170,49 +219,101 @@ Existing summary: ${summary}
 Full content: ${content}
 `.trim();
 
-    const upstreamResponse = await fetch(DEEPSEEK_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
-        },
-        body: JSON.stringify({
+    const tryParseJson = (text) => {
+        const raw = String(text || '').trim();
+        if (!raw) return null;
+        // Strip common wrappers.
+        const cleaned = raw
+            .replace(/^\s*```(?:json)?\s*/i, '')
+            .replace(/\s*```\s*$/i, '')
+            .trim();
+        // First try: direct JSON.
+        try { return JSON.parse(cleaned); } catch (_) {}
+        // Second try: extract the first balanced JSON object.
+        const extracted = extractFirstJsonObject(cleaned);
+        if (!extracted) return null;
+        try { return JSON.parse(extracted); } catch (_) {}
+        return null;
+    };
+
+    const callOnce = async (strictMode) => {
+        const system = strictMode
+            ? 'Return STRICT JSON only. Do not include any explanation, markdown, code fences, or extra keys.'
+            : 'You are a careful assistant that outputs strict JSON only.';
+        const payload = {
             model: 'deepseek-v4-flash',
             messages: [
-                { role: 'system', content: 'You are a careful assistant that outputs strict JSON only.' },
+                { role: 'system', content: system },
                 { role: 'user', content: prompt },
             ],
-            temperature: 0.4,
+            temperature: strictMode ? 0.0 : 0.4,
             max_tokens: 256,
             stream: false,
-        }),
-    });
+            // Some OpenAI-compatible providers support this. If unsupported, it will be ignored.
+            response_format: { type: 'json_object' },
+        };
 
-    const upstreamData = await upstreamResponse.json().catch(() => ({}));
-    if (!upstreamResponse.ok) {
-        const upstreamError = upstreamData && upstreamData.error
-            ? (upstreamData.error.message || upstreamData.error)
+        const r = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await r.json().catch(() => ({}));
+        return { ok: r.ok, status: r.status, data };
+    };
+
+    // Try twice: second attempt is "strict mode" to reduce invalid JSON failures.
+    const first = await callOnce(false);
+    if (!first.ok) {
+        const upstreamError = first.data && first.data.error
+            ? (first.data.error.message || first.data.error)
             : 'DeepSeek request failed';
-        return jsonResponse(request, { error: upstreamError }, upstreamResponse.status);
+        return jsonResponse(request, { error: upstreamError }, first.status);
     }
 
-    const reply = extractReply(upstreamData);
-    let parsed = null;
-    try {
-        parsed = JSON.parse(reply);
-    } catch (_) {
-        // Try to salvage JSON if wrapped with text.
-        const m = reply && reply.match(/\{[\s\S]*\}/);
-        if (m) {
-            try { parsed = JSON.parse(m[0]); } catch (_) {}
+    let parsed = tryParseJson(extractReply(first.data));
+    if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.tags)) {
+        const second = await callOnce(true);
+        if (!second.ok) {
+            const upstreamError = second.data && second.data.error
+                ? (second.data.error.message || second.data.error)
+                : 'DeepSeek request failed';
+            return jsonResponse(request, { error: upstreamError }, second.status);
         }
+        parsed = tryParseJson(extractReply(second.data));
     }
 
     if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.tags)) {
         return jsonResponse(request, { error: 'AI returned invalid JSON' }, 502);
     }
 
-    return jsonResponse(request, { summary: parsed.summary.trim(), tags: parsed.tags.filter(Boolean).slice(0, 12) }, 200);
+    return jsonResponse(
+        request,
+        { summary: parsed.summary.trim(), tags: parsed.tags.map(String).filter(Boolean).slice(0, 12) },
+        200
+    );
+}
+
+function extractFirstJsonObject(text) {
+    const s = String(text || '');
+    const start = s.indexOf('{');
+    if (start === -1) return '';
+    let depth = 0;
+    for (let i = start; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+            depth--;
+            if (depth === 0) {
+                return s.slice(start, i + 1);
+            }
+        }
+    }
+    return '';
 }
 
 function buildKnowledgeForQuery(content, userMessage) {

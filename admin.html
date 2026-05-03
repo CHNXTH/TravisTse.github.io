@@ -472,29 +472,38 @@
                             </div>
                             <div class="modal-body">
                                 <div class="form-group">
-                                    <label for="footprint-city">城市名称</label>
-                                    <input type="text" id="footprint-city" placeholder="如：上海">
+                                    <label for="footprint-place-query">选择城市（英文，可搜索）</label>
+                                    <input type="text" id="footprint-place-query" placeholder="Search city… e.g. Zurich" autocomplete="off">
+                                    <div class="place-search-results" id="footprint-place-results" aria-label="Place search results"></div>
+                                    <div class="place-selected-meta" id="footprint-place-selected-meta"></div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="footprint-country">所属国家</label>
-                                    <input type="text" id="footprint-country" placeholder="如：中国">
+                                    <label for="footprint-visitedAt">访问时间 (可选)</label>
+                                    <input type="text" id="footprint-visitedAt" placeholder="如：2024.03">
                                 </div>
                                 <div class="form-group">
-                                    <label for="footprint-lat">纬度</label>
-                                    <input type="text" id="footprint-lat" placeholder="如：31.2304">
-                                </div>
-                                <div class="form-group">
-                                    <label for="footprint-lng">经度</label>
-                                    <input type="text" id="footprint-lng" placeholder="如：121.4737">
-                                </div>
-                                <div class="form-group">
-                                    <label for="footprint-year">访问年份 (可选)</label>
-                                    <input type="text" id="footprint-year" placeholder="如：2024">
+                                    <label for="footprint-intensity">强度 (1-10)</label>
+                                    <input type="range" id="footprint-intensity" min="1" max="10" step="1" value="5">
+                                    <div class="range-value" id="footprint-intensity-value">5</div>
                                 </div>
                                 <div class="form-group">
                                     <label for="footprint-description">描述 (可选)</label>
                                     <textarea id="footprint-description" placeholder="此地的简单描述或访问经历..."></textarea>
                                 </div>
+                                <div class="form-group">
+                                    <label>图片（可上传或填链接）</label>
+                                    <input type="file" id="footprint-image-file" accept="image/*">
+                                    <input type="text" id="footprint-image-url" placeholder="Or paste image URL…">
+                                    <div class="image-preview" id="footprint-image-preview"></div>
+                                </div>
+
+                                <input type="hidden" id="footprint-place-id" value="">
+                                <input type="hidden" id="footprint-place-displayName" value="">
+                                <input type="hidden" id="footprint-place-city" value="">
+                                <input type="hidden" id="footprint-place-country" value="">
+                                <input type="hidden" id="footprint-place-countryCode" value="">
+                                <input type="hidden" id="footprint-place-lat" value="">
+                                <input type="hidden" id="footprint-place-lng" value="">
                                 <input type="hidden" id="footprint-id" value="">
                                 <button class="admin-btn" id="save-footprint">保存</button>
                             </div>

@@ -132,6 +132,10 @@
         return request('/api/content', { method: 'GET' });
     }
 
+    async function searchPlaces(query) {
+        return request('/api/places/search?q=' + encodeURIComponent(query || ''), { method: 'GET' });
+    }
+
     async function polishKnowledge(payload) {
         return request('/api/admin/knowledge/polish', {
             method: 'POST',
@@ -152,6 +156,7 @@
         saveAdminContent,
         uploadAdminAsset,
         getPublicContent,
+        searchPlaces,
         polishKnowledge,
         logout,
     };

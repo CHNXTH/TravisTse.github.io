@@ -1078,16 +1078,39 @@ function updateAwardsFrontend() {
 // 更新足迹前端
 function updateFootprintsFrontend() {
     const footprints = websiteData.footprints || [];
-    
-    // 准备足迹数据
-    const footprintData = footprints.map(footprint => {
+
+    // Normalize footprints data (supports new structure: footprint.place / footprint.image)
+    const footprintData = footprints.map(fp => {
+        const place = fp && fp.place && typeof fp.place === 'object' ? fp.place : null;
+        const city = place && place.city ? String(place.city) : String(fp.city || '');
+        const country = place && place.country ? String(place.country) : String(fp.country || '');
+        const lat = place && Number.isFinite(place.lat) ? Number(place.lat) : parseFloat(fp.lat);
+        const lng = place && Number.isFinite(place.lng) ? Number(place.lng) : parseFloat(fp.lng);
+        const displayName = place && place.displayName
+            ? String(place.displayName)
+            : `${city}${country ? ', ' + country : ''}`;
+
+        const imageUrl =
+            (fp.image && typeof fp.image === 'object' ? (fp.image.url || '') : fp.image) ||
+            fp.imageUrl ||
+            'https://via.placeholder.com/400x300?text=' + encodeURIComponent(city || 'Footprint');
+
         return {
-            name: `${footprint.city}${footprint.country ? ', ' + footprint.country : ''}`,
-            location: [parseFloat(footprint.lng), parseFloat(footprint.lat)],
-            intensity: footprint.intensity || 5,
-            image: footprint.image || 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(footprint.city)
+            name: displayName,
+            // D3/Globe expects [lng, lat]
+            location: [lng, lat],
+            intensity: fp.intensity || 5,
+            image: imageUrl,
+            date: fp.visitedAt || fp.year || '',
+            description: fp.description || ''
         };
-    });
+    }).filter(d => Number.isFinite(d.location[0]) && Number.isFinite(d.location[1]));
+
+    // If the new 3D globe is present, update it and exit.
+    if (typeof window.refreshFootprintsGlobe === 'function') {
+        window.refreshFootprintsGlobe(footprintData);
+        return;
+    }
     
     // 尝试更新地图
     try {

@@ -1259,6 +1259,20 @@ function addLanguageIcon() {
 
 // 世界地图足迹功能
 function initWorldMap() {
+    // Switched to 3D Earth globe (see footprints-globe.js).
+    // Keep initWorldMap() as an entry point, but bail out before legacy D3 code runs.
+    initMapFullscreenControls();
+    if (typeof window.refreshFootprintsGlobe === 'function') {
+        // Remove any legacy SVG if it exists (cached DOM).
+        try {
+            const wm = document.getElementById('world-map');
+            const oldSvg = wm ? wm.querySelector('svg') : null;
+            if (oldSvg) oldSvg.remove();
+        } catch (e) {}
+        window.refreshFootprintsGlobe();
+        return;
+    }
+
     // 检查是否有从localStorage加载的自定义足迹数据
     let customFootprintsData = null;
     let websiteData = {};
@@ -1278,13 +1292,33 @@ function initWorldMap() {
             if (websiteData.footprints && Array.isArray(websiteData.footprints) && websiteData.footprints.length > 0) {
                 console.log(`从localStorage读取到${websiteData.footprints.length}条足迹数据`);
                 
-                // 转换格式为地图使用的格式
-                customFootprintsData = websiteData.footprints.map(fp => ({
-                    name: `${fp.city}${fp.country ? ', ' + fp.country : ''}`,
-                    location: [parseFloat(fp.lng), parseFloat(fp.lat)],
-                    intensity: fp.intensity || 5,
-                    image: fp.image || 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(fp.city)
-                }));
+                // 转换格式为地图使用的格式（支持新版结构：fp.place / fp.image）
+                customFootprintsData = websiteData.footprints.map(fp => {
+                    const place = fp && fp.place && typeof fp.place === 'object' ? fp.place : null;
+                    const city = place && place.city ? String(place.city) : String(fp.city || '');
+                    const country = place && place.country ? String(place.country) : String(fp.country || '');
+                    const lat = place && isFinite(place.lat) ? Number(place.lat) : parseFloat(fp.lat);
+                    const lng = place && isFinite(place.lng) ? Number(place.lng) : parseFloat(fp.lng);
+                    const displayName = place && place.displayName
+                        ? String(place.displayName)
+                        : `${city}${country ? ', ' + country : ''}`;
+
+                    const imageUrl =
+                        (fp.image && typeof fp.image === 'object' ? (fp.image.url || '') : fp.image) ||
+                        fp.imageUrl ||
+                        'https://via.placeholder.com/400x300?text=' + encodeURIComponent(city || 'Footprint');
+
+                    return {
+                        // Geography text is displayed in English. New admin flow stores English displayName.
+                        // Legacy entries (Chinese) will still show as-is until re-saved.
+                        name: displayName,
+                        location: [lng, lat],
+                        intensity: fp.intensity || 5,
+                        image: imageUrl,
+                        date: fp.visitedAt || fp.year || '',
+                        description: fp.description || ''
+                    };
+                }).filter(d => isFinite(d.location[0]) && isFinite(d.location[1]));
             } else {
                 console.log('localStorage中没有足迹数据，将使用默认数据');
             }
@@ -1296,6 +1330,9 @@ function initWorldMap() {
     // 设置地图尺寸
     const width = document.getElementById('map-container').offsetWidth;
     const height = 600;
+
+    // Fullscreen controls (button in index.html)
+    initMapFullscreenControls();
     
     // 判断当前是否为深色模式
     const isDarkMode = document.documentElement.classList.contains('dark-mode');
@@ -1361,18 +1398,29 @@ function initWorldMap() {
     // 如果使用的是默认数据，并且localStorage中没有足迹数据，保存默认数据到localStorage
     if (!customFootprintsData && websiteData) {
         try {
-            // 转换默认足迹数据为localStorage存储格式
-            const defaultFootprintsForStorage = defaultFootprints.map(fp => ({
-                id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-                city: fp.name.split(',')[0] || fp.name,
-                country: fp.name.includes(',') ? fp.name.split(',')[1].trim() : '中国',
-                lat: fp.location[1],
-                lng: fp.location[0],
-                year: '',
-                description: '',
-                intensity: fp.intensity || 5,
-                image: fp.image || ''
-            }));
+            // 转换默认足迹数据为localStorage存储格式（新版结构）
+            const defaultFootprintsForStorage = defaultFootprints.map(fp => {
+                const city = fp.name.split(',')[0] || fp.name;
+                const country = fp.name.includes(',') ? fp.name.split(',')[1].trim() : 'China';
+                const displayName = fp.name.includes(',') ? fp.name : `${city}, ${country}`;
+                return {
+                    id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+                    place: {
+                        id: '',
+                        displayName,
+                        city,
+                        country,
+                        countryCode: '',
+                        lat: fp.location[1],
+                        lng: fp.location[0],
+                        source: 'default'
+                    },
+                    visitedAt: '',
+                    description: '',
+                    intensity: fp.intensity || 5,
+                    image: { url: fp.image || '', mode: 'url' }
+                };
+            });
             
             // 更新websiteData并保存
             websiteData.footprints = defaultFootprintsForStorage;
@@ -1394,9 +1442,6 @@ function initWorldMap() {
         .attr('class', 'location-thumbnail')
         .style('position', 'absolute')
         .style('visibility', 'hidden')
-        .style('background-color', 'white')
-        .style('border-radius', '8px')
-        .style('box-shadow', '0 4px 15px rgba(0, 0, 0, 0.2)')
         .style('overflow', 'hidden')
         .style('z-index', '1000')
         .style('pointer-events', 'none')
@@ -1477,13 +1522,19 @@ function initWorldMap() {
                         .attr('r', Math.sqrt(d.intensity) * 3)
                         .attr('fill-opacity', 1);
                     
-                    // 显示缩略图和位置名称
-                    const imageWidth = 280;
-                    const imageHeight = 180;
-                    
+                    const title = d.name || '';
+                    const date = d.date || '';
+                    const desc = d.description || '';
+                    const safeImg = d.image || '';
+
                     tooltip.html(`
-                        <div style="width: ${imageWidth}px; height: ${imageHeight}px; overflow: hidden; position: relative;">
-                            <img src="${d.image}" alt="${d.name}" style="width: 100%; height: 100%; object-fit: cover; transform: scale(1); transition: transform 0.5s ease;">
+                        <div class="lt-image">
+                            ${safeImg ? `<img src="${safeImg}" alt="${escapeHtml(title)}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.55);font-size:12px;">No image</div>`}
+                        </div>
+                        <div class="lt-body">
+                            <div class="lt-title">${escapeHtml(title)}</div>
+                            ${date ? `<div class="lt-date">${escapeHtml(date)}</div>` : ``}
+                            ${desc ? `<div class="lt-desc">${escapeHtml(desc)}</div>` : ``}
                         </div>
                     `)
                     .style('left', `${event.pageX + 15}px`)
@@ -1491,14 +1542,6 @@ function initWorldMap() {
                     .style('visibility', 'visible')
                     .style('opacity', '1')
                     .style('transform', 'translateY(0) scale(1)');
-                    
-                    // 添加图片加载缩放动画
-                    setTimeout(() => {
-                        const img = tooltip.select('img').node();
-                        if (img && img.complete) {
-                            img.style.transform = 'scale(1.05)';
-                        }
-                    }, 300);
                 })
                 .on('mousemove', function(event) {
                     // 跟随鼠标移动
@@ -1557,6 +1600,30 @@ function initWorldMap() {
             svg.call(zoom);
         })
         .catch(error => console.error('加载世界地图数据时出错:', error));
+}
+
+function initMapFullscreenControls() {
+    const container = document.getElementById('map-container');
+    const btnEnter = document.getElementById('map-fullscreen-btn');
+    const btnExit = document.getElementById('map-fullscreen-exit-btn');
+    if (!container || !btnEnter || !btnExit) return;
+
+    const enter = async () => {
+        try {
+            if (container.requestFullscreen) await container.requestFullscreen();
+            else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+        } catch (_) {}
+    };
+
+    const exit = async () => {
+        try {
+            if (document.exitFullscreen) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch (_) {}
+    };
+
+    btnEnter.addEventListener('click', enter);
+    btnExit.addEventListener('click', exit);
 }
 
 // 添加平滑滚动功能

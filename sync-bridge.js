@@ -365,7 +365,11 @@ function isMeaningfulPublicContent(content) {
     const papers = Array.isArray(content.papers) ? content.papers.length : 0;
     const awards = Array.isArray(content.awards) ? content.awards.length : 0;
     const social = Array.isArray(content.social) ? content.social.length : 0;
-    return (education + experience + projects + papers + awards + social) > 0;
+    // Footprints is also real content; otherwise footprint-only updates (like adding Manchester)
+    // won't refresh the public page, causing "wrong location" / "missing point" issues.
+    const footprints = Array.isArray(content.footprints) ? content.footprints.length : 0;
+    const profile = content.profile && typeof content.profile === 'object' ? 1 : 0;
+    return (education + experience + projects + papers + awards + social + footprints + profile) > 0;
 }
 
 function parseLastModified(value) {

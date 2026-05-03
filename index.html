@@ -483,7 +483,15 @@
             <div class="container">
                 <h2 class="section-title">My Footprints</h2>
                 <div id="map-container">
-                    <div id="world-map"></div>
+                    <button class="map-fullscreen-btn" id="map-fullscreen-btn" type="button" aria-label="Full screen map" title="Full screen">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button class="map-fullscreen-exit-btn" id="map-fullscreen-exit-btn" type="button" aria-label="Exit full screen" title="Exit full screen">
+                        <i class="fas fa-compress"></i>
+                    </button>
+                    <div id="world-map">
+                        <canvas id="footprints-globe-canvas" aria-label="3D Earth globe"></canvas>
+                    </div>
                 </div>
             </div>
         </section>
@@ -564,6 +572,9 @@
 
     <script src="chat-config.js"></script>
     <script src="cloudflare-api.js"></script>
+
+    <!-- Footprints 3D globe (Three.js, local-vendored) -->
+    <script type="module" src="footprints-globe.js"></script>
 
     <!-- 先加载数据同步脚本，确保数据处理函数可用 -->
     <script src="admin-sync.js"></script>
