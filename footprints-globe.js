@@ -1,7 +1,7 @@
 import * as THREE from './assets/vendor/three/three.module.min.js';
 import { OrbitControls } from './assets/vendor/three/OrbitControls.js';
 
-const MARKER_LONGITUDE_OFFSET_DEG = 86;
+const MARKER_LONGITUDE_OFFSET_DEG = 90;
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
