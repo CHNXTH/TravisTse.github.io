@@ -140,6 +140,7 @@ class FootprintsGlobe {
     this._onPointerDown = () => { this.userInteractingUntil = Date.now() + 12000; this.setAutoRotate(false); };
     this._onPointerUp = () => { this.userInteractingUntil = Date.now() + 12000; };
     this._onFullscreenChange = () => this.handleFullscreenChange();
+    this._markerScaleBaselineDistance = 3.2;
   }
 
   async init() {
@@ -423,6 +424,7 @@ class FootprintsGlobe {
       visibleDot.scale.setScalar(scale);
       visibleDot.userData = it;
       visibleDot.userData._defaultScale = scale;
+      visibleDot.userData._markerGroup = marker;
       marker.add(visibleDot);
 
       const glowMat = new THREE.MeshBasicMaterial({
@@ -435,6 +437,7 @@ class FootprintsGlobe {
       const glowDot = new THREE.Mesh(glowGeom, glowMat);
       glowDot.position.set(0, 0, 0);
       glowDot.scale.setScalar(scale);
+      glowDot.userData._defaultScale = scale;
       marker.add(glowDot);
 
       const hitMat = new THREE.MeshBasicMaterial({
@@ -444,10 +447,12 @@ class FootprintsGlobe {
       });
       const hitDot = new THREE.Mesh(hitGeom, hitMat);
       hitDot.position.set(0, 0, 0);
+      hitDot.scale.setScalar(scale);
       hitDot.userData = it;
       hitDot.userData._markerGroup = marker;
       hitDot.userData._visibleDot = visibleDot;
       hitDot.userData._glowDot = glowDot;
+      hitDot.userData._defaultScale = scale;
       marker.add(hitDot);
 
       this.pointsGroup.add(marker);
@@ -492,6 +497,7 @@ class FootprintsGlobe {
       }
 
       this.controls.update();
+      this.updateMarkerScreenScale();
       this.updateHover();
       this.renderer.render(this.scene, this.camera);
     };
@@ -545,26 +551,81 @@ class FootprintsGlobe {
         Math.hypot(dx, dy) < 16) {
       const marker = this.pickMarkerFromClientPoint(e.clientX, e.clientY);
       if (marker && marker.userData) {
-        this.hovered = marker;
-        this.onClick();
+        this.activateMarker(marker);
       }
     }
   }
 
   onClick() {
     if (this.hovered && this.hovered.userData) {
-      this.setAutoRotate(false);
-      this.userInteractingUntil = Date.now() + 12000;
-      this.tooltipPinnedUntil = Date.now() + 10000;
-      this.pinnedData = this.hovered.userData;
-      this.pinnedMarker = this.hovered;
-      this.focusOnMarker(this.hovered);
-      this.showTooltip(this.hovered.userData, { pinned: true, marker: this.hovered });
+      this.activateMarker(this.hovered);
+    }
+  }
+
+  activateMarker(marker) {
+    if (!marker || !marker.userData) return;
+    this.setAutoRotate(false);
+    this.userInteractingUntil = Date.now() + 12000;
+    this.tooltipPinnedUntil = Date.now() + 10000;
+    this.pinnedData = marker.userData;
+    this.pinnedMarker = marker;
+    this.focusOnMarker(marker);
+    this.showTooltip(marker.userData, { pinned: true, marker });
+
+    // On touch devices, selection should not behave like hover.
+    if (this.isCoarsePointer) {
+      this.hovered = null;
+    }
+  }
+
+  updateMarkerScreenScale() {
+    if (!this.camera || !this.pointsGroup) return;
+    const zoomFactor = clamp(
+      this.camera.position.length() / this._markerScaleBaselineDistance,
+      this.isCoarsePointer ? 0.72 : 0.68,
+      this.isCoarsePointer ? 1.18 : 1.12
+    );
+    const hitFactor = clamp(
+      Math.pow(this.camera.position.length() / this._markerScaleBaselineDistance, 0.75),
+      this.isCoarsePointer ? 0.76 : 0.72,
+      this.isCoarsePointer ? 1.16 : 1.08
+    );
+
+    for (const marker of this.points) {
+      if (!marker || !marker.userData) continue;
+      const markerGroup = marker.userData._markerGroup;
+      if (!markerGroup) continue;
+      const baseScale = marker.userData._defaultScale || 1;
+      const isHovered = this.hovered === marker;
+      const isPinned = this.pinnedMarker === marker && this.isTooltipPinned();
+      const emphasis = isHovered || isPinned ? 1.18 : 1.0;
+
+      marker.scale.setScalar(baseScale * zoomFactor * emphasis);
+
+      const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
+      if (glow) {
+        const glowBase = glow.userData && glow.userData._defaultScale ? glow.userData._defaultScale : baseScale;
+        glow.scale.setScalar(glowBase * zoomFactor * (isHovered || isPinned ? 1.34 : 1.08));
+      }
+
+      const hit = markerGroup.children.find((child) => child.userData && child.userData._visibleDot === marker);
+      if (hit) {
+        const hitBase = hit.userData && hit.userData._defaultScale ? hit.userData._defaultScale : baseScale;
+        hit.scale.setScalar(hitBase * hitFactor * (this.isCoarsePointer ? 1.26 : 1.08));
+      }
     }
   }
 
   updateHover() {
     if (!this.interactivePoints || this.interactivePoints.length === 0) return;
+    if (this.isCoarsePointer) {
+      if (this.hovered) {
+        const oldBase = this.hovered.userData && this.hovered.userData._defaultScale ? this.hovered.userData._defaultScale : 1;
+        this.hovered.scale.setScalar(oldBase);
+      }
+      this.hovered = null;
+      return;
+    }
     this.raycaster.setFromCamera(this.mouseNdc, this.camera);
     const hits = this.raycaster.intersectObjects(this.interactivePoints, false);
     const hit = hits && hits[0] ? hits[0].object : null;
@@ -572,19 +633,16 @@ class FootprintsGlobe {
 
     if (marker !== this.hovered) {
       if (this.hovered && this.hovered.userData) {
-        const defaultScale = this.hovered.userData._defaultScale || 1;
-        this.hovered.scale.setScalar(defaultScale);
         const oldGlow = this.hovered.parent.children.find((child) => child !== this.hovered && child.material && child.material.blending === THREE.AdditiveBlending);
-        if (oldGlow) oldGlow.scale.setScalar(defaultScale);
+        if (oldGlow) {
+          const oldBase = oldGlow.userData && oldGlow.userData._defaultScale ? oldGlow.userData._defaultScale : (this.hovered.userData._defaultScale || 1);
+          oldGlow.scale.setScalar(oldBase);
+        }
       }
 
       this.hovered = marker;
       if (marker && marker.userData) {
         this.canvas.style.cursor = 'pointer';
-        const defaultScale = marker.userData._defaultScale || 1;
-        marker.scale.setScalar(defaultScale * 1.7);
-        const glow = marker.parent.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
-        if (glow) glow.scale.setScalar(defaultScale * 2.0);
         this.setAutoRotate(false); // pause while hovering a marker
         if (!this.isTooltipPinned()) {
           this.showTooltip(marker.userData);
