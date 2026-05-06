@@ -5,6 +5,59 @@ const MARKER_LONGITUDE_OFFSET_DEG = 90;
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
+function createMarkerTexture({ coreColor = '#2367FB', ringColor = '#ffffff' } = {}) {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.clearRect(0, 0, size, size);
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+  ctx.fillStyle = ringColor;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+  ctx.fillStyle = coreColor;
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createGlowTexture(color = '#bfe6ff') {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, 48);
+  gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
+  gradient.addColorStop(0.4, color);
+  gradient.addColorStop(1, 'rgba(191,230,255,0)');
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function ensureTooltipEl() {
   let el = document.querySelector('.location-thumbnail');
   if (el) return el;
@@ -46,7 +99,7 @@ function getNormalizedFootprintsFromStorage() {
         name: displayName || 'Unknown',
         lat,
         lng,
-        intensity: fp.intensity || 5,
+        intensity: fp.intensity || 2,
         image: imageUrl,
         date: fp.visitedAt || fp.year || '',
         description: fp.description || ''
@@ -113,6 +166,8 @@ class FootprintsGlobe {
     this.atmosphere = null;
     this.sunDir = new THREE.Vector3(1, 0, 0);
     this.sunLight = null;
+    this.markerTexture = createMarkerTexture();
+    this.markerGlowTexture = createGlowTexture();
 
     this.pointsGroup = new THREE.Group();
     this.planetGroup.add(this.pointsGroup);
@@ -420,60 +475,67 @@ class FootprintsGlobe {
     this.hovered = null;
 
     const radius = 1.0;
-    const dotGeom = new THREE.SphereGeometry(this.isCoarsePointer ? 0.018 : 0.013, 16, 16);
-    const glowGeom = new THREE.SphereGeometry(this.isCoarsePointer ? 0.034 : 0.026, 18, 18);
-    const hitGeom = new THREE.SphereGeometry(this.isCoarsePointer ? 0.12 : 0.065, 18, 18);
-    const baseColor = new THREE.Color('#5bb6ff');
+    const visibleBaseSize = this.isCoarsePointer ? 0.046 : 0.034;
+    const glowBaseSize = this.isCoarsePointer ? 0.068 : 0.05;
+    const hitBaseSize = this.isCoarsePointer ? 0.16 : 0.118;
 
     for (const it of items || []) {
       const pos = latLngToVector3(it.lat, it.lng, radius * 1.01);
-      const scale = clamp(Math.sqrt(it.intensity || 5) / 3.2, this.isCoarsePointer ? 0.85 : 0.55, this.isCoarsePointer ? 2.2 : 1.8);
+      const scale = clamp(
+        Math.sqrt(it.intensity || 2) / 3.8,
+        this.isCoarsePointer ? 0.74 : 0.44,
+        this.isCoarsePointer ? 1.46 : 1.04
+      );
       const marker = new THREE.Group();
       marker.position.copy(pos);
-      marker.lookAt(new THREE.Vector3(0, 0, 0));
       marker.userData = it;
 
-      const mat = new THREE.MeshStandardMaterial({
-        color: baseColor,
-        emissive: baseColor,
-        emissiveIntensity: 1.2,
-        roughness: 0.25,
-        metalness: 0.2
+      const mat = new THREE.SpriteMaterial({
+        map: this.markerTexture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false
       });
-      const visibleDot = new THREE.Mesh(dotGeom, mat);
+      const visibleDot = new THREE.Sprite(mat);
       visibleDot.position.set(0, 0, 0);
-      visibleDot.scale.setScalar(scale);
+      visibleDot.scale.setScalar(visibleBaseSize * scale);
+      visibleDot.renderOrder = 20;
       visibleDot.userData = it;
-      visibleDot.userData._defaultScale = scale;
+      visibleDot.userData._defaultScale = visibleBaseSize * scale;
       visibleDot.userData._markerGroup = marker;
       marker.add(visibleDot);
 
-      const glowMat = new THREE.MeshBasicMaterial({
-        color: 0xbfe8ff,
+      const glowMat = new THREE.SpriteMaterial({
+        map: this.markerGlowTexture,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.46,
         blending: THREE.AdditiveBlending,
+        depthTest: false,
         depthWrite: false
       });
-      const glowDot = new THREE.Mesh(glowGeom, glowMat);
+      const glowDot = new THREE.Sprite(glowMat);
       glowDot.position.set(0, 0, 0);
-      glowDot.scale.setScalar(scale);
-      glowDot.userData._defaultScale = scale;
+      glowDot.scale.setScalar(glowBaseSize * scale);
+      glowDot.renderOrder = 19;
+      glowDot.userData._defaultScale = glowBaseSize * scale;
       marker.add(glowDot);
 
-      const hitMat = new THREE.MeshBasicMaterial({
+      const hitMat = new THREE.SpriteMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0
+        opacity: 0,
+        depthTest: false,
+        depthWrite: false
       });
-      const hitDot = new THREE.Mesh(hitGeom, hitMat);
+      const hitDot = new THREE.Sprite(hitMat);
       hitDot.position.set(0, 0, 0);
-      hitDot.scale.setScalar(scale);
+      hitDot.scale.setScalar(hitBaseSize * scale);
+      hitDot.renderOrder = 21;
       hitDot.userData = it;
       hitDot.userData._markerGroup = marker;
       hitDot.userData._visibleDot = visibleDot;
       hitDot.userData._glowDot = glowDot;
-      hitDot.userData._defaultScale = scale;
+      hitDot.userData._defaultScale = hitBaseSize * scale;
       marker.add(hitDot);
 
       this.pointsGroup.add(marker);
@@ -520,6 +582,7 @@ class FootprintsGlobe {
       }
 
       this.controls.update();
+      this.updateMarkerVisibility();
       this.updateMarkerScreenScale();
       this.updateHover();
       this.renderer.render(this.scene, this.camera);
@@ -635,6 +698,39 @@ class FootprintsGlobe {
       if (hit) {
         const hitBase = hit.userData && hit.userData._defaultScale ? hit.userData._defaultScale : baseScale;
         hit.scale.setScalar(hitBase * hitFactor * (this.isCoarsePointer ? 1.26 : 1.08));
+      }
+    }
+  }
+
+  updateMarkerVisibility() {
+    if (!this.camera) return;
+    const cameraDir = this.camera.position.clone().normalize();
+
+    for (const marker of this.points) {
+      if (!marker || !marker.userData) continue;
+      const markerGroup = marker.userData._markerGroup;
+      if (!markerGroup) continue;
+
+      const worldPosition = markerGroup.getWorldPosition(new THREE.Vector3()).normalize();
+      const isVisible = worldPosition.dot(cameraDir) > 0.08;
+
+      marker.visible = isVisible;
+
+      const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
+      if (glow) glow.visible = isVisible;
+
+      const hit = markerGroup.children.find((child) => child.userData && child.userData._visibleDot === marker);
+      if (hit) hit.visible = isVisible;
+
+      if (!isVisible) {
+        if (this.hovered === marker) {
+          this.hovered = null;
+          this.canvas.style.cursor = 'grab';
+          if (!this.isTooltipPinned()) this.hideTooltip();
+        }
+        if (this.pinnedMarker === marker && this.isTooltipPinned()) {
+          this.clearPinnedTooltip();
+        }
       }
     }
   }

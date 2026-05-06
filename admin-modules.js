@@ -1047,7 +1047,7 @@ function initFootprintsSection() {
     const intensityValue = document.getElementById('footprint-intensity-value');
     if (intensity && intensityValue) {
         intensity.addEventListener('input', () => {
-            intensityValue.textContent = String(intensity.value || '5');
+            intensityValue.textContent = String(intensity.value || '2');
         });
     }
 
@@ -1268,8 +1268,8 @@ function openFootprintModal(footprint = null) {
     document.getElementById('footprint-place-results').innerHTML = '';
     document.getElementById('footprint-place-selected-meta').textContent = '';
     document.getElementById('footprint-visitedAt').value = '';
-    document.getElementById('footprint-intensity').value = '5';
-    document.getElementById('footprint-intensity-value').textContent = '5';
+    document.getElementById('footprint-intensity').value = '2';
+    document.getElementById('footprint-intensity-value').textContent = '2';
     document.getElementById('footprint-description').value = '';
     document.getElementById('footprint-image-file').value = '';
     document.getElementById('footprint-image-url').value = '';
@@ -1303,8 +1303,8 @@ function openFootprintModal(footprint = null) {
         document.getElementById('footprint-place-selected-meta').textContent = `Lat: ${document.getElementById('footprint-place-lat').value}  Lng: ${document.getElementById('footprint-place-lng').value}`;
 
         document.getElementById('footprint-visitedAt').value = footprint.visitedAt || footprint.year || '';
-        document.getElementById('footprint-intensity').value = String(footprint.intensity || 5);
-        document.getElementById('footprint-intensity-value').textContent = String(footprint.intensity || 5);
+        document.getElementById('footprint-intensity').value = String(footprint.intensity || 2);
+        document.getElementById('footprint-intensity-value').textContent = String(footprint.intensity || 2);
         document.getElementById('footprint-description').value = footprint.description || '';
         document.getElementById('footprint-id').value = footprint.id;
 
@@ -1336,7 +1336,7 @@ async function saveFootprint() {
     const lat = document.getElementById('footprint-place-lat').value.trim();
     const lng = document.getElementById('footprint-place-lng').value.trim();
     const visitedAt = document.getElementById('footprint-visitedAt').value.trim();
-    const intensity = Number(document.getElementById('footprint-intensity').value || 5);
+    const intensity = Number(document.getElementById('footprint-intensity').value || 2);
     const description = document.getElementById('footprint-description').value.trim();
     const id = document.getElementById('footprint-id').value;
     const imageUrl = document.getElementById('footprint-image-url').value.trim();
@@ -1382,7 +1382,7 @@ async function saveFootprint() {
         },
         visitedAt,
         description,
-        intensity: isFinite(intensity) ? intensity : 5,
+        intensity: isFinite(intensity) ? intensity : 2,
         image: finalImageUrl ? { url: finalImageUrl, mode: imageFile ? 'upload' : 'url' } : { url: '', mode: '' }
     };
     

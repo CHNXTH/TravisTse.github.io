@@ -1313,7 +1313,7 @@ function initWorldMap() {
                         // Legacy entries (Chinese) will still show as-is until re-saved.
                         name: displayName,
                         location: [lng, lat],
-                        intensity: fp.intensity || 5,
+                        intensity: fp.intensity || 2,
                         image: imageUrl,
                         date: fp.visitedAt || fp.year || '',
                         description: fp.description || ''
@@ -1417,7 +1417,7 @@ function initWorldMap() {
                     },
                     visitedAt: '',
                     description: '',
-                    intensity: fp.intensity || 5,
+                    intensity: fp.intensity || 2,
                     image: { url: fp.image || '', mode: 'url' }
                 };
             });
