@@ -42,8 +42,8 @@ function createGlowTexture(color = '#bfe6ff') {
   const cy = size / 2;
 
   const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, 48);
-  gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
-  gradient.addColorStop(0.4, color);
+  gradient.addColorStop(0, 'rgba(35,103,251,0.32)');
+  gradient.addColorStop(0.45, color);
   gradient.addColorStop(1, 'rgba(191,230,255,0)');
 
   ctx.clearRect(0, 0, size, size);
@@ -164,6 +164,7 @@ class FootprintsGlobe {
     this.nightLights = null;
     this.clouds = null;
     this.atmosphere = null;
+    this.starfieldGroup = null;
     this.sunDir = new THREE.Vector3(1, 0, 0);
     this.sunLight = null;
     this.markerTexture = createMarkerTexture();
@@ -196,7 +197,6 @@ class FootprintsGlobe {
     this._onPointerDown = () => { this.userInteractingUntil = Date.now() + 12000; this.setAutoRotate(false); };
     this._onPointerUp = () => { this.userInteractingUntil = Date.now() + 12000; };
     this._onFullscreenChange = () => this.handleFullscreenChange();
-    this._markerScaleBaselineDistance = 3.2;
   }
 
   async init() {
@@ -295,6 +295,7 @@ class FootprintsGlobe {
     specularTex.colorSpace = THREE.NoColorSpace;
 
     const radius = 1.0;
+    this.createStarfield();
     const geom = new THREE.SphereGeometry(radius, 96, 96);
 
     const mat = new THREE.ShaderMaterial({
@@ -467,6 +468,55 @@ class FootprintsGlobe {
     this.pointsGroup.rotation.y = THREE.MathUtils.degToRad(MARKER_LONGITUDE_OFFSET_DEG);
   }
 
+  createStarfield() {
+    if (this.starfieldGroup) {
+      this.scene.remove(this.starfieldGroup);
+    }
+
+    const starfieldGroup = new THREE.Group();
+    const starCount = 1800;
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i += 1) {
+      const i3 = i * 3;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+      const radius = THREE.MathUtils.randFloat(9.5, 12.5);
+      const sinPhi = Math.sin(phi);
+
+      positions[i3] = radius * sinPhi * Math.cos(theta);
+      positions[i3 + 1] = radius * Math.cos(phi);
+      positions[i3 + 2] = radius * sinPhi * Math.sin(theta);
+
+      const tint = THREE.MathUtils.randFloat(0.84, 1);
+      colors[i3] = tint;
+      colors[i3 + 1] = THREE.MathUtils.randFloat(0.9, 1);
+      colors[i3 + 2] = 1;
+    }
+
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const starMaterial = new THREE.PointsMaterial({
+      size: 0.065,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: getIsDarkMode() ? 0.95 : 0.72,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    starfieldGroup.add(stars);
+    starfieldGroup.rotation.y = THREE.MathUtils.degToRad(-120);
+
+    this.starfieldGroup = starfieldGroup;
+    this.scene.add(this.starfieldGroup);
+  }
+
   setData(items) {
     // Clear old
     this.pointsGroup.clear();
@@ -475,17 +525,12 @@ class FootprintsGlobe {
     this.hovered = null;
 
     const radius = 1.0;
-    const visibleBaseSize = this.isCoarsePointer ? 0.046 : 0.034;
-    const glowBaseSize = this.isCoarsePointer ? 0.068 : 0.05;
-    const hitBaseSize = this.isCoarsePointer ? 0.16 : 0.118;
+    const visibleBasePixels = this.isCoarsePointer ? 14 : 11;
+    const glowBasePixels = this.isCoarsePointer ? 22 : 18;
+    const hitBasePixels = this.isCoarsePointer ? 38 : 28;
 
     for (const it of items || []) {
       const pos = latLngToVector3(it.lat, it.lng, radius * 1.01);
-      const scale = clamp(
-        Math.sqrt(it.intensity || 2) / 3.8,
-        this.isCoarsePointer ? 0.74 : 0.44,
-        this.isCoarsePointer ? 1.46 : 1.04
-      );
       const marker = new THREE.Group();
       marker.position.copy(pos);
       marker.userData = it;
@@ -498,10 +543,9 @@ class FootprintsGlobe {
       });
       const visibleDot = new THREE.Sprite(mat);
       visibleDot.position.set(0, 0, 0);
-      visibleDot.scale.setScalar(visibleBaseSize * scale);
       visibleDot.renderOrder = 20;
       visibleDot.userData = it;
-      visibleDot.userData._defaultScale = visibleBaseSize * scale;
+      visibleDot.userData._pixelSize = visibleBasePixels;
       visibleDot.userData._markerGroup = marker;
       marker.add(visibleDot);
 
@@ -515,9 +559,8 @@ class FootprintsGlobe {
       });
       const glowDot = new THREE.Sprite(glowMat);
       glowDot.position.set(0, 0, 0);
-      glowDot.scale.setScalar(glowBaseSize * scale);
       glowDot.renderOrder = 19;
-      glowDot.userData._defaultScale = glowBaseSize * scale;
+      glowDot.userData._pixelSize = glowBasePixels;
       marker.add(glowDot);
 
       const hitMat = new THREE.SpriteMaterial({
@@ -529,13 +572,12 @@ class FootprintsGlobe {
       });
       const hitDot = new THREE.Sprite(hitMat);
       hitDot.position.set(0, 0, 0);
-      hitDot.scale.setScalar(hitBaseSize * scale);
       hitDot.renderOrder = 21;
       hitDot.userData = it;
       hitDot.userData._markerGroup = marker;
       hitDot.userData._visibleDot = visibleDot;
       hitDot.userData._glowDot = glowDot;
-      hitDot.userData._defaultScale = hitBaseSize * scale;
+      hitDot.userData._pixelSize = hitBasePixels;
       marker.add(hitDot);
 
       this.pointsGroup.add(marker);
@@ -569,6 +611,10 @@ class FootprintsGlobe {
       if (this.sunLight) this.sunLight.position.copy(this.sunDir.clone().multiplyScalar(6));
 
       const dt = this.clock.getDelta();
+      if (this.starfieldGroup) {
+        this.starfieldGroup.rotation.y += dt * 0.016;
+        this.starfieldGroup.rotation.x = Math.sin(now.getTime() * 0.00005) * 0.03;
+      }
       // Spin the globe itself so markers stay locked to geography while the planet rotates.
       this.controls.autoRotate = this.autoRotate;
 
@@ -665,41 +711,40 @@ class FootprintsGlobe {
   }
 
   updateMarkerScreenScale() {
-    if (!this.camera || !this.pointsGroup) return;
-    const zoomFactor = clamp(
-      this.camera.position.length() / this._markerScaleBaselineDistance,
-      this.isCoarsePointer ? 0.72 : 0.68,
-      this.isCoarsePointer ? 1.18 : 1.12
-    );
-    const hitFactor = clamp(
-      Math.pow(this.camera.position.length() / this._markerScaleBaselineDistance, 0.75),
-      this.isCoarsePointer ? 0.76 : 0.72,
-      this.isCoarsePointer ? 1.16 : 1.08
-    );
+    if (!this.camera || !this.pointsGroup || !this.renderer) return;
 
     for (const marker of this.points) {
       if (!marker || !marker.userData) continue;
       const markerGroup = marker.userData._markerGroup;
       if (!markerGroup) continue;
-      const baseScale = marker.userData._defaultScale || 1;
+      const worldPosition = markerGroup.getWorldPosition(new THREE.Vector3());
+      const basePixels = marker.userData._pixelSize || 10;
       const isHovered = this.hovered === marker;
       const isPinned = this.pinnedMarker === marker && this.isTooltipPinned();
-      const emphasis = isHovered || isPinned ? 1.18 : 1.0;
+      const emphasis = isHovered || isPinned ? 1.12 : 1.0;
 
-      marker.scale.setScalar(baseScale * zoomFactor * emphasis);
+      marker.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, basePixels * emphasis));
 
       const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
       if (glow) {
-        const glowBase = glow.userData && glow.userData._defaultScale ? glow.userData._defaultScale : baseScale;
-        glow.scale.setScalar(glowBase * zoomFactor * (isHovered || isPinned ? 1.34 : 1.08));
+        const glowPixels = glow.userData && glow.userData._pixelSize ? glow.userData._pixelSize : 16;
+        glow.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, glowPixels * (isHovered || isPinned ? 1.12 : 1.02)));
       }
 
       const hit = markerGroup.children.find((child) => child.userData && child.userData._visibleDot === marker);
       if (hit) {
-        const hitBase = hit.userData && hit.userData._defaultScale ? hit.userData._defaultScale : baseScale;
-        hit.scale.setScalar(hitBase * hitFactor * (this.isCoarsePointer ? 1.26 : 1.08));
+        const hitPixels = hit.userData && hit.userData._pixelSize ? hit.userData._pixelSize : 24;
+        hit.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, hitPixels * (this.isCoarsePointer ? 1.08 : 1)));
       }
     }
+  }
+
+  getWorldUnitsForPixels(worldPosition, pixels) {
+    const viewportHeight = this.renderer.domElement.clientHeight || this.container.clientHeight || 600;
+    const distance = this.camera.position.distanceTo(worldPosition);
+    const fovRad = THREE.MathUtils.degToRad(this.camera.fov);
+    const visibleHeight = 2 * Math.tan(fovRad / 2) * distance;
+    return (visibleHeight * pixels) / viewportHeight;
   }
 
   updateMarkerVisibility() {
@@ -736,29 +781,27 @@ class FootprintsGlobe {
   }
 
   updateHover() {
-    if (!this.interactivePoints || this.interactivePoints.length === 0) return;
+    if (!this.points || this.points.length === 0) return;
     if (this.isCoarsePointer) {
-      if (this.hovered) {
-        const oldBase = this.hovered.userData && this.hovered.userData._defaultScale ? this.hovered.userData._defaultScale : 1;
-        this.hovered.scale.setScalar(oldBase);
-      }
       this.hovered = null;
       return;
     }
     this.raycaster.setFromCamera(this.mouseNdc, this.camera);
-    const hits = this.raycaster.intersectObjects(this.interactivePoints, false);
-    const hit = hits && hits[0] ? hits[0].object : null;
-    const marker = hit && hit.userData ? hit.userData._visibleDot : null;
+    const earthHits = this.earth ? this.raycaster.intersectObject(this.earth, false) : [];
+    if (!earthHits || earthHits.length === 0) {
+      if (this.hovered) {
+        this.hovered = null;
+        this.canvas.style.cursor = 'grab';
+        if (!this.isTooltipPinned()) this.hideTooltip();
+      }
+      return;
+    }
+    const marker = this.findMarkerNearScreenPoint(this._lastClientX, this._lastClientY, {
+      thresholdPx: 10,
+      requireVisible: true
+    });
 
     if (marker !== this.hovered) {
-      if (this.hovered && this.hovered.userData) {
-        const oldGlow = this.hovered.parent.children.find((child) => child !== this.hovered && child.material && child.material.blending === THREE.AdditiveBlending);
-        if (oldGlow) {
-          const oldBase = oldGlow.userData && oldGlow.userData._defaultScale ? oldGlow.userData._defaultScale : (this.hovered.userData._defaultScale || 1);
-          oldGlow.scale.setScalar(oldBase);
-        }
-      }
-
       this.hovered = marker;
       if (marker && marker.userData) {
         this.canvas.style.cursor = 'pointer';
@@ -782,9 +825,36 @@ class FootprintsGlobe {
     const y = (clientY - rect.top) / rect.height;
     const ndc = new THREE.Vector2(x * 2 - 1, -(y * 2 - 1));
     this.raycaster.setFromCamera(ndc, this.camera);
-    const hits = this.raycaster.intersectObjects(this.interactivePoints, false);
-    const hit = hits && hits[0] ? hits[0].object : null;
-    return hit && hit.userData ? hit.userData._visibleDot : null;
+    const earthHits = this.earth ? this.raycaster.intersectObject(this.earth, false) : [];
+    if (!earthHits || earthHits.length === 0) return null;
+    return this.findMarkerNearScreenPoint(clientX, clientY, {
+      thresholdPx: this.isCoarsePointer ? 22 : 12,
+      requireVisible: true
+    });
+  }
+
+  findMarkerNearScreenPoint(clientX, clientY, { thresholdPx = 10, requireVisible = true } = {}) {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY) || !this.camera) return null;
+
+    let bestMarker = null;
+    let bestDistance = Infinity;
+
+    for (const marker of this.points) {
+      if (!marker || !marker.userData) continue;
+      if (requireVisible && !marker.visible) continue;
+
+      const point = this.getMarkerScreenPoint(marker);
+      const distance = Math.hypot(point.x - clientX, point.y - clientY);
+      const basePixels = marker.userData._pixelSize || 10;
+      const effectiveThreshold = Math.max(thresholdPx, basePixels * 0.48);
+
+      if (distance <= effectiveThreshold && distance < bestDistance) {
+        bestDistance = distance;
+        bestMarker = marker;
+      }
+    }
+
+    return bestMarker;
   }
 
   focusOnMarker(marker) {

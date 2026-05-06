@@ -1035,6 +1035,7 @@ document.head.appendChild(socialStyles);
 
 // 初始化足迹管理部分
 function initFootprintsSection() {
+    normalizeFootprintIntensities();
     loadFootprintItems();
     
     document.getElementById('add-footprint').addEventListener('click', () => openFootprintModal());
@@ -1056,6 +1057,26 @@ function initFootprintsSection() {
     
     // 初始化拖拽排序
     initSortableItems('footprint-items');
+}
+
+function normalizeFootprintIntensities(target = 2) {
+    const footprints = Array.isArray(websiteData.footprints) ? websiteData.footprints : [];
+    let changed = false;
+
+    footprints.forEach((footprint) => {
+        if (Number(footprint.intensity) !== target) {
+            footprint.intensity = target;
+            changed = true;
+        }
+    });
+
+    if (!changed) return;
+
+    try {
+        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+    } catch (error) {
+        console.warn('Failed to normalize footprint intensities in localStorage:', error);
+    }
 }
 
 function initFootprintsPlaceSearch() {
