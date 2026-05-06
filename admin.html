@@ -57,6 +57,7 @@
 	                    <li data-target="awards-section"><i class="fas fa-trophy"></i> 奖项荣誉</li>
 	                    <li data-target="knowledge-section"><i class="fas fa-book"></i> 个人内容库</li>
 	                    <li data-target="footprints-section"><i class="fas fa-map-marker-alt"></i> 我的足迹</li>
+	                    <li data-target="anonymous-messages-section"><i class="fas fa-comments"></i> 匿名留言</li>
 	                    <li data-target="social-section"><i class="fas fa-share-alt"></i> 社交媒体</li>
 	                    <li data-target="settings-section"><i class="fas fa-cog"></i> 网站设置</li>
 	                </ul>
@@ -506,6 +507,72 @@
                                 <input type="hidden" id="footprint-place-lng" value="">
                                 <input type="hidden" id="footprint-id" value="">
                                 <button class="admin-btn" id="save-footprint">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="anonymous-messages-section" class="admin-section">
+                    <h2 class="section-title">匿名留言管理</h2>
+                    <div class="admin-inline-actions">
+                        <button class="admin-btn add-btn" id="add-anonymous-message">
+                            <i class="fas fa-plus"></i> 添加精选留言
+                        </button>
+                        <p class="help-text">前台用户提交的留言会先进入这里。只有被精选且设置为公开的留言，才会显示在地球上。</p>
+                    </div>
+
+                    <div class="items-container" id="anonymous-message-items">
+                        <!-- 匿名留言项将动态加载 -->
+                    </div>
+
+                    <div class="modal" id="anonymous-message-modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="anonymous-message-modal-title">添加精选留言</h3>
+                                <button class="close-btn" id="close-anonymous-message-modal">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="anonymous-message-place-query">选择城市（英文，可搜索）</label>
+                                    <input type="text" id="anonymous-message-place-query" placeholder="Search city… e.g. Amsterdam" autocomplete="off">
+                                    <div class="place-search-results" id="anonymous-message-place-results" aria-label="Place search results"></div>
+                                    <div class="place-selected-meta" id="anonymous-message-place-selected-meta"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="anonymous-message-text">留言内容（100 字/词以内）</label>
+                                    <textarea id="anonymous-message-text" maxlength="100" placeholder="Write the anonymous message to be shown on the globe..."></textarea>
+                                    <div class="range-value" id="anonymous-message-text-count">0 / 100</div>
+                                </div>
+                                <div class="form-group form-group-inline-checks">
+                                    <label class="checkbox-row">
+                                        <input type="checkbox" id="anonymous-message-visible">
+                                        <span>公开展示</span>
+                                    </label>
+                                    <label class="checkbox-row">
+                                        <input type="checkbox" id="anonymous-message-featured">
+                                        <span>设为精选</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label for="anonymous-message-createdAt">提交时间</label>
+                                    <input type="text" id="anonymous-message-createdAt" placeholder="自动生成，可手动调整">
+                                </div>
+                                <div class="form-group">
+                                    <label for="anonymous-message-source">来源</label>
+                                    <input type="text" id="anonymous-message-source" placeholder="如：frontend / admin_manual">
+                                </div>
+
+                                <input type="hidden" id="anonymous-message-place-id" value="">
+                                <input type="hidden" id="anonymous-message-place-displayName" value="">
+                                <input type="hidden" id="anonymous-message-place-city" value="">
+                                <input type="hidden" id="anonymous-message-place-country" value="">
+                                <input type="hidden" id="anonymous-message-place-countryCode" value="">
+                                <input type="hidden" id="anonymous-message-place-lat" value="">
+                                <input type="hidden" id="anonymous-message-place-lng" value="">
+                                <input type="hidden" id="anonymous-message-id" value="">
+                                <button class="admin-btn" id="save-anonymous-message">保存</button>
                             </div>
                         </div>
                     </div>

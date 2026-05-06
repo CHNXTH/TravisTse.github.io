@@ -82,6 +82,7 @@ function initDefaultData() {
             websiteData.awards = websiteData.awards || [];
             websiteData.social = websiteData.social || [];
             websiteData.footprints = websiteData.footprints || [];
+            websiteData.anonymousMessages = websiteData.anonymousMessages || [];
             websiteData.settings = websiteData.settings || { password: DEFAULT_PASSWORD };
             
             // 添加数据版本信息（用于将来可能的数据迁移）
@@ -129,6 +130,7 @@ function initDefaultData() {
 	        knowledgeCards: [],
 	        social: [],
 	        footprints: [],
+        anonymousMessages: [],
 	        settings: {
 	            password: DEFAULT_PASSWORD
 	        },
@@ -467,6 +469,7 @@ async function prepareAdminPanel() {
         initKnowledgeSection();
         initSocialSection();
         initFootprintsSection();
+        initAnonymousMessagesSection();
         initSettingsSection();
         adminSectionsInitialized = true;
     } else {
@@ -497,6 +500,7 @@ function refreshAdminSections() {
     if (typeof loadKnowledgeItems === 'function') loadKnowledgeItems();
     if (typeof loadSocialItems === 'function') loadSocialItems();
     if (typeof loadFootprintItems === 'function') loadFootprintItems();
+    if (typeof loadAnonymousMessageItems === 'function') loadAnonymousMessageItems();
 }
 
 function normalizeWebsiteData(data) {
@@ -509,6 +513,7 @@ function normalizeWebsiteData(data) {
     normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
     normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.anonymousMessages = Array.isArray(normalized.anonymousMessages) ? normalized.anonymousMessages : [];
     normalized.knowledgeCards = Array.isArray(normalized.knowledgeCards) ? normalized.knowledgeCards : [];
     normalized.settings = normalized.settings || { password: DEFAULT_PASSWORD };
     normalized.meta = normalized.meta || {};
@@ -707,6 +712,7 @@ function extractWebsiteDataFromDocument(doc) {
             iconPath: item.querySelector('img') ? normalizeAssetPath(item.querySelector('img').getAttribute('src') || '') : ''
         })),
         footprints: [],
+        anonymousMessages: [],
         settings: {
             password: DEFAULT_PASSWORD
         },
@@ -732,6 +738,7 @@ function mergeWebsiteData(base, incoming) {
     if (merged.social.length === 0 && normalizedIncoming.social.length > 0) merged.social = normalizedIncoming.social;
 
     if (merged.footprints.length === 0 && normalizedIncoming.footprints.length > 0) merged.footprints = normalizedIncoming.footprints;
+    if (merged.anonymousMessages.length === 0 && normalizedIncoming.anonymousMessages.length > 0) merged.anonymousMessages = normalizedIncoming.anonymousMessages;
 
     merged.settings = merged.settings || normalizedIncoming.settings || {};
     merged.meta = merged.meta || {};
@@ -887,6 +894,11 @@ function initSocialSection() {
 // 初始化足迹部分
 function initFootprintsSection() {
     // 将在第三部分代码中实现
+}
+
+// 初始化匿名留言部分
+function initAnonymousMessagesSection() {
+    // 将在第三部分代码中实现（admin-modules.js）
 }
 
 // 初始化设置部分

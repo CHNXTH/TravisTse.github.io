@@ -1048,7 +1048,7 @@ function initFootprintsSection() {
     const intensityValue = document.getElementById('footprint-intensity-value');
     if (intensity && intensityValue) {
         intensity.addEventListener('input', () => {
-            intensityValue.textContent = String(intensity.value || '2');
+            intensityValue.textContent = String(intensity.value || '1');
         });
     }
 
@@ -1059,7 +1059,7 @@ function initFootprintsSection() {
     initSortableItems('footprint-items');
 }
 
-function normalizeFootprintIntensities(target = 2) {
+function normalizeFootprintIntensities(target = 1) {
     const footprints = Array.isArray(websiteData.footprints) ? websiteData.footprints : [];
     let changed = false;
 
@@ -1079,30 +1079,33 @@ function normalizeFootprintIntensities(target = 2) {
     }
 }
 
-function initFootprintsPlaceSearch() {
-    const input = document.getElementById('footprint-place-query');
-    const results = document.getElementById('footprint-place-results');
-    const meta = document.getElementById('footprint-place-selected-meta');
+function setManagedPlaceField(prefix, field, value) {
+    const el = document.getElementById(`${prefix}-${field}`);
+    if (el) el.value = value == null ? '' : String(value);
+}
+
+function clearManagedPlaceFields(prefix, metaId) {
+    setManagedPlaceField(prefix, 'id', '');
+    setManagedPlaceField(prefix, 'displayName', '');
+    setManagedPlaceField(prefix, 'city', '');
+    setManagedPlaceField(prefix, 'country', '');
+    setManagedPlaceField(prefix, 'countryCode', '');
+    setManagedPlaceField(prefix, 'lat', '');
+    setManagedPlaceField(prefix, 'lng', '');
+    const meta = document.getElementById(metaId);
+    if (meta) meta.textContent = '';
+}
+
+function initManagedPlaceSearch({ inputId, resultsId, metaId, prefix }) {
+    const input = document.getElementById(inputId);
+    const results = document.getElementById(resultsId);
+    const meta = document.getElementById(metaId);
     if (!input || !results || !meta) return;
+    if (input.dataset.placeSearchBound === '1') return;
+    input.dataset.placeSearchBound = '1';
 
     let abort = null;
     let debounceId = 0;
-
-    const setHidden = (id, v) => {
-        const el = document.getElementById(id);
-        if (el) el.value = v == null ? '' : String(v);
-    };
-
-    const clearSelection = () => {
-        setHidden('footprint-place-id', '');
-        setHidden('footprint-place-displayName', '');
-        setHidden('footprint-place-city', '');
-        setHidden('footprint-place-country', '');
-        setHidden('footprint-place-countryCode', '');
-        setHidden('footprint-place-lat', '');
-        setHidden('footprint-place-lng', '');
-        meta.textContent = '';
-    };
 
     const renderResults = (items) => {
         if (!items || items.length === 0) {
@@ -1122,16 +1125,15 @@ function initFootprintsPlaceSearch() {
                 const idx = Number(el.getAttribute('data-idx') || '0');
                 const picked = items[idx];
                 if (!picked) return;
-                input.value = picked.label || '';
-                setHidden('footprint-place-id', picked.id || '');
-                setHidden('footprint-place-displayName', picked.label || '');
-                // Prefer a meaningful city field; fall back to label (without country) if needed.
                 const city = picked.city || (picked.label ? String(picked.label).split(',')[0].trim() : '');
-                setHidden('footprint-place-city', city);
-                setHidden('footprint-place-country', picked.country || '');
-                setHidden('footprint-place-countryCode', picked.countryCode || '');
-                setHidden('footprint-place-lat', picked.lat);
-                setHidden('footprint-place-lng', picked.lng);
+                input.value = picked.label || '';
+                setManagedPlaceField(prefix, 'id', picked.id || '');
+                setManagedPlaceField(prefix, 'displayName', picked.label || '');
+                setManagedPlaceField(prefix, 'city', city);
+                setManagedPlaceField(prefix, 'country', picked.country || '');
+                setManagedPlaceField(prefix, 'countryCode', picked.countryCode || '');
+                setManagedPlaceField(prefix, 'lat', picked.lat);
+                setManagedPlaceField(prefix, 'lng', picked.lng);
                 meta.textContent = `Lat: ${picked.lat}  Lng: ${picked.lng}`;
                 results.classList.remove('active');
                 results.innerHTML = '';
@@ -1146,13 +1148,12 @@ function initFootprintsPlaceSearch() {
             throw new Error('Missing cloudflareApi.searchPlaces');
         }
         const data = await window.cloudflareApi.searchPlaces(q);
-        const mapped = (data && data.results) ? data.results : [];
-        renderResults(mapped);
+        renderResults((data && data.results) ? data.results : []);
     };
 
     input.addEventListener('input', () => {
         const q = String(input.value || '').trim();
-        clearSelection();
+        clearManagedPlaceFields(prefix, metaId);
         if (debounceId) window.clearTimeout(debounceId);
         if (q.length < 2) {
             renderResults([]);
@@ -1171,6 +1172,15 @@ function initFootprintsPlaceSearch() {
         const t = e.target;
         if (t === input || results.contains(t)) return;
         results.classList.remove('active');
+    });
+}
+
+function initFootprintsPlaceSearch() {
+    initManagedPlaceSearch({
+        inputId: 'footprint-place-query',
+        resultsId: 'footprint-place-results',
+        metaId: 'footprint-place-selected-meta',
+        prefix: 'footprint-place'
     });
 }
 
@@ -1289,8 +1299,8 @@ function openFootprintModal(footprint = null) {
     document.getElementById('footprint-place-results').innerHTML = '';
     document.getElementById('footprint-place-selected-meta').textContent = '';
     document.getElementById('footprint-visitedAt').value = '';
-    document.getElementById('footprint-intensity').value = '2';
-    document.getElementById('footprint-intensity-value').textContent = '2';
+    document.getElementById('footprint-intensity').value = '1';
+    document.getElementById('footprint-intensity-value').textContent = '1';
     document.getElementById('footprint-description').value = '';
     document.getElementById('footprint-image-file').value = '';
     document.getElementById('footprint-image-url').value = '';
@@ -1324,8 +1334,8 @@ function openFootprintModal(footprint = null) {
         document.getElementById('footprint-place-selected-meta').textContent = `Lat: ${document.getElementById('footprint-place-lat').value}  Lng: ${document.getElementById('footprint-place-lng').value}`;
 
         document.getElementById('footprint-visitedAt').value = footprint.visitedAt || footprint.year || '';
-        document.getElementById('footprint-intensity').value = String(footprint.intensity || 2);
-        document.getElementById('footprint-intensity-value').textContent = String(footprint.intensity || 2);
+        document.getElementById('footprint-intensity').value = String(footprint.intensity || 1);
+        document.getElementById('footprint-intensity-value').textContent = String(footprint.intensity || 1);
         document.getElementById('footprint-description').value = footprint.description || '';
         document.getElementById('footprint-id').value = footprint.id;
 
@@ -1357,7 +1367,7 @@ async function saveFootprint() {
     const lat = document.getElementById('footprint-place-lat').value.trim();
     const lng = document.getElementById('footprint-place-lng').value.trim();
     const visitedAt = document.getElementById('footprint-visitedAt').value.trim();
-    const intensity = Number(document.getElementById('footprint-intensity').value || 2);
+    const intensity = Number(document.getElementById('footprint-intensity').value || 1);
     const description = document.getElementById('footprint-description').value.trim();
     const id = document.getElementById('footprint-id').value;
     const imageUrl = document.getElementById('footprint-image-url').value.trim();
@@ -1403,7 +1413,7 @@ async function saveFootprint() {
         },
         visitedAt,
         description,
-        intensity: isFinite(intensity) ? intensity : 2,
+        intensity: isFinite(intensity) ? intensity : 1,
         image: finalImageUrl ? { url: finalImageUrl, mode: imageFile ? 'upload' : 'url' } : { url: '', mode: '' }
     };
     
@@ -1448,6 +1458,287 @@ function deleteFootprint(id) {
     saveWebsiteData();
     loadFootprintItems();
     showMessage('足迹已删除', 'success');
+}
+
+function initAnonymousMessagesSection() {
+    normalizeAnonymousMessages();
+    loadAnonymousMessageItems();
+
+    const addBtn = document.getElementById('add-anonymous-message');
+    const closeBtn = document.getElementById('close-anonymous-message-modal');
+    const saveBtn = document.getElementById('save-anonymous-message');
+    const textArea = document.getElementById('anonymous-message-text');
+    const textCount = document.getElementById('anonymous-message-text-count');
+
+    if (addBtn && !addBtn.dataset.bound) {
+        addBtn.dataset.bound = '1';
+        addBtn.addEventListener('click', () => openAnonymousMessageModal());
+    }
+    if (closeBtn && !closeBtn.dataset.bound) {
+        closeBtn.dataset.bound = '1';
+        closeBtn.addEventListener('click', () => {
+            document.getElementById('anonymous-message-modal').classList.remove('active');
+        });
+    }
+    if (saveBtn && !saveBtn.dataset.bound) {
+        saveBtn.dataset.bound = '1';
+        saveBtn.addEventListener('click', saveAnonymousMessage);
+    }
+    if (textArea && textCount && !textArea.dataset.bound) {
+        textArea.dataset.bound = '1';
+        textArea.addEventListener('input', () => {
+            textCount.textContent = `${String(textArea.value || '').length} / 100`;
+        });
+    }
+
+    initManagedPlaceSearch({
+        inputId: 'anonymous-message-place-query',
+        resultsId: 'anonymous-message-place-results',
+        metaId: 'anonymous-message-place-selected-meta',
+        prefix: 'anonymous-message-place'
+    });
+}
+
+function normalizeAnonymousMessages(targetIntensity = 1) {
+    const messages = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages : [];
+    let changed = false;
+
+    websiteData.anonymousMessages = messages.map((message) => {
+        const place = message && message.place && typeof message.place === 'object' ? message.place : {};
+        const normalized = {
+            id: message.id || generateId(),
+            place: {
+                id: place.id || '',
+                displayName: place.displayName || `${place.city || message.city || ''}${place.country || message.country ? ', ' + (place.country || message.country) : ''}`.trim() || 'Unknown',
+                city: place.city || message.city || '',
+                country: place.country || message.country || '',
+                countryCode: place.countryCode || message.countryCode || '',
+                lat: Number.isFinite(place.lat) ? place.lat : parseFloat(message.lat),
+                lng: Number.isFinite(place.lng) ? place.lng : parseFloat(message.lng),
+                source: place.source || message.source || 'frontend'
+            },
+            message: String(message.message || message.content || '').trim().slice(0, 100),
+            intensity: targetIntensity,
+            isVisible: Boolean(message.isVisible),
+            isFeatured: Boolean(message.isFeatured),
+            privacyAccepted: message.privacyAccepted !== false,
+            source: message.source || 'frontend',
+            createdAt: message.createdAt || new Date().toISOString()
+        };
+        if (
+            normalized.id !== message.id ||
+            Number(message.intensity) !== targetIntensity ||
+            normalized.message !== String(message.message || message.content || '').trim() ||
+            normalized.isVisible !== Boolean(message.isVisible) ||
+            normalized.isFeatured !== Boolean(message.isFeatured) ||
+            normalized.createdAt !== (message.createdAt || '')
+        ) {
+            changed = true;
+        }
+        return normalized;
+    }).filter((message) => Number.isFinite(message.place.lat) && Number.isFinite(message.place.lng) && message.message);
+
+    if (!changed) return;
+
+    try {
+        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+    } catch (error) {
+        console.warn('Failed to normalize anonymous messages in localStorage:', error);
+    }
+}
+
+function loadAnonymousMessageItems() {
+    const container = document.getElementById('anonymous-message-items');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const messages = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages : [];
+    if (messages.length === 0) {
+        container.innerHTML = '<p class="empty-message">暂无匿名留言，前台提交后会显示在这里。</p>';
+        return;
+    }
+
+    [...messages].sort((a, b) => {
+        const ta = Date.parse(a.createdAt || '') || 0;
+        const tb = Date.parse(b.createdAt || '') || 0;
+        return tb - ta;
+    }).forEach((entry) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'item-card fade-in';
+        itemElement.setAttribute('data-id', entry.id);
+
+        const title = escapeHtml((entry.place && entry.place.displayName) || 'Unknown');
+        const text = escapeHtml(entry.message || '');
+        const statusBits = [
+            entry.isFeatured ? '<span class="admin-status-badge is-featured">精选</span>' : '<span class="admin-status-badge is-pending">待精选</span>',
+            entry.isVisible ? '<span class="admin-status-badge is-visible">公开中</span>' : '<span class="admin-status-badge is-hidden">未公开</span>'
+        ].join('');
+
+        itemElement.innerHTML = `
+            <div class="item-header">
+                <div class="item-title">${title}</div>
+                <div class="item-actions">
+                    <button class="action-btn edit-btn" data-id="${entry.id}" title="编辑">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" data-id="${entry.id}" title="删除">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="item-body">
+                <div class="admin-status-row">${statusBits}</div>
+                <div class="item-field">
+                    <div class="field-label">留言</div>
+                    <div class="field-value">${text}</div>
+                </div>
+                <div class="item-field">
+                    <div class="field-label">提交时间</div>
+                    <div class="field-value">${escapeHtml(entry.createdAt || '')}</div>
+                </div>
+                <div class="item-field">
+                    <div class="field-label">来源</div>
+                    <div class="field-value">${escapeHtml(entry.source || 'frontend')}</div>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(itemElement);
+
+        itemElement.querySelector('.edit-btn').addEventListener('click', function() {
+            editAnonymousMessage(this.getAttribute('data-id'));
+        });
+
+        itemElement.querySelector('.delete-btn').addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            if (confirm('确定要删除这条匿名留言吗？')) {
+                deleteAnonymousMessage(id);
+            }
+        });
+    });
+}
+
+function openAnonymousMessageModal(entry = null) {
+    const modal = document.getElementById('anonymous-message-modal');
+    const modalTitle = document.getElementById('anonymous-message-modal-title');
+    const textArea = document.getElementById('anonymous-message-text');
+    const textCount = document.getElementById('anonymous-message-text-count');
+
+    document.getElementById('anonymous-message-place-query').value = '';
+    document.getElementById('anonymous-message-place-results').classList.remove('active');
+    document.getElementById('anonymous-message-place-results').innerHTML = '';
+    document.getElementById('anonymous-message-place-selected-meta').textContent = '';
+    document.getElementById('anonymous-message-text').value = '';
+    document.getElementById('anonymous-message-visible').checked = false;
+    document.getElementById('anonymous-message-featured').checked = false;
+    document.getElementById('anonymous-message-createdAt').value = new Date().toISOString();
+    document.getElementById('anonymous-message-source').value = 'admin_manual';
+    document.getElementById('anonymous-message-id').value = '';
+    clearManagedPlaceFields('anonymous-message-place', 'anonymous-message-place-selected-meta');
+
+    if (entry) {
+        modalTitle.textContent = '编辑匿名留言';
+        const place = entry.place || {};
+        const displayName = place.displayName || `${place.city || ''}${place.country ? ', ' + place.country : ''}`;
+        document.getElementById('anonymous-message-place-query').value = displayName;
+        setManagedPlaceField('anonymous-message-place', 'id', place.id || '');
+        setManagedPlaceField('anonymous-message-place', 'displayName', displayName);
+        setManagedPlaceField('anonymous-message-place', 'city', place.city || '');
+        setManagedPlaceField('anonymous-message-place', 'country', place.country || '');
+        setManagedPlaceField('anonymous-message-place', 'countryCode', place.countryCode || '');
+        setManagedPlaceField('anonymous-message-place', 'lat', Number.isFinite(place.lat) ? place.lat : '');
+        setManagedPlaceField('anonymous-message-place', 'lng', Number.isFinite(place.lng) ? place.lng : '');
+        document.getElementById('anonymous-message-place-selected-meta').textContent = `Lat: ${place.lat}  Lng: ${place.lng}`;
+        document.getElementById('anonymous-message-text').value = entry.message || '';
+        document.getElementById('anonymous-message-visible').checked = Boolean(entry.isVisible);
+        document.getElementById('anonymous-message-featured').checked = Boolean(entry.isFeatured);
+        document.getElementById('anonymous-message-createdAt').value = entry.createdAt || new Date().toISOString();
+        document.getElementById('anonymous-message-source').value = entry.source || 'frontend';
+        document.getElementById('anonymous-message-id').value = entry.id || '';
+    } else {
+        modalTitle.textContent = '添加精选留言';
+    }
+
+    if (textArea && textCount) {
+        textCount.textContent = `${String(textArea.value || '').length} / 100`;
+    }
+
+    modal.classList.add('active');
+}
+
+function saveAnonymousMessage() {
+    const displayName = document.getElementById('anonymous-message-place-displayName').value.trim() || document.getElementById('anonymous-message-place-query').value.trim();
+    const city = document.getElementById('anonymous-message-place-city').value.trim();
+    const country = document.getElementById('anonymous-message-place-country').value.trim();
+    const countryCode = document.getElementById('anonymous-message-place-countryCode').value.trim();
+    const lat = document.getElementById('anonymous-message-place-lat').value.trim();
+    const lng = document.getElementById('anonymous-message-place-lng').value.trim();
+    const text = document.getElementById('anonymous-message-text').value.trim().slice(0, 100);
+    const isVisible = document.getElementById('anonymous-message-visible').checked;
+    const isFeatured = document.getElementById('anonymous-message-featured').checked;
+    const createdAt = document.getElementById('anonymous-message-createdAt').value.trim() || new Date().toISOString();
+    const source = document.getElementById('anonymous-message-source').value.trim() || 'admin_manual';
+    const placeId = document.getElementById('anonymous-message-place-id').value.trim();
+    const id = document.getElementById('anonymous-message-id').value.trim();
+
+    if (!displayName || !lat || !lng) {
+        showMessage('请先搜索并选择城市（会自动填充坐标）', 'warning');
+        return;
+    }
+    if (!text) {
+        showMessage('请填写匿名留言内容', 'warning');
+        return;
+    }
+    if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+        showMessage('坐标必须是有效的数字', 'warning');
+        return;
+    }
+
+    const entry = {
+        id: id || generateId(),
+        place: {
+            id: placeId || '',
+            displayName,
+            city,
+            country,
+            countryCode,
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            source: placeId ? 'photon' : 'manual'
+        },
+        message: text,
+        intensity: 1,
+        isVisible,
+        isFeatured,
+        privacyAccepted: true,
+        source,
+        createdAt
+    };
+
+    websiteData.anonymousMessages = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages : [];
+    const existingIndex = websiteData.anonymousMessages.findIndex((item) => item.id === entry.id);
+    if (existingIndex >= 0) {
+        websiteData.anonymousMessages[existingIndex] = entry;
+    } else {
+        websiteData.anonymousMessages.push(entry);
+    }
+
+    saveWebsiteData();
+    loadAnonymousMessageItems();
+    document.getElementById('anonymous-message-modal').classList.remove('active');
+    showMessage(existingIndex >= 0 ? '匿名留言已更新' : '匿名留言已添加', 'success');
+}
+
+function editAnonymousMessage(id) {
+    const entry = (websiteData.anonymousMessages || []).find((item) => item.id === id);
+    if (entry) openAnonymousMessageModal(entry);
+}
+
+function deleteAnonymousMessage(id) {
+    websiteData.anonymousMessages = (websiteData.anonymousMessages || []).filter((item) => item.id !== id);
+    saveWebsiteData();
+    loadAnonymousMessageItems();
+    showMessage('匿名留言已删除', 'success');
 }
 
 // 初始化各模块的拖拽排序功能

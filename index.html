@@ -489,8 +489,85 @@
                     <button class="map-fullscreen-exit-btn" id="map-fullscreen-exit-btn" type="button" aria-label="Exit full screen" title="Exit full screen">
                         <i class="fas fa-compress"></i>
                     </button>
+                    <div class="globe-overlay-controls">
+                        <div class="globe-control-stack">
+                            <button class="globe-control-btn" id="globe-layer-toggle" type="button" aria-label="Toggle map layers" title="Map layers">
+                                <i class="fas fa-globe-americas"></i>
+                            </button>
+                            <button class="globe-control-btn" id="globe-locate-btn" type="button" aria-label="Locate my city" title="Locate my city">
+                                <i class="fas fa-location-arrow"></i>
+                            </button>
+                        </div>
+                        <div class="globe-control-stack globe-zoom-stack">
+                            <button class="globe-control-btn globe-zoom-btn" id="globe-zoom-in" type="button" aria-label="Zoom in" title="Zoom in">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="globe-control-btn globe-zoom-btn" id="globe-zoom-out" type="button" aria-label="Zoom out" title="Zoom out">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                        <div class="globe-layer-panel" id="globe-layer-panel" hidden>
+                            <div class="globe-layer-title">Map Layers</div>
+                            <label class="globe-layer-option">
+                                <input type="checkbox" id="globe-toggle-footprints" checked>
+                                <span>Show Footprints</span>
+                            </label>
+                            <label class="globe-layer-option">
+                                <input type="checkbox" id="globe-toggle-messages" checked>
+                                <span>Show Anonymous Messages</span>
+                            </label>
+                        </div>
+                    </div>
                     <div id="world-map">
                         <canvas id="footprints-globe-canvas" aria-label="3D Earth globe"></canvas>
+                    </div>
+                    <div class="globe-message-entry" id="globe-message-entry">
+                        <button class="globe-message-launcher" id="globe-message-launcher" type="button" aria-expanded="false">
+                            <i class="far fa-comment-dots"></i>
+                            <span>Anonymous Message</span>
+                        </button>
+                        <div class="globe-message-composer" id="globe-message-composer" hidden>
+                            <div class="globe-message-composer-header">
+                                <div class="globe-message-composer-title">
+                                    <i class="far fa-comment-dots"></i>
+                                    <span>Anonymous Message</span>
+                                </div>
+                            </div>
+                            <label class="sr-only" for="globe-message-text">Anonymous message</label>
+                            <textarea id="globe-message-text" maxlength="100" placeholder="Leave a short anonymous note for this city..."></textarea>
+                            <div class="globe-message-meta">
+                                <span id="globe-message-counter">0 / 100</span>
+                                <span id="globe-message-location-status">City-level location will be inferred after consent.</span>
+                            </div>
+                            <label class="globe-privacy-row">
+                                <input type="checkbox" id="globe-message-privacy">
+                                <span>I agree to the <button type="button" class="globe-text-link" id="globe-privacy-link">Privacy Policy</button></span>
+                            </label>
+                            <div class="globe-message-feedback" id="globe-message-feedback" aria-live="polite"></div>
+                            <div class="globe-message-actions">
+                                <button class="globe-secondary-btn" id="globe-message-cancel" type="button">Cancel</button>
+                                <button class="globe-primary-btn" id="globe-message-send" type="button">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="globe-modal-backdrop" id="globe-privacy-modal" hidden>
+                        <div class="globe-modal-card" role="dialog" aria-modal="true" aria-labelledby="globe-privacy-title">
+                            <div class="globe-modal-header">
+                                <h3 id="globe-privacy-title">Privacy Policy</h3>
+                                <button class="globe-modal-close" id="globe-privacy-close" type="button" aria-label="Close privacy policy">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <p>
+                                To place your anonymous message on the globe, we use your IP address only to infer an approximate city-level location and convert it into map coordinates.
+                            </p>
+                            <p>
+                                We do not display your precise address or personal identity. Every message is reviewed in the admin panel before publication, and only curated messages may be shown publicly in anonymous form.
+                            </p>
+                            <div class="globe-modal-actions">
+                                <button class="globe-primary-btn" id="globe-privacy-ack" type="button">I Understand</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -653,6 +730,7 @@
                                 awards: [],
                                 social: [],
                                 footprints: [],
+                                anonymousMessages: [],
                                 settings: { password: '725500@20020303' }
                             };
                             

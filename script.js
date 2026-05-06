@@ -1287,6 +1287,9 @@ function initWorldMap() {
             if (!websiteData.footprints) {
                 websiteData.footprints = [];
             }
+            if (!websiteData.anonymousMessages) {
+                websiteData.anonymousMessages = [];
+            }
             
             // 如果从localStorage读取到的足迹数据不为空，使用它
             if (websiteData.footprints && Array.isArray(websiteData.footprints) && websiteData.footprints.length > 0) {
@@ -1313,7 +1316,7 @@ function initWorldMap() {
                         // Legacy entries (Chinese) will still show as-is until re-saved.
                         name: displayName,
                         location: [lng, lat],
-                        intensity: fp.intensity || 2,
+                        intensity: fp.intensity || 1,
                         image: imageUrl,
                         date: fp.visitedAt || fp.year || '',
                         description: fp.description || ''
@@ -1417,13 +1420,14 @@ function initWorldMap() {
                     },
                     visitedAt: '',
                     description: '',
-                    intensity: fp.intensity || 2,
+                    intensity: fp.intensity || 1,
                     image: { url: fp.image || '', mode: 'url' }
                 };
             });
             
             // 更新websiteData并保存
             websiteData.footprints = defaultFootprintsForStorage;
+            websiteData.anonymousMessages = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages : [];
             localStorage.setItem('websiteData', JSON.stringify(websiteData));
             console.log('已将默认足迹数据保存到localStorage');
         } catch (e) {

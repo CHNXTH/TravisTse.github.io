@@ -32,7 +32,11 @@ function createMarkerTexture({ coreColor = '#2367FB', ringColor = '#ffffff' } = 
   return texture;
 }
 
-function createGlowTexture(color = '#bfe6ff') {
+function createGlowTexture({
+  innerColor = 'rgba(35,103,251,0.32)',
+  midColor = 'rgba(191,230,255,0.34)',
+  outerColor = 'rgba(191,230,255,0)'
+} = {}) {
   const size = 128;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -42,9 +46,9 @@ function createGlowTexture(color = '#bfe6ff') {
   const cy = size / 2;
 
   const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, 48);
-  gradient.addColorStop(0, 'rgba(35,103,251,0.32)');
-  gradient.addColorStop(0.45, color);
-  gradient.addColorStop(1, 'rgba(191,230,255,0)');
+  gradient.addColorStop(0, innerColor);
+  gradient.addColorStop(0.45, midColor);
+  gradient.addColorStop(1, outerColor);
 
   ctx.clearRect(0, 0, size, size);
   ctx.beginPath();
@@ -75,40 +79,117 @@ function getIsDarkMode() {
   return document.documentElement.classList.contains('dark-mode');
 }
 
-function getNormalizedFootprintsFromStorage() {
+function normalizeWebsiteDataForGlobe(data) {
+  const normalized = data && typeof data === 'object' ? data : {};
+  normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+  normalized.anonymousMessages = Array.isArray(normalized.anonymousMessages) ? normalized.anonymousMessages : [];
+  normalized.settings = normalized.settings || {};
+  return normalized;
+}
+
+function readWebsiteDataFromStorage() {
   try {
     const raw = localStorage.getItem('websiteData');
-    if (!raw) return [];
-    const data = JSON.parse(raw);
-    const fps = Array.isArray(data.footprints) ? data.footprints : [];
-    return fps.map(fp => {
-      const place = fp && fp.place && typeof fp.place === 'object' ? fp.place : null;
-      const city = place && place.city ? String(place.city) : String(fp.city || '');
-      const country = place && place.country ? String(place.country) : String(fp.country || '');
-      const lat = place && Number.isFinite(place.lat) ? Number(place.lat) : parseFloat(fp.lat);
-      const lng = place && Number.isFinite(place.lng) ? Number(place.lng) : parseFloat(fp.lng);
-      const displayName = place && place.displayName
-        ? String(place.displayName)
-        : `${city}${country ? ', ' + country : ''}`;
-      const imageUrl =
-        (fp.image && typeof fp.image === 'object' ? (fp.image.url || '') : fp.image) ||
-        fp.imageUrl ||
-        '';
-      return {
-        id: fp.id || '',
-        name: displayName || 'Unknown',
-        lat,
-        lng,
-        intensity: fp.intensity || 2,
-        image: imageUrl,
-        date: fp.visitedAt || fp.year || '',
-        description: fp.description || ''
-      };
-    }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    if (!raw) return normalizeWebsiteDataForGlobe({});
+    return normalizeWebsiteDataForGlobe(JSON.parse(raw));
   } catch (e) {
     console.warn('Footprints globe: failed to parse websiteData', e);
-    return [];
+    return normalizeWebsiteDataForGlobe({});
   }
+}
+
+function getNormalizedFootprintsFromStorage() {
+  const data = readWebsiteDataFromStorage();
+  return data.footprints.map(fp => {
+    const place = fp && fp.place && typeof fp.place === 'object' ? fp.place : null;
+    const city = place && place.city ? String(place.city) : String(fp.city || '');
+    const country = place && place.country ? String(place.country) : String(fp.country || '');
+    const lat = place && Number.isFinite(place.lat) ? Number(place.lat) : parseFloat(fp.lat);
+    const lng = place && Number.isFinite(place.lng) ? Number(place.lng) : parseFloat(fp.lng);
+    const displayName = place && place.displayName
+      ? String(place.displayName)
+      : `${city}${country ? ', ' + country : ''}`;
+    const imageUrl =
+      (fp.image && typeof fp.image === 'object' ? (fp.image.url || '') : fp.image) ||
+      fp.imageUrl ||
+      '';
+    return {
+      id: fp.id || '',
+      kind: 'footprint',
+      name: displayName || 'Unknown',
+      lat,
+      lng,
+      intensity: fp.intensity || 1,
+      image: imageUrl,
+      date: fp.visitedAt || fp.year || '',
+      description: fp.description || ''
+    };
+  }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+}
+
+function getNormalizedAnonymousMessagesFromStorage({ publicOnly = true } = {}) {
+  const data = readWebsiteDataFromStorage();
+  return data.anonymousMessages.map((entry) => {
+    const place = entry && entry.place && typeof entry.place === 'object' ? entry.place : null;
+    const city = place && place.city ? String(place.city) : String(entry.city || '');
+    const country = place && place.country ? String(place.country) : String(entry.country || '');
+    const lat = place && Number.isFinite(place.lat) ? Number(place.lat) : parseFloat(entry.lat);
+    const lng = place && Number.isFinite(place.lng) ? Number(place.lng) : parseFloat(entry.lng);
+    const displayName = place && place.displayName
+      ? String(place.displayName)
+      : `${city}${country ? ', ' + country : ''}`;
+    return {
+      id: entry.id || '',
+      kind: 'message',
+      name: displayName || 'Unknown',
+      lat,
+      lng,
+      intensity: 1,
+      message: String(entry.message || entry.content || '').trim().slice(0, 100),
+      createdAt: entry.createdAt || '',
+      isVisible: Boolean(entry.isVisible),
+      isFeatured: Boolean(entry.isFeatured),
+      source: entry.source || 'frontend',
+      privacyAccepted: entry.privacyAccepted !== false
+    };
+  }).filter((entry) => {
+    if (!Number.isFinite(entry.lat) || !Number.isFinite(entry.lng) || !entry.message) return false;
+    if (!publicOnly) return true;
+    return entry.isVisible && entry.isFeatured;
+  });
+}
+
+function getAnonymousMessageClustersFromStorage() {
+  const messages = getNormalizedAnonymousMessagesFromStorage({ publicOnly: true });
+  const grouped = new Map();
+
+  for (const message of messages) {
+    const key = `${message.name}__${message.lat.toFixed(3)}__${message.lng.toFixed(3)}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        id: `msg_cluster_${key}`,
+        kind: 'message',
+        name: message.name,
+        lat: message.lat,
+        lng: message.lng,
+        intensity: 1,
+        count: 0,
+        messages: []
+      });
+    }
+    const cluster = grouped.get(key);
+    cluster.messages.push(message);
+    cluster.count += 1;
+  }
+
+  return Array.from(grouped.values());
+}
+
+function getCombinedGlobeItemsFromStorage() {
+  return [
+    ...getNormalizedFootprintsFromStorage(),
+    ...getAnonymousMessageClustersFromStorage()
+  ];
 }
 
 function latLngToVector3(lat, lng, radius) {
@@ -165,10 +246,23 @@ class FootprintsGlobe {
     this.clouds = null;
     this.atmosphere = null;
     this.starfieldGroup = null;
+    this.meteorPool = [];
+    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(5000, 11000);
     this.sunDir = new THREE.Vector3(1, 0, 0);
     this.sunLight = null;
-    this.markerTexture = createMarkerTexture();
-    this.markerGlowTexture = createGlowTexture();
+    this.layerVisibility = { footprint: true, message: true };
+    this.markerTextures = {
+      footprint: createMarkerTexture(),
+      message: createMarkerTexture({ coreColor: '#FB6423', ringColor: '#ffffff' })
+    };
+    this.markerGlowTextures = {
+      footprint: createGlowTexture(),
+      message: createGlowTexture({
+        innerColor: 'rgba(251,100,35,0.26)',
+        midColor: 'rgba(255,183,140,0.30)',
+        outerColor: 'rgba(255,183,140,0)'
+      })
+    };
 
     this.pointsGroup = new THREE.Group();
     this.planetGroup.add(this.pointsGroup);
@@ -511,10 +605,119 @@ class FootprintsGlobe {
 
     const stars = new THREE.Points(starGeometry, starMaterial);
     starfieldGroup.add(stars);
+    this.createMeteorPool(starfieldGroup);
     starfieldGroup.rotation.y = THREE.MathUtils.degToRad(-120);
 
     this.starfieldGroup = starfieldGroup;
     this.scene.add(this.starfieldGroup);
+  }
+
+  createMeteorPool(parentGroup) {
+    this.meteorPool = [];
+
+    for (let i = 0; i < 4; i += 1) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(6);
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+      const material = new THREE.LineBasicMaterial({
+        color: 0xdff1ff,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const line = new THREE.Line(geometry, material);
+      line.visible = false;
+      parentGroup.add(line);
+
+      this.meteorPool.push({
+        line,
+        active: false,
+        head: new THREE.Vector3(),
+        velocity: new THREE.Vector3(),
+        trailLength: 0,
+        age: 0,
+        lifetime: 0
+      });
+    }
+  }
+
+  spawnMeteorBurst() {
+    const burstCount = Math.random() < 0.28 ? 2 : 1;
+    let spawned = 0;
+
+    for (const meteor of this.meteorPool) {
+      if (meteor.active) continue;
+
+      const startX = THREE.MathUtils.randFloat(-6.8, 6.8);
+      const startY = THREE.MathUtils.randFloat(2.8, 5.8);
+      const startZ = THREE.MathUtils.randFloat(-9.4, -7.6);
+      meteor.head.set(startX, startY, startZ);
+
+      const drift = new THREE.Vector3(
+        THREE.MathUtils.randFloat(2.8, 5.4),
+        THREE.MathUtils.randFloat(-2.8, -1.5),
+        THREE.MathUtils.randFloat(0.25, 1.15)
+      );
+      meteor.velocity.copy(drift);
+      meteor.trailLength = THREE.MathUtils.randFloat(0.9, 1.45);
+      meteor.age = 0;
+      meteor.lifetime = THREE.MathUtils.randFloat(0.8, 1.35);
+      meteor.active = true;
+      meteor.line.visible = true;
+      meteor.line.material.opacity = 0;
+      this.updateMeteorLine(meteor);
+
+      spawned += 1;
+      if (spawned >= burstCount) break;
+    }
+
+    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(7000, 16000);
+  }
+
+  updateMeteorLine(meteor) {
+    const direction = meteor.velocity.clone().normalize();
+    const tail = meteor.head.clone().sub(direction.multiplyScalar(meteor.trailLength));
+    const positions = meteor.line.geometry.attributes.position.array;
+
+    positions[0] = tail.x;
+    positions[1] = tail.y;
+    positions[2] = tail.z;
+    positions[3] = meteor.head.x;
+    positions[4] = meteor.head.y;
+    positions[5] = meteor.head.z;
+    meteor.line.geometry.attributes.position.needsUpdate = true;
+    meteor.line.geometry.computeBoundingSphere();
+  }
+
+  updateMeteors(dt, nowMs) {
+    if (!this.meteorPool.length) return;
+
+    if (nowMs >= this.nextMeteorAt) {
+      this.spawnMeteorBurst();
+    }
+
+    for (const meteor of this.meteorPool) {
+      if (!meteor.active) continue;
+
+      meteor.age += dt;
+      if (meteor.age >= meteor.lifetime) {
+        meteor.active = false;
+        meteor.line.visible = false;
+        meteor.line.material.opacity = 0;
+        continue;
+      }
+
+      meteor.head.addScaledVector(meteor.velocity, dt);
+      this.updateMeteorLine(meteor);
+
+      const t = meteor.age / meteor.lifetime;
+      const fadeIn = Math.min(1, t / 0.18);
+      const fadeOut = Math.min(1, (1 - t) / 0.28);
+      meteor.line.material.opacity = 0.72 * Math.min(fadeIn, fadeOut);
+    }
   }
 
   setData(items) {
@@ -534,9 +737,12 @@ class FootprintsGlobe {
       const marker = new THREE.Group();
       marker.position.copy(pos);
       marker.userData = it;
+      const markerType = it.kind === 'message' ? 'message' : 'footprint';
+      const markerTexture = this.markerTextures[markerType] || this.markerTextures.footprint;
+      const glowTexture = this.markerGlowTextures[markerType] || this.markerGlowTextures.footprint;
 
       const mat = new THREE.SpriteMaterial({
-        map: this.markerTexture,
+        map: markerTexture,
         transparent: true,
         depthTest: false,
         depthWrite: false
@@ -550,7 +756,7 @@ class FootprintsGlobe {
       marker.add(visibleDot);
 
       const glowMat = new THREE.SpriteMaterial({
-        map: this.markerGlowTexture,
+        map: glowTexture,
         transparent: true,
         opacity: 0.46,
         blending: THREE.AdditiveBlending,
@@ -591,8 +797,43 @@ class FootprintsGlobe {
     if (this.clouds) this.clouds.material.uniforms.uOpacity.value = getIsDarkMode() ? 0.34 : 0.2;
   }
 
+  setLayerVisibility(nextVisibility = {}) {
+    this.layerVisibility = {
+      ...this.layerVisibility,
+      ...nextVisibility
+    };
+    this.updateMarkerVisibility();
+  }
+
+  isLayerVisible(kind) {
+    if (kind === 'message') return this.layerVisibility.message !== false;
+    return this.layerVisibility.footprint !== false;
+  }
+
   setAutoRotate(enabled) {
     this.autoRotate = !!enabled;
+  }
+
+  zoomByStep(direction = 1) {
+    if (!this.camera || !this.controls) return;
+    const startRadius = this.camera.position.length();
+    const factor = direction > 0 ? 0.86 : 1.16;
+    const targetRadius = clamp(startRadius * factor, this.controls.minDistance + 0.02, this.controls.maxDistance - 0.02);
+    const startDir = this.camera.position.clone().normalize();
+    const start = performance.now();
+    const duration = 280;
+
+    const animate = (now) => {
+      const t = clamp((now - start) / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const radius = THREE.MathUtils.lerp(startRadius, targetRadius, eased);
+      this.camera.position.copy(startDir.clone().multiplyScalar(radius));
+      this.camera.lookAt(0, 0, 0);
+      this.controls.update();
+      if (t < 1) requestAnimationFrame(animate);
+    };
+
+    requestAnimationFrame(animate);
   }
 
   start() {
@@ -615,6 +856,7 @@ class FootprintsGlobe {
         this.starfieldGroup.rotation.y += dt * 0.016;
         this.starfieldGroup.rotation.x = Math.sin(now.getTime() * 0.00005) * 0.03;
       }
+      this.updateMeteors(dt, performance.now());
       // Spin the globe itself so markers stay locked to geography while the planet rotates.
       this.controls.autoRotate = this.autoRotate;
 
@@ -698,7 +940,7 @@ class FootprintsGlobe {
     if (!marker || !marker.userData) return;
     this.setAutoRotate(false);
     this.userInteractingUntil = Date.now() + 12000;
-    this.tooltipPinnedUntil = Date.now() + 10000;
+    this.tooltipPinnedUntil = Number.POSITIVE_INFINITY;
     this.pinnedData = marker.userData;
     this.pinnedMarker = marker;
     this.focusOnMarker(marker);
@@ -757,7 +999,8 @@ class FootprintsGlobe {
       if (!markerGroup) continue;
 
       const worldPosition = markerGroup.getWorldPosition(new THREE.Vector3()).normalize();
-      const isVisible = worldPosition.dot(cameraDir) > 0.08;
+      const layerEnabled = this.isLayerVisible(marker.userData.kind);
+      const isVisible = layerEnabled && worldPosition.dot(cameraDir) > 0.08;
 
       marker.visible = isVisible;
 
@@ -860,12 +1103,22 @@ class FootprintsGlobe {
   focusOnMarker(marker) {
     if (!marker) return;
     const markerWorld = marker.parent.getWorldPosition(new THREE.Vector3()).normalize();
+    this.focusCameraTowardsVector(markerWorld, { zoomFactor: 0.84 });
+  }
+
+  focusOnLatLng(lat, lng, { zoomFactor = 0.84 } = {}) {
+    const target = latLngToVector3(lat, lng, 1).normalize();
+    this.focusCameraTowardsVector(target, { zoomFactor });
+  }
+
+  focusCameraTowardsVector(targetDir, { zoomFactor = 1, duration = 1100 } = {}) {
+    if (!this.camera || !this.controls || !targetDir) return;
     const radius = this.camera.position.length();
+    const nextRadius = clamp(radius * zoomFactor, this.controls.minDistance + 0.02, this.controls.maxDistance - 0.02);
     const startDir = this.camera.position.clone().normalize();
-    const endDir = markerWorld.clone();
+    const endDir = targetDir.clone().normalize();
     const rotQuat = new THREE.Quaternion().setFromUnitVectors(startDir, endDir);
     const start = performance.now();
-    const duration = 1100;
     const ease = (t) => 1 - Math.pow(1 - t, 3);
 
     const animate = (now) => {
@@ -877,7 +1130,8 @@ class FootprintsGlobe {
         k
       );
       const currentDir = startDir.clone().applyQuaternion(stepQuat);
-      this.camera.position.copy(currentDir.multiplyScalar(radius));
+      const currentRadius = THREE.MathUtils.lerp(radius, nextRadius, k);
+      this.camera.position.copy(currentDir.multiplyScalar(currentRadius));
       this.camera.lookAt(0, 0, 0);
       this.controls.update();
       if (t < 1) requestAnimationFrame(animate);
@@ -887,20 +1141,65 @@ class FootprintsGlobe {
 
   showTooltip(data, { pinned, marker } = {}) {
     this.ensureTooltipHost();
-    const safeImg = data.image ? String(data.image) : '';
+    const isMessage = data.kind === 'message';
     const title = data.name ? String(data.name) : 'Unknown';
-    const date = data.date ? String(data.date) : '';
-    const desc = data.description ? String(data.description) : '';
 
-    this.tooltip.innerHTML = `
-      <div class="lt-body" style="padding:14px 14px 12px;">
-        <button class="lt-close" type="button" aria-label="Close details" title="Close details">&times;</button>
-        <div class="lt-title">${escapeHtml(title)}</div>
-        ${date ? `<div class="lt-date" style="margin-top:6px;">${escapeHtml(date)}</div>` : ``}
-        ${desc ? `<div class="lt-desc" style="margin-top:10px;">${escapeHtml(desc)}</div>` : ``}
-        ${safeImg ? `<div class="lt-image" style="margin-top:12px;border-radius:14px;overflow:hidden;"><img src="${safeImg}" alt=""></div>` : ``}
-      </div>
-    `;
+    if (isMessage) {
+      const messages = Array.isArray(data.messages) ? data.messages : [];
+      const count = messages.length || Number(data.count) || 0;
+      if (pinned && count > 0) {
+        const currentIndex = clamp(Number(data._activeMessageIndex) || 0, 0, count - 1);
+        data._activeMessageIndex = currentIndex;
+        const currentMessage = messages[currentIndex];
+        const canPrev = currentIndex > 0;
+        const canNext = currentIndex < count - 1;
+        this.tooltip.innerHTML = `
+          <div class="lt-body lt-message-body">
+            <button class="lt-close" type="button" aria-label="Close details" title="Close details">&times;</button>
+            <div class="lt-pill lt-message-pill">Anonymous Message</div>
+            <div class="lt-title">${escapeHtml(title)}</div>
+            <div class="lt-date">${count} message${count > 1 ? 's' : ''} in this city</div>
+            <div class="lt-message-text">${escapeHtml(currentMessage.message || '')}</div>
+            <div class="lt-message-footer">
+              <div class="lt-message-meta">${escapeHtml(currentMessage.createdAt ? currentMessage.createdAt.slice(0, 10) : 'Anonymous')}</div>
+              <div class="lt-message-nav">
+                <button class="lt-nav-btn" type="button" data-dir="-1" ${canPrev ? '' : 'disabled'} aria-label="Previous message">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="lt-nav-status">${currentIndex + 1} / ${count}</span>
+                <button class="lt-nav-btn" type="button" data-dir="1" ${canNext ? '' : 'disabled'} aria-label="Next message">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        this.tooltip.innerHTML = `
+          <div class="lt-body lt-message-body">
+            <button class="lt-close" type="button" aria-label="Close details" title="Close details">&times;</button>
+            <div class="lt-pill lt-message-pill">Anonymous Message</div>
+            <div class="lt-title">${escapeHtml(title)}</div>
+            <div class="lt-date">${count} anonymous message${count > 1 ? 's' : ''} from this city</div>
+            <div class="lt-desc">Click to read the curated anonymous message${count > 1 ? 's' : ''}.</div>
+          </div>
+        `;
+      }
+    } else {
+      const safeImg = data.image ? String(data.image) : '';
+      const date = data.date ? String(data.date) : '';
+      const desc = data.description ? String(data.description) : '';
+
+      this.tooltip.innerHTML = `
+        <div class="lt-body" style="padding:14px 14px 12px;">
+          <button class="lt-close" type="button" aria-label="Close details" title="Close details">&times;</button>
+          <div class="lt-title">${escapeHtml(title)}</div>
+          ${date ? `<div class="lt-date" style="margin-top:6px;">${escapeHtml(date)}</div>` : ``}
+          ${desc ? `<div class="lt-desc" style="margin-top:10px;">${escapeHtml(desc)}</div>` : ``}
+          ${safeImg ? `<div class="lt-image" style="margin-top:12px;border-radius:14px;overflow:hidden;"><img src="${safeImg}" alt=""></div>` : ``}
+        </div>
+      `;
+    }
 
     const closeBtn = this.tooltip.querySelector('.lt-close');
     if (closeBtn) {
@@ -910,6 +1209,19 @@ class FootprintsGlobe {
         event.stopPropagation();
         this.clearPinnedTooltip();
       }, { once: true });
+    }
+
+    if (isMessage && pinned) {
+      Array.from(this.tooltip.querySelectorAll('.lt-nav-btn')).forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const delta = Number(btn.getAttribute('data-dir') || '0');
+          const total = Array.isArray(data.messages) ? data.messages.length : 0;
+          data._activeMessageIndex = clamp((Number(data._activeMessageIndex) || 0) + delta, 0, Math.max(0, total - 1));
+          this.showTooltip(data, { pinned: true, marker });
+        });
+      });
     }
 
     const point = pinned && marker
@@ -938,8 +1250,8 @@ class FootprintsGlobe {
       : this.getCursorScreenPoint();
     const cx = point.x;
     const cy = point.y;
-    const tooltipWidth = 320;
-    const tooltipHeight = 260;
+    const tooltipWidth = this.tooltip.offsetWidth || 320;
+    const tooltipHeight = this.tooltip.offsetHeight || 260;
     const left = clamp(cx - hostRect.left + 18, 12, hostRect.width - tooltipWidth - 12);
     const top = clamp(cy - hostRect.top - 120, 12, hostRect.height - tooltipHeight - 12);
     this.tooltip.style.left = `${left}px`;
@@ -1035,6 +1347,246 @@ function escapeHtml(str) {
   }[m]));
 }
 
+function writeWebsiteDataToStorage(data) {
+  const normalized = normalizeWebsiteDataForGlobe(data);
+  localStorage.setItem('websiteData', JSON.stringify(normalized));
+  localStorage.setItem('websiteDataSync', String(Date.now()));
+  localStorage.setItem('websiteDataSyncSource', `anonymous_message_${Math.random().toString(36).slice(2)}`);
+  return normalized;
+}
+
+function getMapUiElements() {
+  return {
+    layerToggle: document.getElementById('globe-layer-toggle'),
+    layerPanel: document.getElementById('globe-layer-panel'),
+    toggleFootprints: document.getElementById('globe-toggle-footprints'),
+    toggleMessages: document.getElementById('globe-toggle-messages'),
+    locateBtn: document.getElementById('globe-locate-btn'),
+    zoomInBtn: document.getElementById('globe-zoom-in'),
+    zoomOutBtn: document.getElementById('globe-zoom-out'),
+    launcher: document.getElementById('globe-message-launcher'),
+    composer: document.getElementById('globe-message-composer'),
+    text: document.getElementById('globe-message-text'),
+    counter: document.getElementById('globe-message-counter'),
+    status: document.getElementById('globe-message-location-status'),
+    feedback: document.getElementById('globe-message-feedback'),
+    privacy: document.getElementById('globe-message-privacy'),
+    cancel: document.getElementById('globe-message-cancel'),
+    send: document.getElementById('globe-message-send'),
+    privacyLink: document.getElementById('globe-privacy-link'),
+    privacyModal: document.getElementById('globe-privacy-modal'),
+    privacyClose: document.getElementById('globe-privacy-close'),
+    privacyAck: document.getElementById('globe-privacy-ack')
+  };
+}
+
+let globeUiInitialized = false;
+let approxLocationCache = null;
+
+function setComposerFeedback(message = '', type = '') {
+  const { feedback } = getMapUiElements();
+  if (!feedback) return;
+  feedback.textContent = message || '';
+  feedback.dataset.state = type || '';
+}
+
+function setLocationStatus(message = '') {
+  const { status } = getMapUiElements();
+  if (status) status.textContent = message || 'City-level location will be inferred after consent.';
+}
+
+function toggleComposer(open) {
+  const { launcher, composer, text } = getMapUiElements();
+  if (!launcher || !composer) return;
+  const nextOpen = typeof open === 'boolean' ? open : composer.hidden;
+  composer.hidden = !nextOpen;
+  launcher.setAttribute('aria-expanded', String(nextOpen));
+  launcher.classList.toggle('is-open', nextOpen);
+  if (nextOpen && text) text.focus();
+}
+
+function togglePrivacyModal(open) {
+  const { privacyModal } = getMapUiElements();
+  if (!privacyModal) return;
+  privacyModal.hidden = !open;
+}
+
+async function fetchApproximateLocation({ force = false } = {}) {
+  if (!force && approxLocationCache && (Date.now() - approxLocationCache.timestamp) < 30 * 60 * 1000) {
+    return approxLocationCache;
+  }
+
+  const candidates = [
+    'https://ipwho.is/',
+    'https://ipapi.co/json/'
+  ];
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      const data = await response.json();
+      const lat = Number(data.latitude ?? data.lat);
+      const lng = Number(data.longitude ?? data.lon);
+      const city = String(data.city || data.region_city || '').trim();
+      const country = String(data.country || data.country_name || '').trim();
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || !city) continue;
+
+      approxLocationCache = {
+        city,
+        country,
+        lat,
+        lng,
+        displayName: `${city}${country ? ', ' + country : ''}`,
+        source: url.includes('ipwho') ? 'ipwho.is' : 'ipapi.co',
+        timestamp: Date.now()
+      };
+      return approxLocationCache;
+    } catch (error) {
+      console.warn('Approximate location lookup failed:', url, error);
+    }
+  }
+
+  throw new Error('Unable to infer city-level location right now.');
+}
+
+async function locateCurrentCity(globeInstance, { rotateOnly = false } = {}) {
+  setComposerFeedback('');
+  setLocationStatus('Detecting your approximate city...');
+  const location = await fetchApproximateLocation();
+  setLocationStatus(`Approximate city: ${location.displayName}`);
+  if (globeInstance) {
+    globeInstance.setAutoRotate(false);
+    globeInstance.userInteractingUntil = Date.now() + 12000;
+    globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: rotateOnly ? 0.86 : 0.82 });
+  }
+  return location;
+}
+
+async function submitAnonymousMessage(globeInstance) {
+  const { text, privacy, send } = getMapUiElements();
+  const rawText = String(text && text.value || '').trim();
+
+  if (!rawText) {
+    setComposerFeedback('Please enter a short anonymous message first.', 'error');
+    return;
+  }
+  if (rawText.length > 100) {
+    setComposerFeedback('Please keep the message within 100 characters.', 'error');
+    return;
+  }
+  if (!privacy || !privacy.checked) {
+    setComposerFeedback('Please accept the Privacy Policy before sending.', 'error');
+    return;
+  }
+
+  try {
+    if (send) send.disabled = true;
+    setComposerFeedback('Locating your city and preparing your submission...', 'info');
+    const location = await locateCurrentCity(globeInstance);
+    const websiteData = readWebsiteDataFromStorage();
+    websiteData.anonymousMessages.push({
+      id: `msg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+      place: {
+        id: '',
+        displayName: location.displayName,
+        city: location.city,
+        country: location.country,
+        countryCode: '',
+        lat: location.lat,
+        lng: location.lng,
+        source: 'ip_geolocation'
+      },
+      message: rawText,
+      intensity: 1,
+      isVisible: false,
+      isFeatured: false,
+      privacyAccepted: true,
+      source: 'frontend',
+      createdAt: new Date().toISOString()
+    });
+    writeWebsiteDataToStorage(websiteData);
+    if (globeInstance) globeInstance.setData(getCombinedGlobeItemsFromStorage());
+    text.value = '';
+    privacy.checked = false;
+    const { counter } = getMapUiElements();
+    if (counter) counter.textContent = '0 / 100';
+    setLocationStatus(`Submitted from ${location.displayName}. It will appear publicly only after curation.`);
+    setComposerFeedback('Message submitted. It will appear publicly only after curation in the admin panel.', 'success');
+    toggleComposer(false);
+  } catch (error) {
+    console.error('Anonymous message submission failed:', error);
+    setComposerFeedback(error.message || 'Failed to submit your message right now.', 'error');
+  } finally {
+    if (send) send.disabled = false;
+  }
+}
+
+function initFootprintsOverlay(globeInstance) {
+  if (globeUiInitialized) return;
+  const ui = getMapUiElements();
+  if (!ui.layerToggle || !ui.layerPanel || !ui.launcher) return;
+
+  globeUiInitialized = true;
+  setLocationStatus('');
+
+  ui.layerToggle.addEventListener('click', () => {
+    ui.layerPanel.hidden = !ui.layerPanel.hidden;
+  });
+
+  ui.toggleFootprints?.addEventListener('change', () => {
+    globeInstance.setLayerVisibility({ footprint: ui.toggleFootprints.checked });
+  });
+
+  ui.toggleMessages?.addEventListener('change', () => {
+    globeInstance.setLayerVisibility({ message: ui.toggleMessages.checked });
+  });
+
+  ui.locateBtn?.addEventListener('click', async () => {
+    try {
+      const proceed = window.confirm('Allow this page to use your IP-derived approximate city location for globe navigation?');
+      if (!proceed) return;
+      await locateCurrentCity(globeInstance, { rotateOnly: true });
+    } catch (error) {
+      setComposerFeedback(error.message || 'Unable to detect your location right now.', 'error');
+    }
+  });
+
+  ui.zoomInBtn?.addEventListener('click', () => globeInstance.zoomByStep(1));
+  ui.zoomOutBtn?.addEventListener('click', () => globeInstance.zoomByStep(-1));
+
+  ui.launcher.addEventListener('click', () => {
+    toggleComposer();
+  });
+
+  ui.cancel?.addEventListener('click', () => {
+    toggleComposer(false);
+    setComposerFeedback('');
+  });
+
+  ui.text?.addEventListener('input', () => {
+    if (ui.counter) ui.counter.textContent = `${String(ui.text.value || '').length} / 100`;
+    if (ui.feedback && ui.feedback.dataset.state === 'error') setComposerFeedback('');
+  });
+
+  ui.send?.addEventListener('click', () => {
+    submitAnonymousMessage(globeInstance);
+  });
+
+  ui.privacyLink?.addEventListener('click', () => togglePrivacyModal(true));
+  ui.privacyClose?.addEventListener('click', () => togglePrivacyModal(false));
+  ui.privacyAck?.addEventListener('click', () => togglePrivacyModal(false));
+  ui.privacyModal?.addEventListener('click', (event) => {
+    if (event.target === ui.privacyModal) togglePrivacyModal(false);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (ui.layerPanel.hidden) return;
+    const target = event.target;
+    if (ui.layerPanel.contains(target) || ui.layerToggle.contains(target)) return;
+    ui.layerPanel.hidden = true;
+  });
+}
+
 let globe = null;
 
 async function ensureGlobe() {
@@ -1045,7 +1597,8 @@ async function ensureGlobe() {
   globe = new FootprintsGlobe({ canvas, container });
   try {
     await globe.init();
-    globe.setData(getNormalizedFootprintsFromStorage());
+    globe.setData(getCombinedGlobeItemsFromStorage());
+    initFootprintsOverlay(globe);
   } catch (e) {
     console.error('Footprints globe init failed:', e);
     // Show a visible fallback message inside the map container (helps when module fails under file://).
@@ -1068,12 +1621,20 @@ window.refreshFootprintsGlobe = (items) => {
   ensureGlobe().then((g) => {
     if (!g) return;
     g.refreshTheme();
-    if (Array.isArray(items)) g.setData(items.map(it => ({
-      ...it,
-      lat: Array.isArray(it.location) ? Number(it.location[1]) : Number(it.lat),
-      lng: Array.isArray(it.location) ? Number(it.location[0]) : Number(it.lng)
-    })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng)));
-    else g.setData(getNormalizedFootprintsFromStorage());
+    if (Array.isArray(items)) {
+      const normalizedFootprints = items.map(it => ({
+        ...it,
+        kind: 'footprint',
+        lat: Array.isArray(it.location) ? Number(it.location[1]) : Number(it.lat),
+        lng: Array.isArray(it.location) ? Number(it.location[0]) : Number(it.lng)
+      })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      g.setData([
+        ...normalizedFootprints,
+        ...getAnonymousMessageClustersFromStorage()
+      ]);
+    } else {
+      g.setData(getCombinedGlobeItemsFromStorage());
+    }
   }).catch(() => {});
 };
 
