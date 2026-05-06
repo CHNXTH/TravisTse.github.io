@@ -108,6 +108,7 @@ class FootprintsGlobe {
     this.globeGroup.add(this.planetGroup);
 
     this.earth = null;
+    this.nightLights = null;
     this.clouds = null;
     this.atmosphere = null;
     this.sunDir = new THREE.Vector3(1, 0, 0);
@@ -157,32 +158,32 @@ class FootprintsGlobe {
     this.renderer.setSize(w, h, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 3.2;
+    this.renderer.toneMappingExposure = 1.0;
     this.canvas.style.cursor = 'grab';
 
     this.camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
     this.camera.position.set(0, 0, 3.2);
     this.scene.add(this.camera);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 2.45);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.28);
     this.scene.add(ambient);
 
-    const hemi = new THREE.HemisphereLight(0xa7d5ff, 0x13213b, 1.45);
+    const hemi = new THREE.HemisphereLight(0x9fc7ff, 0x060b14, 0.32);
     this.scene.add(hemi);
 
-    const dir = new THREE.DirectionalLight(0xffffff, 2.4);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.55);
     dir.position.set(5, 2, 5);
     this.scene.add(dir);
 
-    const fill = new THREE.DirectionalLight(0x8db8ff, 1.3);
+    const fill = new THREE.DirectionalLight(0x8db8ff, 0.18);
     fill.position.set(-4, 2, -1.5);
     this.scene.add(fill);
 
-    const rim = new THREE.DirectionalLight(0x2d95ff, 1.95);
+    const rim = new THREE.DirectionalLight(0x2d95ff, 0.24);
     rim.position.set(-2, 3, 6);
     this.scene.add(rim);
 
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 3.55);
+    this.sunLight = new THREE.DirectionalLight(0xffffff, 0.01);
     this.sunLight.position.set(5, 2, 5);
     this.scene.add(this.sunLight);
 
@@ -190,12 +191,12 @@ class FootprintsGlobe {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.enablePan = false;
-    this.controls.minDistance = 2.1;
-    this.controls.maxDistance = 6.0;
+    this.controls.minDistance = 1.45;
+    this.controls.maxDistance = 6.8;
     this.controls.rotateSpeed = 0.55;
     this.controls.zoomSpeed = 0.85;
-    this.controls.minPolarAngle = Math.PI * 0.34;
-    this.controls.maxPolarAngle = Math.PI * 0.66;
+    this.controls.minPolarAngle = Math.PI * 0.14;
+    this.controls.maxPolarAngle = Math.PI * 0.86;
     this.controls.autoRotate = true;
     this.controls.autoRotateSpeed = 0.45;
     this.controls.addEventListener('start', this._onPointerDown);
@@ -219,39 +220,43 @@ class FootprintsGlobe {
 
   async loadEarth() {
     const loader = new THREE.TextureLoader();
-    const [dayTex, nightTex, cloudsTex] = await Promise.all([
+    const [dayTex, nightTex, cloudsTex, _normalTex, specularTex] = await Promise.all([
       loader.loadAsync('assets/earth/earth_day.jpg'),
-      loader.loadAsync('assets/earth/earth_night.png'),
-      loader.loadAsync('assets/earth/earth_clouds.png')
+      loader.loadAsync('assets/earth/earth_night.jpg'),
+      loader.loadAsync('assets/earth/earth_clouds.jpg'),
+      loader.loadAsync('assets/earth/earth_normal.png'),
+      loader.loadAsync('assets/earth/earth_specular.png')
     ]);
     dayTex.colorSpace = THREE.SRGBColorSpace;
     nightTex.colorSpace = THREE.SRGBColorSpace;
     cloudsTex.colorSpace = THREE.SRGBColorSpace;
     const anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-    [dayTex, nightTex, cloudsTex].forEach((tex) => {
+    [dayTex, nightTex, cloudsTex, specularTex].forEach((tex) => {
       tex.anisotropy = anisotropy;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
       tex.generateMipmaps = true;
     });
+    specularTex.colorSpace = THREE.NoColorSpace;
 
     const radius = 1.0;
     const geom = new THREE.SphereGeometry(radius, 96, 96);
 
-    // Day/night blend shader material
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uDay: { value: dayTex },
-        uNight: { value: nightTex },
-        uSunDir: { value: this.sunDir.clone() },
-        uDark: { value: getIsDarkMode() ? 1.0 : 0.0 },
-        uBlueBoost: { value: 2.45 }
+        uDayTexture: { value: dayTex },
+        uNightTexture: { value: nightTex },
+        uSpecularTexture: { value: specularTex },
+        uCloudsTexture: { value: cloudsTex },
+        uAtmosphereDayColor: { value: new THREE.Color('#00aaff') },
+        uAtmosphereTwilightColor: { value: new THREE.Color('#000000') },
+        uSunDirection: { value: this.sunDir.clone() }
       },
       vertexShader: `
         varying vec2 vUv;
         varying vec3 vNormalW;
         varying vec3 vWorldPos;
-        void main(){
+        void main() {
           vUv = uv;
           vec4 worldPos = modelMatrix * vec4(position, 1.0);
           vWorldPos = worldPos.xyz;
@@ -260,64 +265,58 @@ class FootprintsGlobe {
         }
       `,
       fragmentShader: `
-        uniform sampler2D uDay;
-        uniform sampler2D uNight;
-        uniform vec3 uSunDir;
-        uniform float uDark;
-        uniform float uBlueBoost;
+        uniform sampler2D uDayTexture;
+        uniform sampler2D uNightTexture;
+        uniform sampler2D uSpecularTexture;
+        uniform sampler2D uCloudsTexture;
+        uniform vec3 uAtmosphereDayColor;
+        uniform vec3 uAtmosphereTwilightColor;
+        uniform vec3 uSunDirection;
         varying vec2 vUv;
         varying vec3 vNormalW;
         varying vec3 vWorldPos;
-        void main(){
+
+        void main() {
+          vec3 dayColor = texture2D(uDayTexture, vUv).rgb;
+          vec3 nightColor = texture2D(uNightTexture, vUv).rgb;
+          float specularStrength = texture2D(uSpecularTexture, vUv).r;
+          float cloudsMask = texture2D(uCloudsTexture, vUv).g;
+
           vec3 normal = normalize(vNormalW);
-          vec3 lightDir = normalize(uSunDir);
+          vec3 sunDir = normalize(uSunDirection);
           vec3 viewDir = normalize(cameraPosition - vWorldPos);
-          float ndl = dot(normal, lightDir);
-          vec3 day = texture2D(uDay, vUv).rgb;
-          vec3 night = texture2D(uNight, vUv).rgb;
-          float daySide = smoothstep(-0.05, 0.22, ndl);
-          float twilight = smoothstep(-0.42, 0.02, ndl) * (1.0 - daySide);
-          float deepNight = smoothstep(0.04, 0.58, -ndl);
 
-          vec3 ambientDay = day * vec3(0.36, 0.42, 0.55);
-          vec3 twilightDay = day * vec3(0.68, 0.77, 0.96);
-          vec3 litDay = day * (0.72 + max(ndl, 0.0) * 1.05) * vec3(1.03, 1.05, 1.10);
+          float sunOrientation = dot(normal, sunDir);
+          float dayMix = smoothstep(-0.25, 0.5, sunOrientation);
+          float twilightMix = smoothstep(-0.5, 1.0, sunOrientation);
 
-          vec3 col = ambientDay;
-          col = mix(col, twilightDay, twilight);
-          col = mix(col, litDay, daySide);
+          vec3 color = mix(nightColor + dayColor * 0.06, dayColor, dayMix);
 
-          float oceanMask = smoothstep(0.015, 0.12, day.b - max(day.r * 0.90, day.g * 0.96));
-          float greenMask = smoothstep(0.012, 0.09, day.g - max(day.r * 0.92, day.b * 0.97));
-          float warmMask = smoothstep(0.04, 0.17, day.r - max(day.g, day.b * 0.85));
+          vec3 reflection = reflect(-sunDir, normal);
+          float specular = pow(max(dot(reflection, viewDir), 0.0), 80.0);
+          specular *= specularStrength;
+          specular *= smoothstep(0.0, 0.35, sunOrientation);
+          color += vec3(1.0) * specular * 0.85;
 
-          vec3 nightGlow = night * mix(0.95, 1.34, uDark) * deepNight;
-          col += nightGlow;
+          float cloudsMix = smoothstep(0.5, 1.0, cloudsMask);
+          cloudsMix *= dayMix;
+          color = mix(color, vec3(1.0), cloudsMix * 0.75);
 
-          col += oceanMask * vec3(0.05, 0.20, 0.54) * (0.64 + 1.05 * daySide + 0.42 * twilight) * uBlueBoost;
-          col = mix(col, col * vec3(0.94, 1.08, 1.62), oceanMask * (0.60 + 0.60 * daySide + 0.20 * twilight));
-          col = mix(col, col * vec3(0.98, 1.28, 1.06), greenMask * (0.40 + 0.54 * daySide + 0.18 * twilight));
+          float fresnel = dot(-viewDir, normal) + 1.0;
+          fresnel = pow(fresnel, 2.4);
+          vec3 atmosphereColor = mix(uAtmosphereTwilightColor, uAtmosphereDayColor, twilightMix);
+          color += atmosphereColor * fresnel * 0.008;
 
-          col = max(col, oceanMask * vec3(0.06, 0.14, 0.28));
-          col = max(col, greenMask * vec3(0.05, 0.12, 0.05));
-
-          vec3 cooledWarm = vec3(col.r * 0.92, col.g * 1.02, col.b * 1.05);
-          col = mix(col, cooledWarm, warmMask * (0.26 + 0.18 * daySide));
-
-          vec3 reflectDir = reflect(-lightDir, normal);
-          float spec = pow(max(dot(viewDir, reflectDir), 0.0), 44.0);
-          float specMask = oceanMask * smoothstep(-0.01, 0.28, ndl);
-          col += vec3(1.15, 1.18, 1.25) * spec * specMask * 1.65;
-
-          col = max(col, day * vec3(0.20, 0.24, 0.34) + vec3(0.03, 0.05, 0.10));
-          col = mix(col, day * vec3(1.04, 1.08, 1.16), (1.0 - uDark) * 0.62 * daySide);
-          gl_FragColor = vec4(col, 1.0);
+          gl_FragColor = vec4(color, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }
       `
     });
-
     this.earth = new THREE.Mesh(geom, mat);
     this.planetGroup.add(this.earth);
+
+    this.nightLights = null;
 
     // Clouds
     const cloudGeom = new THREE.SphereGeometry(radius * 1.012, 96, 96);
@@ -325,7 +324,7 @@ class FootprintsGlobe {
       uniforms: {
         uClouds: { value: cloudsTex },
         uSunDir: { value: this.sunDir.clone() },
-        uOpacity: { value: getIsDarkMode() ? 0.34 : 0.2 }
+        uOpacity: { value: getIsDarkMode() ? 0.34 : 0.16 }
       },
       vertexShader: `
         varying vec2 vUv;
@@ -345,11 +344,13 @@ class FootprintsGlobe {
         varying vec3 vNormalW;
         void main() {
           vec4 tex = texture2D(uClouds, vUv);
-          float daylight = smoothstep(-0.02, 0.18, dot(normalize(vNormalW), normalize(uSunDir)));
+          float daylight = clamp(dot(normalize(vNormalW), normalize(uSunDir)) * 0.5 + 0.5, 0.0, 1.0);
           float cloudMask = max(tex.a, ((tex.r + tex.g + tex.b) / 3.0) * 0.15);
           cloudMask = smoothstep(0.22, 0.82, cloudMask);
           float alpha = cloudMask * uOpacity * daylight;
           gl_FragColor = vec4(vec3(1.0), alpha);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }
       `,
       transparent: true,
@@ -359,23 +360,43 @@ class FootprintsGlobe {
     this.planetGroup.add(this.clouds);
 
     // Atmosphere glow (back-side)
-    const atmGeom = new THREE.SphereGeometry(radius * 1.06, 96, 96);
+    const atmGeom = new THREE.SphereGeometry(radius * 1.048, 96, 96);
     const atmMat = new THREE.ShaderMaterial({
-      uniforms: { uStrength: { value: 0.75 } },
+      uniforms: {
+        uStrength: { value: 0.12 },
+        uSunDirection: { value: this.sunDir.clone() },
+        uAtmosphereDayColor: { value: new THREE.Color('#00aaff') },
+        uAtmosphereTwilightColor: { value: new THREE.Color('#000000') }
+      },
       vertexShader: `
-        varying vec3 vNormal;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
         void main(){
-          vNormal = normalize(normalMatrix * normal);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
         }
       `,
       fragmentShader: `
         uniform float uStrength;
-        varying vec3 vNormal;
+        uniform vec3 uSunDirection;
+        uniform vec3 uAtmosphereDayColor;
+        uniform vec3 uAtmosphereTwilightColor;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
         void main(){
-          float i = pow(0.70 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
-          vec3 col = vec3(0.25, 0.55, 1.0) * i * uStrength;
-          gl_FragColor = vec4(col, i);
+          vec3 normal = normalize(vNormalW);
+          vec3 viewDirection = normalize(vWorldPos - cameraPosition);
+          float sunOrientation = dot(uSunDirection, normal);
+          float atmosphereDayMix = smoothstep(-0.2, 0.55, sunOrientation);
+          vec3 atmosphereColor = mix(uAtmosphereTwilightColor, uAtmosphereDayColor, atmosphereDayMix);
+          float fresnel = dot(viewDirection, normal) + 1.0;
+          fresnel = pow(fresnel, 4.8);
+          vec3 col = atmosphereColor * fresnel * uStrength;
+          gl_FragColor = vec4(col, fresnel * uStrength * 0.7);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }
       `,
       blending: THREE.AdditiveBlending,
@@ -463,7 +484,6 @@ class FootprintsGlobe {
 
   refreshTheme() {
     if (!this.earth) return;
-    this.earth.material.uniforms.uDark.value = getIsDarkMode() ? 1.0 : 0.0;
     if (this.clouds) this.clouds.material.uniforms.uOpacity.value = getIsDarkMode() ? 0.34 : 0.2;
   }
 
@@ -479,8 +499,11 @@ class FootprintsGlobe {
       const now = new Date();
       this.sunDir.copy(getSunDirection(now));
       this.planetGroup.rotation.y = getEarthUtcRotation(now);
-      if (this.earth) this.earth.material.uniforms.uSunDir.value.copy(this.sunDir);
+      if (this.earth && this.earth.material && this.earth.material.uniforms && this.earth.material.uniforms.uSunDirection) {
+        this.earth.material.uniforms.uSunDirection.value.copy(this.sunDir);
+      }
       if (this.clouds) this.clouds.material.uniforms.uSunDir.value.copy(this.sunDir);
+      if (this.atmosphere) this.atmosphere.material.uniforms.uSunDirection.value.copy(this.sunDir);
       if (this.sunLight) this.sunLight.position.copy(this.sunDir.clone().multiplyScalar(6));
 
       const dt = this.clock.getDelta();
