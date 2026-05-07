@@ -82,6 +82,13 @@
         });
     }
 
+    async function updateAdminPassword(newPassword) {
+        return request('/api/admin/password', {
+            method: 'POST',
+            body: JSON.stringify({ newPassword }),
+        });
+    }
+
     async function uploadAdminAsset(file) {
         if (!file) {
             throw new Error('Missing file');
@@ -169,6 +176,7 @@
         login,
         getAdminContent,
         saveAdminContent,
+        updateAdminPassword,
         uploadAdminAsset,
         getPublicContent,
         searchPlaces,

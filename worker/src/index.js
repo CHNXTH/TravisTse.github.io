@@ -1,6 +1,7 @@
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 const CONTENT_KEY = 'website_content_v1';
 const BACKUP_PREFIX = 'website_backup_';
+const ADMIN_AUTH_KEY = 'admin_auth_v1';
 // Admin session token TTL.
 // Long-lived tokens are OK here because this is a single-user admin panel protected by a password,
 // and tokens are stored in sessionStorage (cleared on browser close by default).
@@ -55,6 +56,10 @@ export default {
 
         if (url.pathname === '/api/admin/content') {
             return handleAdminContent(request, env);
+        }
+
+        if (url.pathname === '/api/admin/password') {
+            return handleAdminPassword(request, env);
         }
 
         if (url.pathname === '/api/admin/upload') {
@@ -719,11 +724,14 @@ async function handleAdminLogin(request, env) {
     }
 
     const content = await readWebsiteContent(env);
-    const storedPassword = getStoredPassword(content, env);
+    const authRecord = await readAdminAuthRecord(env);
+    const isValid = await verifyAdminPassword(password, authRecord, content, env);
 
-    if (password !== storedPassword) {
+    if (!isValid) {
         return jsonResponse(request, { error: 'Invalid password' }, 401);
     }
+
+    await migrateLegacyAdminAuthIfNeeded(password, authRecord, content, env);
 
     const token = await createSessionToken(
         { scope: 'admin', exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS },
@@ -752,7 +760,7 @@ async function handleAdminContent(request, env) {
         }
 
         return jsonResponse(request, {
-            content,
+            content: sanitizeAdminContent(content),
             bootstrapRequired: false
         }, 200);
     }
@@ -779,7 +787,29 @@ async function handleAdminContent(request, env) {
 
     await env.SITE_DATA.put(CONTENT_KEY, JSON.stringify(content));
 
-    return jsonResponse(request, { success: true, content }, 200);
+    return jsonResponse(request, { success: true, content: sanitizeAdminContent(content) }, 200);
+}
+
+async function handleAdminPassword(request, env) {
+    const auth = await requireAdminAuth(request, env);
+    if (!auth.ok) {
+        return auth.response;
+    }
+
+    if (request.method !== 'POST') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { 'Allow': 'POST, OPTIONS' });
+    }
+
+    const body = await safeJson(request);
+    const newPassword = typeof body.newPassword === 'string' ? body.newPassword.trim() : '';
+    if (newPassword.length < 8) {
+        return jsonResponse(request, { error: 'Password must be at least 8 characters long' }, 400);
+    }
+
+    await storeAdminPasswordHash(newPassword, env);
+    await scrubLegacyPasswordFromContent(env);
+
+    return jsonResponse(request, { success: true }, 200);
 }
 
 async function handleAdminUpload(request, env) {
@@ -960,17 +990,171 @@ async function readWebsiteContent(env) {
     }
 }
 
-function getStoredPassword(content, env) {
+async function readAdminAuthRecord(env) {
+    if (!env.SITE_DATA) {
+        return null;
+    }
+
+    const raw = await env.SITE_DATA.get(ADMIN_AUTH_KEY);
+    if (!raw) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (error) {
+        return null;
+    }
+}
+
+async function verifyAdminPassword(password, authRecord, content, env) {
+    if (authRecord && authRecord.hash && authRecord.salt) {
+        return verifyPasswordHash(password, authRecord);
+    }
+
+    const legacyPassword = getLegacyStoredPassword(content, env);
+    if (!legacyPassword) {
+        return false;
+    }
+
+    return password === legacyPassword;
+}
+
+function getLegacyStoredPassword(content, env) {
     if (content && content.settings && typeof content.settings.password === 'string' && content.settings.password.trim()) {
         return content.settings.password.trim();
     }
 
-    return env.ADMIN_BOOTSTRAP_PASSWORD || '725500@20020303';
+    if (typeof env.ADMIN_BOOTSTRAP_PASSWORD === 'string' && env.ADMIN_BOOTSTRAP_PASSWORD.trim()) {
+        return env.ADMIN_BOOTSTRAP_PASSWORD.trim();
+    }
+
+    return '';
+}
+
+async function migrateLegacyAdminAuthIfNeeded(password, authRecord, content, env) {
+    if (authRecord && authRecord.hash && authRecord.salt) {
+        if (content && content.settings && content.settings.password) {
+            await scrubLegacyPasswordFromContent(env, content);
+        }
+        return;
+    }
+
+    await storeAdminPasswordHash(password, env);
+    await scrubLegacyPasswordFromContent(env, content);
+}
+
+async function storeAdminPasswordHash(password, env) {
+    if (!env.SITE_DATA) {
+        throw new Error('Missing SITE_DATA binding');
+    }
+
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iterations = 120000;
+    const hashBytes = await pbkdf2Hash(password, salt, iterations);
+    const record = {
+        algorithm: 'PBKDF2-SHA-256',
+        iterations,
+        salt: bytesToBase64(salt),
+        hash: bytesToBase64(hashBytes),
+        updatedAt: new Date().toISOString()
+    };
+
+    await env.SITE_DATA.put(ADMIN_AUTH_KEY, JSON.stringify(record));
+}
+
+async function verifyPasswordHash(password, record) {
+    const iterations = Number(record.iterations) || 120000;
+    const salt = base64ToUint8Array(record.salt || '');
+    const expectedHash = base64ToUint8Array(record.hash || '');
+    if (!salt.length || !expectedHash.length) {
+        return false;
+    }
+
+    const actualHash = await pbkdf2Hash(password, salt, iterations);
+    return timingSafeEqual(actualHash, expectedHash);
+}
+
+async function pbkdf2Hash(password, saltBytes, iterations) {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits']
+    );
+
+    const derivedBits = await crypto.subtle.deriveBits(
+        {
+            name: 'PBKDF2',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            iterations
+        },
+        keyMaterial,
+        256
+    );
+
+    return new Uint8Array(derivedBits);
+}
+
+function timingSafeEqual(left, right) {
+    if (left.length !== right.length) {
+        return false;
+    }
+
+    let mismatch = 0;
+    for (let i = 0; i < left.length; i++) {
+        mismatch |= left[i] ^ right[i];
+    }
+    return mismatch === 0;
+}
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
+async function scrubLegacyPasswordFromContent(env, contentOverride) {
+    if (!env.SITE_DATA) {
+        return;
+    }
+
+    const content = contentOverride || await readWebsiteContent(env);
+    if (!content || !content.settings || !content.settings.password) {
+        return;
+    }
+
+    const sanitized = structuredClone(content);
+    delete sanitized.settings.password;
+    if (Object.keys(sanitized.settings).length === 0) {
+        delete sanitized.settings;
+    }
+
+    sanitized.meta = sanitized.meta || {};
+    sanitized.meta.lastModified = new Date().toISOString();
+    sanitized.meta.savedBy = 'cloudflare-admin-auth-migration';
+
+    await env.SITE_DATA.put(CONTENT_KEY, JSON.stringify(sanitized));
 }
 
 function sanitizePublicContent(content) {
-    const cloned = structuredClone(content);
-    delete cloned.settings;
+    return sanitizeAdminContent(content);
+}
+
+function sanitizeAdminContent(content) {
+    const cloned = structuredClone(content || {});
+    if (cloned.settings && typeof cloned.settings === 'object') {
+        delete cloned.settings.password;
+        if (Object.keys(cloned.settings).length === 0) {
+            delete cloned.settings;
+        }
+    }
     return cloned;
 }
 
@@ -990,7 +1174,11 @@ function normalizeWebsiteContent(content) {
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
     normalized.anonymousMessages = Array.isArray(normalized.anonymousMessages) ? normalized.anonymousMessages : [];
     normalized.knowledgeCards = Array.isArray(normalized.knowledgeCards) ? normalized.knowledgeCards : [];
-    normalized.settings = normalized.settings || {};
+    normalized.settings = normalized.settings && typeof normalized.settings === 'object' ? normalized.settings : {};
+    delete normalized.settings.password;
+    if (Object.keys(normalized.settings).length === 0) {
+        delete normalized.settings;
+    }
     normalized.meta = normalized.meta || {};
     return normalized;
 }

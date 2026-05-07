@@ -737,7 +737,7 @@ function deleteExperience(id) {
 // 初始化设置部分
 function initSettingsSection() {
     // 修改密码
-    document.getElementById('save-password').addEventListener('click', function() {
+    document.getElementById('save-password').addEventListener('click', async function() {
         const newPassword = document.getElementById('admin-password').value.trim();
         const confirmPassword = document.getElementById('admin-password-confirm').value.trim();
         const passwordMessage = document.getElementById('password-message');
@@ -753,21 +753,24 @@ function initSettingsSection() {
             passwordMessage.className = 'password-message text-danger';
             return;
         }
-        
-        // 更新密码
-        websiteData.settings = websiteData.settings || {};
-        websiteData.settings.password = newPassword;
-        saveWebsiteData();
-        
-        // 显示成功消息
-        passwordMessage.textContent = '密码已成功修改';
-        passwordMessage.className = 'password-message text-success';
-        
-        // 清空输入框
-        document.getElementById('admin-password').value = '';
-        document.getElementById('admin-password-confirm').value = '';
-        
-        showMessage('管理密码已更新', 'success');
+
+        if (!USE_CLOUDFLARE_ADMIN || !window.cloudflareApi || !window.cloudflareApi.getAdminToken()) {
+            passwordMessage.textContent = '当前未连接到安全后台服务，请重新登录后再试';
+            passwordMessage.className = 'password-message text-danger';
+            return;
+        }
+
+        try {
+            await window.cloudflareApi.updateAdminPassword(newPassword);
+            passwordMessage.textContent = '密码已成功修改';
+            passwordMessage.className = 'password-message text-success';
+            document.getElementById('admin-password').value = '';
+            document.getElementById('admin-password-confirm').value = '';
+            showMessage('管理密码已更新', 'success');
+        } catch (error) {
+            passwordMessage.textContent = error.message || '密码修改失败，请重试';
+            passwordMessage.className = 'password-message text-danger';
+        }
     });
     
     // 导出数据

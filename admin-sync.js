@@ -19,7 +19,11 @@ function normalizeWebsiteData(data) {
     normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
     normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
-    normalized.settings = normalized.settings || { password: '725500@20020303' };
+    normalized.settings = normalized.settings && typeof normalized.settings === 'object' ? normalized.settings : {};
+    delete normalized.settings.password;
+    if (Object.keys(normalized.settings).length === 0) {
+        delete normalized.settings;
+    }
     normalized.meta = normalized.meta || {};
 
     // experience.details 统一成 string[]（兼容旧的多行字符串）

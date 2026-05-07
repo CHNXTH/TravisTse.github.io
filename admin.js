@@ -1,7 +1,6 @@
 // 后台管理系统JavaScript - 第一部分：基础功能和登录验证
 
 // 全局变量
-const DEFAULT_PASSWORD = '725500@20020303'; // 初始密码
 let websiteData = {}; // 网站数据对象
 let adminSectionsInitialized = false;
 const USE_CLOUDFLARE_ADMIN = typeof window.cloudflareApi !== 'undefined';
@@ -86,7 +85,12 @@ function initDefaultData() {
             websiteData.social = websiteData.social || [];
             websiteData.footprints = websiteData.footprints || [];
             websiteData.anonymousMessages = websiteData.anonymousMessages || [];
-            websiteData.settings = websiteData.settings || { password: DEFAULT_PASSWORD };
+            if (websiteData.settings && typeof websiteData.settings === 'object') {
+                delete websiteData.settings.password;
+                if (Object.keys(websiteData.settings).length === 0) {
+                    delete websiteData.settings;
+                }
+            }
             
             // 添加数据版本信息（用于将来可能的数据迁移）
             if (!websiteData.meta) {
@@ -134,9 +138,6 @@ function initDefaultData() {
 	        social: [],
 	        footprints: [],
         anonymousMessages: [],
-	        settings: {
-	            password: DEFAULT_PASSWORD
-	        },
         meta: {
             version: '1.0',
             created: new Date().toISOString(),
@@ -382,10 +383,7 @@ async function login(password) {
         if (USE_CLOUDFLARE_ADMIN) {
             await window.cloudflareApi.login(password);
         } else {
-            const currentPassword = websiteData.settings?.password || DEFAULT_PASSWORD;
-            if (password !== currentPassword) {
-                throw new Error('密码错误，请重试');
-            }
+            throw new Error('当前后台需要通过 Cloudflare Worker 登录，请检查 API 配置');
         }
 
         loginError.textContent = '';
@@ -584,7 +582,11 @@ function normalizeWebsiteData(data) {
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
     normalized.anonymousMessages = Array.isArray(normalized.anonymousMessages) ? normalized.anonymousMessages : [];
     normalized.knowledgeCards = Array.isArray(normalized.knowledgeCards) ? normalized.knowledgeCards : [];
-    normalized.settings = normalized.settings || { password: DEFAULT_PASSWORD };
+    normalized.settings = normalized.settings && typeof normalized.settings === 'object' ? normalized.settings : {};
+    delete normalized.settings.password;
+    if (Object.keys(normalized.settings).length === 0) {
+        delete normalized.settings;
+    }
     normalized.meta = normalized.meta || {};
     return normalized;
 }
@@ -782,9 +784,6 @@ function extractWebsiteDataFromDocument(doc) {
         })),
         footprints: [],
         anonymousMessages: [],
-        settings: {
-            password: DEFAULT_PASSWORD
-        },
         meta: {
             version: '2.0-cloudflare',
             created: new Date().toISOString(),
@@ -809,7 +808,13 @@ function mergeWebsiteData(base, incoming) {
     if (merged.footprints.length === 0 && normalizedIncoming.footprints.length > 0) merged.footprints = normalizedIncoming.footprints;
     if (merged.anonymousMessages.length === 0 && normalizedIncoming.anonymousMessages.length > 0) merged.anonymousMessages = normalizedIncoming.anonymousMessages;
 
-    merged.settings = merged.settings || normalizedIncoming.settings || {};
+    merged.settings = {
+        ...(normalizedIncoming.settings || {}),
+        ...(merged.settings || {})
+    };
+    if (Object.keys(merged.settings).length === 0) {
+        delete merged.settings;
+    }
     merged.meta = merged.meta || {};
 
     return merged;

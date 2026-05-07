@@ -124,7 +124,6 @@ function emergencyDataRepair() {
                 awards: [],
                 social: [],
                 footprints: [],
-                settings: { password: '725500@20020303' },
                 meta: {
                     version: '1.0',
                     created: new Date().toISOString(),
@@ -142,7 +141,12 @@ function emergencyDataRepair() {
             currentData.awards = Array.isArray(currentData.awards) ? currentData.awards : [];
             currentData.social = Array.isArray(currentData.social) ? currentData.social : [];
             currentData.footprints = Array.isArray(currentData.footprints) ? currentData.footprints : [];
-            currentData.settings = currentData.settings || { password: '725500@20020303' };
+            if (currentData.settings && typeof currentData.settings === 'object') {
+                delete currentData.settings.password;
+                if (Object.keys(currentData.settings).length === 0) {
+                    delete currentData.settings;
+                }
+            }
             
             // 添加或更新元数据
             if (!currentData.meta) {
