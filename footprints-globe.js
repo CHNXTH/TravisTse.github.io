@@ -314,6 +314,7 @@ class FootprintsGlobe {
       ('ontouchstart' in window) ||
       (navigator.maxTouchPoints > 0)
     );
+    this.isReducedPerfMode = this.isCoarsePointer;
     this.pointerDownInfo = null;
 
     this.globeGroup = new THREE.Group();
@@ -327,7 +328,9 @@ class FootprintsGlobe {
     this.atmosphere = null;
     this.starfieldGroup = null;
     this.meteorPool = [];
-    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(3000, 7000);
+    this.nextMeteorAt = this.isReducedPerfMode
+      ? Number.POSITIVE_INFINITY
+      : performance.now() + THREE.MathUtils.randFloat(3000, 7000);
     this.sunDir = new THREE.Vector3(1, 0, 0);
     this.sunLight = null;
     this.layerVisibility = { footprint: true, message: true };
@@ -383,7 +386,7 @@ class FootprintsGlobe {
       alpha: true,
       powerPreference: 'high-performance'
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.isReducedPerfMode ? 1.25 : 2));
     this.renderer.setSize(w, h, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -449,17 +452,19 @@ class FootprintsGlobe {
 
   async loadEarth() {
     const loader = new THREE.TextureLoader();
-    const [dayTex, nightTex, cloudsTex, _normalTex, specularTex] = await Promise.all([
+    const [dayTex, nightTex, cloudsTex, specularTex] = await Promise.all([
       loader.loadAsync('assets/earth/earth_day.jpg'),
       loader.loadAsync('assets/earth/earth_night.jpg'),
       loader.loadAsync('assets/earth/earth_clouds.jpg'),
-      loader.loadAsync('assets/earth/earth_normal.png'),
       loader.loadAsync('assets/earth/earth_specular.png')
     ]);
     dayTex.colorSpace = THREE.SRGBColorSpace;
     nightTex.colorSpace = THREE.SRGBColorSpace;
     cloudsTex.colorSpace = THREE.SRGBColorSpace;
-    const anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    const anisotropy = Math.min(
+      this.renderer.capabilities.getMaxAnisotropy(),
+      this.isReducedPerfMode ? 4 : this.renderer.capabilities.getMaxAnisotropy()
+    );
     [dayTex, nightTex, cloudsTex, specularTex].forEach((tex) => {
       tex.anisotropy = anisotropy;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
@@ -470,7 +475,8 @@ class FootprintsGlobe {
 
     const radius = 1.0;
     this.createStarfield();
-    const geom = new THREE.SphereGeometry(radius, 96, 96);
+    const sphereSegments = this.isReducedPerfMode ? 64 : 96;
+    const geom = new THREE.SphereGeometry(radius, sphereSegments, sphereSegments);
 
     const mat = new THREE.ShaderMaterial({
       uniforms: {
@@ -530,12 +536,15 @@ class FootprintsGlobe {
 
           float cloudsMix = smoothstep(0.5, 1.0, cloudsMask);
           cloudsMix *= dayMix;
-          color = mix(color, vec3(1.0), cloudsMix * 0.75);
+          color = mix(color, vec3(1.0), cloudsMix * 0.42);
 
           float fresnel = dot(-viewDir, normal) + 1.0;
           fresnel = pow(fresnel, 2.4);
           vec3 atmosphereColor = mix(uAtmosphereTwilightColor, uAtmosphereDayColor, twilightMix);
           color += atmosphereColor * fresnel * 0.008;
+
+          float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+          color = mix(vec3(luminance), color, 0.86);
 
           gl_FragColor = vec4(color, 1.0);
           #include <tonemapping_fragment>
@@ -548,13 +557,12 @@ class FootprintsGlobe {
 
     this.nightLights = null;
 
-    // Clouds
-    const cloudGeom = new THREE.SphereGeometry(radius * 1.012, 96, 96);
+    const cloudGeom = new THREE.SphereGeometry(radius * 1.01, sphereSegments, sphereSegments);
     const cloudMat = new THREE.ShaderMaterial({
       uniforms: {
         uClouds: { value: cloudsTex },
         uSunDir: { value: this.sunDir.clone() },
-        uOpacity: { value: getIsDarkMode() ? 0.34 : 0.16 }
+        uOpacity: { value: this.isReducedPerfMode ? 0.12 : (getIsDarkMode() ? 0.26 : 0.16) }
       },
       vertexShader: `
         varying vec2 vUv;
@@ -590,7 +598,7 @@ class FootprintsGlobe {
     this.planetGroup.add(this.clouds);
 
     // Atmosphere glow (back-side)
-    const atmGeom = new THREE.SphereGeometry(radius * 1.048, 96, 96);
+    const atmGeom = new THREE.SphereGeometry(radius * 1.048, sphereSegments, sphereSegments);
     const atmMat = new THREE.ShaderMaterial({
       uniforms: {
         uStrength: { value: 0.12 },
@@ -648,7 +656,7 @@ class FootprintsGlobe {
     }
 
     const starfieldGroup = new THREE.Group();
-    const starCount = 1800;
+    const starCount = this.isReducedPerfMode ? 950 : 1800;
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
 
@@ -685,7 +693,11 @@ class FootprintsGlobe {
 
     const stars = new THREE.Points(starGeometry, starMaterial);
     starfieldGroup.add(stars);
-    this.createMeteorPool(starfieldGroup);
+    if (!this.isReducedPerfMode) {
+      this.createMeteorPool(starfieldGroup);
+    } else {
+      this.meteorPool = [];
+    }
     starfieldGroup.rotation.y = THREE.MathUtils.degToRad(-120);
 
     this.starfieldGroup = starfieldGroup;
@@ -882,7 +894,9 @@ class FootprintsGlobe {
 
   refreshTheme() {
     if (!this.earth) return;
-    if (this.clouds) this.clouds.material.uniforms.uOpacity.value = getIsDarkMode() ? 0.34 : 0.2;
+    if (this.clouds) {
+      this.clouds.material.uniforms.uOpacity.value = this.isReducedPerfMode ? 0.12 : (getIsDarkMode() ? 0.26 : 0.16);
+    }
   }
 
   setLayerVisibility(nextVisibility = {}) {
