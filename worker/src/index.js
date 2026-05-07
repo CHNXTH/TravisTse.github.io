@@ -2,6 +2,7 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 const CONTENT_KEY = 'website_content_v1';
 const BACKUP_PREFIX = 'website_backup_';
 const ADMIN_AUTH_KEY = 'admin_auth_v1';
+const ADMIN_PBKDF2_ITERATIONS = 100000;
 // Admin session token TTL.
 // Long-lived tokens are OK here because this is a single-user admin panel protected by a password,
 // and tokens are stored in sessionStorage (cleared on browser close by default).
@@ -33,64 +34,69 @@ ${knowledgeText}
 
 export default {
     async fetch(request, env) {
-        if (request.method === 'OPTIONS') {
-            return new Response(null, {
-                status: 204,
-                headers: corsHeaders(request),
-            });
+        try {
+            if (request.method === 'OPTIONS') {
+                return new Response(null, {
+                    status: 204,
+                    headers: corsHeaders(request),
+                });
+            }
+
+            const url = new URL(request.url);
+
+            if (url.pathname === '/api/chat') {
+                return handleChat(request, env);
+            }
+
+            if (url.pathname === '/api/content') {
+                return handlePublicContent(request, env);
+            }
+
+            if (url.pathname === '/api/admin/login') {
+                return handleAdminLogin(request, env);
+            }
+
+            if (url.pathname === '/api/admin/content') {
+                return handleAdminContent(request, env);
+            }
+
+            if (url.pathname === '/api/admin/password') {
+                return handleAdminPassword(request, env);
+            }
+
+            if (url.pathname === '/api/admin/upload') {
+                return handleAdminUpload(request, env);
+            }
+
+            if (url.pathname === '/api/admin/knowledge/polish') {
+                return handleKnowledgePolish(request, env);
+            }
+
+            if (url.pathname === '/api/places/search') {
+                return handlePlaceSearch(request);
+            }
+
+            if (url.pathname === '/api/places/reverse') {
+                return handlePlaceReverse(request);
+            }
+
+            if (url.pathname === '/api/places/approximate') {
+                return handleApproximatePlace(request);
+            }
+
+            if (url.pathname === '/api/anonymous-messages') {
+                return handleAnonymousMessageSubmit(request, env);
+            }
+
+            if (url.pathname.startsWith('/assets/')) {
+                return handleAssetGet(request, env, url.pathname.slice('/assets/'.length));
+            }
+
+            return jsonResponse(request, { error: 'Not found' }, 404);
+        } catch (error) {
+            const message = error && error.message ? error.message : 'Unexpected Worker error';
+            return jsonResponse(request, { error: message }, 500);
         }
-
-        const url = new URL(request.url);
-
-        if (url.pathname === '/api/chat') {
-            return handleChat(request, env);
-        }
-
-        if (url.pathname === '/api/content') {
-            return handlePublicContent(request, env);
-        }
-
-        if (url.pathname === '/api/admin/login') {
-            return handleAdminLogin(request, env);
-        }
-
-        if (url.pathname === '/api/admin/content') {
-            return handleAdminContent(request, env);
-        }
-
-        if (url.pathname === '/api/admin/password') {
-            return handleAdminPassword(request, env);
-        }
-
-        if (url.pathname === '/api/admin/upload') {
-            return handleAdminUpload(request, env);
-        }
-
-        if (url.pathname === '/api/admin/knowledge/polish') {
-            return handleKnowledgePolish(request, env);
-        }
-
-        if (url.pathname === '/api/places/search') {
-            return handlePlaceSearch(request);
-        }
-
-        if (url.pathname === '/api/places/reverse') {
-            return handlePlaceReverse(request);
-        }
-
-        if (url.pathname === '/api/places/approximate') {
-            return handleApproximatePlace(request);
-        }
-
-        if (url.pathname === '/api/anonymous-messages') {
-            return handleAnonymousMessageSubmit(request, env);
-        }
-
-        if (url.pathname.startsWith('/assets/')) {
-            return handleAssetGet(request, env, url.pathname.slice('/assets/'.length));
-        }
-
-        return jsonResponse(request, { error: 'Not found' }, 404);
     }
 };
 
@@ -1050,7 +1056,7 @@ async function storeAdminPasswordHash(password, env) {
     }
 
     const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iterations = 120000;
+    const iterations = ADMIN_PBKDF2_ITERATIONS;
     const hashBytes = await pbkdf2Hash(password, salt, iterations);
     const record = {
         algorithm: 'PBKDF2-SHA-256',
@@ -1064,7 +1070,7 @@ async function storeAdminPasswordHash(password, env) {
 }
 
 async function verifyPasswordHash(password, record) {
-    const iterations = Number(record.iterations) || 120000;
+    const iterations = Number(record.iterations) || ADMIN_PBKDF2_ITERATIONS;
     const salt = base64ToUint8Array(record.salt || '');
     const expectedHash = base64ToUint8Array(record.hash || '');
     if (!salt.length || !expectedHash.length) {
