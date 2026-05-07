@@ -327,7 +327,7 @@ class FootprintsGlobe {
     this.atmosphere = null;
     this.starfieldGroup = null;
     this.meteorPool = [];
-    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(5000, 11000);
+    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(3000, 7000);
     this.sunDir = new THREE.Vector3(1, 0, 0);
     this.sunLight = null;
     this.layerVisibility = { footprint: true, message: true };
@@ -725,7 +725,7 @@ class FootprintsGlobe {
   }
 
   spawnMeteorBurst() {
-    const burstCount = Math.random() < 0.28 ? 2 : 1;
+    const burstCount = Math.random() < 0.45 ? 2 : 1;
     let spawned = 0;
 
     for (const meteor of this.meteorPool) {
@@ -754,7 +754,7 @@ class FootprintsGlobe {
       if (spawned >= burstCount) break;
     }
 
-    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(7000, 16000);
+    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(4500, 10000);
   }
 
   updateMeteorLine(meteor) {
