@@ -69,6 +69,18 @@ export default {
             return handlePlaceSearch(request);
         }
 
+        if (url.pathname === '/api/places/reverse') {
+            return handlePlaceReverse(request);
+        }
+
+        if (url.pathname === '/api/places/approximate') {
+            return handleApproximatePlace(request);
+        }
+
+        if (url.pathname === '/api/anonymous-messages') {
+            return handleAnonymousMessageSubmit(request, env);
+        }
+
         if (url.pathname.startsWith('/assets/')) {
             return handleAssetGet(request, env, url.pathname.slice('/assets/'.length));
         }
@@ -88,38 +100,146 @@ async function handlePlaceSearch(request) {
         return jsonResponse(request, { results: [] }, 200);
     }
 
-    // Photon (OpenStreetMap). Keep response small and CORS-friendly.
-    const upstream = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10`;
-    const r = await fetch(upstream, { headers: { Accept: 'application/json' } });
-    if (!r.ok) {
-        return jsonResponse(request, { error: 'Place search failed' }, 502);
-    }
-
-    const j = await r.json().catch(() => ({}));
-    const feats = (j && j.features) ? j.features : [];
-    const results = feats.map((f) => {
-        const p = f && f.properties ? f.properties : {};
-        const geom = f && f.geometry && Array.isArray(f.geometry.coordinates) ? f.geometry.coordinates : [];
-        const lng = geom[0];
-        const lat = geom[1];
-        const name = p.name || p.city || p.state || '';
-        const country = p.country || '';
-        const label = [name, country].filter(Boolean).join(', ');
-        const id = `photon:${p.osm_type || ''}:${p.osm_id || ''}`;
-        const extra = [p.state, p.type].filter(Boolean).join(' · ');
-        return {
-            id,
-            label,
-            extra,
-            city: p.city || p.name || '',
-            country,
-            countryCode: (p.countrycode || '').toUpperCase(),
-            lat: typeof lat === 'number' ? lat : parseFloat(lat),
-            lng: typeof lng === 'number' ? lng : parseFloat(lng),
-        };
-    }).filter((x) => x.label && isFinite(x.lat) && isFinite(x.lng));
+    const results = await searchPlacesByQuery(q);
 
     return jsonResponse(request, { results }, 200);
+}
+
+async function handleApproximatePlace(request) {
+    if (request.method !== 'GET') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { Allow: 'GET, OPTIONS' });
+    }
+
+    const cf = request.cf || {};
+    const city = String(cf.city || '').trim();
+    const region = String(cf.region || cf.regionCode || '').trim();
+    const country = String(cf.country || '').trim();
+    const countryCode = String(cf.country || '').trim().toUpperCase();
+    const query = [city || region, country].filter(Boolean).join(', ');
+    const lat = Number(cf.latitude);
+    const lng = Number(cf.longitude);
+
+    if (query) {
+        const results = await searchPlacesByQuery(query);
+        const first = Array.isArray(results) ? results[0] : null;
+        if (first && Number.isFinite(first.lat) && Number.isFinite(first.lng)) {
+            return jsonResponse(request, {
+                ...first,
+                source: 'cloudflare_ip'
+            }, 200);
+        }
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const reversed = await reverseGeocodeCity(lat, lng);
+        return jsonResponse(request, {
+            ...reversed,
+            source: 'cloudflare_ip'
+        }, 200);
+    }
+
+    return jsonResponse(request, { error: 'Unable to infer a city from Cloudflare edge location' }, 502);
+}
+
+async function handlePlaceReverse(request) {
+    if (request.method !== 'GET') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { Allow: 'GET, OPTIONS' });
+    }
+
+    const url = new URL(request.url);
+    const lat = parseFloat(url.searchParams.get('lat') || '');
+    const lng = parseFloat(url.searchParams.get('lng') || '');
+    if (!isFinite(lat) || !isFinite(lng)) {
+        return jsonResponse(request, { error: 'Valid lat and lng are required' }, 400);
+    }
+
+    try {
+        const place = await reverseGeocodeCity(lat, lng);
+        return jsonResponse(request, place, 200);
+    } catch (error) {
+        return jsonResponse(request, { error: error && error.message ? error.message : 'Reverse geocoding failed' }, 502);
+    }
+}
+
+async function handleAnonymousMessageSubmit(request, env) {
+    if (request.method !== 'POST') {
+        return jsonResponse(request, { error: 'Method not allowed' }, 405, { Allow: 'POST, OPTIONS' });
+    }
+
+    const body = await safeJson(request);
+    const message = typeof body.message === 'string' ? body.message.trim().slice(0, 100) : '';
+    const privacyAccepted = body.privacyAccepted === true;
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+
+    if (!message) {
+        return jsonResponse(request, { error: 'Message is required' }, 400);
+    }
+    if (!privacyAccepted) {
+        return jsonResponse(request, { error: 'Privacy acceptance is required' }, 400);
+    }
+    if (!isFinite(lat) || !isFinite(lng)) {
+        return jsonResponse(request, { error: 'Valid coordinates are required' }, 400);
+    }
+
+    let content = await readWebsiteContent(env);
+    if (!content) {
+        content = normalizeWebsiteContent({});
+    }
+    content = normalizeWebsiteContent(content);
+
+    const place = body.place && typeof body.place === 'object' ? structuredClone(body.place) : null;
+    let resolvedPlace = {
+        id: place && typeof place.id === 'string' ? place.id : '',
+        displayName: place && typeof place.displayName === 'string' ? place.displayName.trim() : '',
+        city: place && typeof place.city === 'string' ? place.city.trim() : '',
+        country: place && typeof place.country === 'string' ? place.country.trim() : '',
+        countryCode: place && typeof place.countryCode === 'string' ? place.countryCode.trim() : '',
+        lat,
+        lng,
+        source: place && typeof place.source === 'string' ? place.source : 'browser_geolocation'
+    };
+
+    if (!resolvedPlace.city || !resolvedPlace.displayName) {
+        try {
+            resolvedPlace = {
+                ...resolvedPlace,
+                ...(await reverseGeocodeCity(lat, lng)),
+                lat,
+                lng,
+                source: 'browser_geolocation'
+            };
+        } catch (error) {
+            if (!resolvedPlace.city && !resolvedPlace.displayName) {
+                return jsonResponse(request, { error: 'Unable to resolve a city from the provided location' }, 502);
+            }
+        }
+    }
+
+    resolvedPlace = alignPlaceToExistingFootprint(content, resolvedPlace);
+
+    const entry = {
+        id: `msg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+        place: resolvedPlace,
+        message,
+        intensity: 1,
+        isVisible: false,
+        isFeatured: false,
+        privacyAccepted: true,
+        source: typeof body.source === 'string' && body.source.trim() ? body.source.trim() : 'frontend',
+        createdAt: new Date().toISOString()
+    };
+
+    content.anonymousMessages = Array.isArray(content.anonymousMessages) ? content.anonymousMessages : [];
+    content.anonymousMessages.push(entry);
+    content.meta = content.meta || {};
+    content.meta.version = content.meta.version || '2.0-cloudflare';
+    content.meta.lastModified = new Date().toISOString();
+    content.meta.savedBy = 'public-anonymous-message';
+
+    await env.SITE_DATA.put(CONTENT_KEY, JSON.stringify(content));
+
+    return jsonResponse(request, { success: true, entry, content: sanitizePublicContent(content) }, 200);
 }
 
 async function handleChat(request, env) {
@@ -868,10 +988,152 @@ function normalizeWebsiteContent(content) {
     normalized.awards = Array.isArray(normalized.awards) ? normalized.awards : [];
     normalized.social = Array.isArray(normalized.social) ? normalized.social : [];
     normalized.footprints = Array.isArray(normalized.footprints) ? normalized.footprints : [];
+    normalized.anonymousMessages = Array.isArray(normalized.anonymousMessages) ? normalized.anonymousMessages : [];
     normalized.knowledgeCards = Array.isArray(normalized.knowledgeCards) ? normalized.knowledgeCards : [];
     normalized.settings = normalized.settings || {};
     normalized.meta = normalized.meta || {};
     return normalized;
+}
+
+function alignPlaceToExistingFootprint(content, place) {
+    const footprints = content && Array.isArray(content.footprints) ? content.footprints : [];
+    const targetCity = String(place && place.city || '').trim().toLowerCase();
+    const targetCountry = String(place && place.country || '').trim().toLowerCase();
+    if (!targetCity) {
+        return place;
+    }
+
+    const match = footprints.find((footprint) => {
+        const fpPlace = footprint && footprint.place && typeof footprint.place === 'object' ? footprint.place : {};
+        const fpCity = String(fpPlace.city || footprint.city || '').trim().toLowerCase();
+        const fpCountry = String(fpPlace.country || footprint.country || '').trim().toLowerCase();
+        if (!fpCity) return false;
+        if (fpCity !== targetCity) return false;
+        if (targetCountry && fpCountry && fpCountry !== targetCountry) return false;
+        const fpLat = Number.isFinite(fpPlace.lat) ? Number(fpPlace.lat) : parseFloat(footprint.lat);
+        const fpLng = Number.isFinite(fpPlace.lng) ? Number(fpPlace.lng) : parseFloat(footprint.lng);
+        return Number.isFinite(fpLat) && Number.isFinite(fpLng);
+    });
+
+    if (!match) {
+        return place;
+    }
+
+    const fpPlace = match.place && typeof match.place === 'object' ? match.place : {};
+    const alignedLat = Number.isFinite(fpPlace.lat) ? Number(fpPlace.lat) : parseFloat(match.lat);
+    const alignedLng = Number.isFinite(fpPlace.lng) ? Number(fpPlace.lng) : parseFloat(match.lng);
+    if (!Number.isFinite(alignedLat) || !Number.isFinite(alignedLng)) {
+        return place;
+    }
+
+    return {
+        ...place,
+        displayName: String(fpPlace.displayName || place.displayName || '').trim() || place.displayName,
+        city: String(fpPlace.city || place.city || '').trim() || place.city,
+        country: String(fpPlace.country || place.country || '').trim() || place.country,
+        countryCode: String(fpPlace.countryCode || place.countryCode || '').trim() || place.countryCode,
+        lat: alignedLat,
+        lng: alignedLng
+    };
+}
+
+async function searchPlacesByQuery(query) {
+    const q = String(query || '').trim();
+    if (q.length < 2) return [];
+
+    const upstream = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=12`;
+    const r = await fetch(upstream, { headers: { Accept: 'application/json' } });
+    if (!r.ok) {
+        throw new Error('Place search failed');
+    }
+
+    const j = await r.json().catch(() => ({}));
+    const feats = (j && j.features) ? j.features : [];
+    const qLower = q.toLowerCase();
+    const strongTypes = new Set(['city', 'administrative', 'state', 'province', 'town', 'village', 'municipality', 'locality']);
+    const weakTypes = new Set(['county', 'district', 'suburb']);
+    const blockedTypes = new Set(['road', 'street', 'house', 'amenity']);
+    const normalize = (value) => String(value || '').trim();
+
+    const scored = feats.map((f) => {
+        const p = f && f.properties ? f.properties : {};
+        const geom = f && f.geometry && Array.isArray(f.geometry.coordinates) ? f.geometry.coordinates : [];
+        const type = String(p.type || '').toLowerCase();
+        const lng = geom[0];
+        const lat = geom[1];
+        const cityName = normalize(p.city || p.town || p.village || p.municipality || p.locality || '');
+        const stateName = normalize(p.state || p.county || p.district || '');
+        const rawName = normalize(p.name || '');
+        const primaryName = cityName || (strongTypes.has(type) ? rawName : '') || stateName;
+        const country = normalize(p.country);
+        const label = [primaryName, country].filter(Boolean).join(', ');
+        const nameLower = primaryName.toLowerCase();
+        const rawLower = rawName.toLowerCase();
+        const exactPrimary = nameLower === qLower ? 8 : 0;
+        const exactRaw = rawLower === qLower ? 4 : 0;
+        const containsPrimary = nameLower.includes(qLower) ? 4 : 0;
+        const containsRaw = rawLower.includes(qLower) ? 1 : 0;
+        const typeScore = strongTypes.has(type) ? 10 : weakTypes.has(type) ? 4 : blockedTypes.has(type) ? -20 : 0;
+
+        return {
+            id: `photon:${p.osm_type || ''}:${p.osm_id || ''}`,
+            label,
+            extra: [stateName, type].filter(Boolean).join(' · '),
+            city: cityName || stateName || primaryName,
+            country,
+            countryCode: normalize(p.countrycode).toUpperCase(),
+            lat: typeof lat === 'number' ? lat : parseFloat(lat),
+            lng: typeof lng === 'number' ? lng : parseFloat(lng),
+            type,
+            score: typeScore + exactPrimary + exactRaw + containsPrimary + containsRaw,
+        };
+    }).filter((x) => x.label && isFinite(x.lat) && isFinite(x.lng));
+
+    const preferred = scored.filter((item) => !blockedTypes.has(item.type) && item.score >= 4);
+    const ranked = (preferred.length ? preferred : scored)
+        .sort((a, b) => b.score - a.score)
+        .map(({ score, type, ...rest }) => rest);
+
+    return ranked;
+}
+
+async function reverseGeocodeCity(lat, lng) {
+    const upstream = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=10&addressdetails=1`;
+    const response = await fetch(upstream, {
+        headers: {
+            Accept: 'application/json',
+            'Accept-Language': 'en'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Reverse geocoding failed');
+    }
+
+    const data = await response.json().catch(() => ({}));
+    const address = data && data.address ? data.address : {};
+    const country = address.country || '';
+    const countryCode = typeof address.country_code === 'string' ? address.country_code.toUpperCase() : '';
+    const directAdmin = String(address.state || '').trim();
+    const localAdmin = String(address.city || address.town || address.village || address.municipality || address.locality || '').trim();
+    const countyLike = String(address.county || address.state_district || '').trim();
+    const isCnMunicipality = countryCode === 'CN' && ['Shanghai', 'Beijing', 'Tianjin', 'Chongqing', 'Hong Kong', 'Macau'].some((name) => directAdmin.includes(name));
+    const city = isCnMunicipality ? directAdmin : (localAdmin || directAdmin || countyLike || '');
+    const displayName = [city, country].filter(Boolean).join(', ');
+
+    if (!city && !displayName) {
+        throw new Error('City-level location unavailable');
+    }
+
+    return {
+        id: '',
+        displayName: displayName || city || country || 'Unknown',
+        city: city || country || 'Unknown',
+        country,
+        countryCode,
+        lat,
+        lng
+    };
 }
 
 async function safeJson(request) {

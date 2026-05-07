@@ -7,6 +7,8 @@ let adminSectionsInitialized = false;
 const USE_CLOUDFLARE_ADMIN = typeof window.cloudflareApi !== 'undefined';
 let cloudBootstrapRequired = false;
 let cloudAutoSeedAttempted = false;
+let cloudRefreshListenersBound = false;
+let cloudRefreshIntervalId = null;
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', async function() {
@@ -476,7 +478,73 @@ async function prepareAdminPanel() {
         refreshAdminSections();
     }
 
+    bindCloudRefreshListeners();
     updateMonitorPanel();
+}
+
+async function refreshAnonymousMessagesFromCloud({ silent = false } = {}) {
+    if (!USE_CLOUDFLARE_ADMIN || !window.cloudflareApi.getAdminToken()) {
+        return false;
+    }
+
+    try {
+        const remoteData = await window.cloudflareApi.getAdminContent();
+        if (!remoteData || !remoteData.content) {
+            return false;
+        }
+
+        const normalizedRemote = normalizeWebsiteData(remoteData.content);
+        const localCount = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages.length : 0;
+        const remoteCount = Array.isArray(normalizedRemote.anonymousMessages) ? normalizedRemote.anonymousMessages.length : 0;
+        const localModified = websiteData.meta && websiteData.meta.lastModified ? String(websiteData.meta.lastModified) : '';
+        const remoteModified = normalizedRemote.meta && normalizedRemote.meta.lastModified ? String(normalizedRemote.meta.lastModified) : '';
+
+        if (remoteCount === localCount && remoteModified === localModified) {
+            return false;
+        }
+
+        websiteData = normalizedRemote;
+        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+        refreshAdminSections();
+        if (!silent) {
+            showMessage('匿名留言已同步到后台列表', 'success');
+        }
+        return true;
+    } catch (error) {
+        console.error('刷新匿名留言失败:', error);
+        if (!silent) {
+            showMessage(`匿名留言刷新失败：${error.message}`, 'warning');
+        }
+        return false;
+    }
+}
+
+function bindCloudRefreshListeners() {
+    if (cloudRefreshListenersBound) return;
+    cloudRefreshListenersBound = true;
+
+    window.addEventListener('focus', () => {
+        refreshAnonymousMessagesFromCloud({ silent: true });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            refreshAnonymousMessagesFromCloud({ silent: true });
+        }
+    });
+
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'websiteDataSync' || event.key === 'websiteData') {
+            refreshAnonymousMessagesFromCloud({ silent: true });
+        }
+    });
+
+    cloudRefreshIntervalId = window.setInterval(() => {
+        const activeSection = document.querySelector('.admin-section.active');
+        if (!activeSection || activeSection.id !== 'anonymous-messages-section') return;
+        if (document.visibilityState !== 'visible') return;
+        refreshAnonymousMessagesFromCloud({ silent: true });
+    }, 10000);
 }
 
 function refreshAdminSections() {
@@ -777,7 +845,7 @@ function initNavigationSystem() {
     const menuItems = document.querySelectorAll('.admin-menu li');
     
     menuItems.forEach(item => {
-        item.addEventListener('click', function() {
+        item.addEventListener('click', async function() {
             // 获取目标部分的ID
             const targetId = this.getAttribute('data-target');
             
@@ -793,6 +861,10 @@ function initNavigationSystem() {
                 section.classList.remove('active');
             });
             document.getElementById(targetId).classList.add('active');
+
+            if (targetId === 'anonymous-messages-section') {
+                await refreshAnonymousMessagesFromCloud({ silent: true });
+            }
         });
     });
 }

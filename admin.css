@@ -129,6 +129,127 @@ html.dark-mode .item-logo img[data-invert-on-dark="true"] {
     color: #667389;
 }
 
+.anonymous-message-board {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
+.anonymous-message-column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.anonymous-message-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+}
+
+.anonymous-message-column-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--admin-text);
+}
+
+.anonymous-message-column-header span {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(0, 113, 227, 0.12);
+    color: var(--admin-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.anonymous-message-items {
+    min-height: 160px;
+}
+
+.anonymous-city-card {
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 14px;
+}
+
+.anonymous-city-card + .anonymous-city-card {
+    margin-top: 12px;
+}
+
+.anonymous-city-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.anonymous-city-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--admin-text);
+}
+
+.anonymous-city-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--admin-secondary);
+}
+
+.anonymous-city-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--admin-secondary);
+}
+
+.anonymous-message-entry-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.anonymous-message-entry-item {
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 12px;
+}
+
+.anonymous-message-entry-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.anonymous-message-entry-text {
+    color: var(--admin-text);
+    line-height: 1.6;
+    font-size: 14px;
+    white-space: pre-wrap;
+}
+
+.anonymous-message-entry-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--admin-secondary);
+}
+
+@media (max-width: 980px) {
+    .anonymous-message-board {
+        grid-template-columns: 1fr;
+    }
+}
+
 .checkbox-label {
     display: inline-flex;
     align-items: center;

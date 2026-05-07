@@ -136,6 +136,21 @@
         return request('/api/places/search?q=' + encodeURIComponent(query || ''), { method: 'GET' });
     }
 
+    async function reversePlace(lat, lng) {
+        return request('/api/places/reverse?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng), { method: 'GET' });
+    }
+
+    async function approximatePlace() {
+        return request('/api/places/approximate', { method: 'GET' });
+    }
+
+    async function submitAnonymousMessage(payload) {
+        return request('/api/anonymous-messages', {
+            method: 'POST',
+            body: JSON.stringify(payload || {}),
+        });
+    }
+
     async function polishKnowledge(payload) {
         return request('/api/admin/knowledge/polish', {
             method: 'POST',
@@ -157,6 +172,9 @@
         uploadAdminAsset,
         getPublicContent,
         searchPlaces,
+        reversePlace,
+        approximatePlace,
+        submitAnonymousMessage,
         polishKnowledge,
         logout,
     };

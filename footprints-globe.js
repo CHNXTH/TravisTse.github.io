@@ -2,6 +2,7 @@ import * as THREE from './assets/vendor/three/three.module.min.js';
 import { OrbitControls } from './assets/vendor/three/OrbitControls.js';
 
 const MARKER_LONGITUDE_OFFSET_DEG = 90;
+const PREVIEW_PLACEHOLDER_MESSAGE = 'Your anonymous message preview will appear here before curation.';
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
@@ -117,6 +118,9 @@ function getNormalizedFootprintsFromStorage() {
       id: fp.id || '',
       kind: 'footprint',
       name: displayName || 'Unknown',
+      displayName: displayName || 'Unknown',
+      city: city || '',
+      country: country || '',
       lat,
       lng,
       intensity: fp.intensity || 1,
@@ -142,6 +146,8 @@ function getNormalizedAnonymousMessagesFromStorage({ publicOnly = true } = {}) {
       id: entry.id || '',
       kind: 'message',
       name: displayName || 'Unknown',
+      city: city || displayName || 'Unknown',
+      country: country || '',
       lat,
       lng,
       intensity: 1,
@@ -159,17 +165,53 @@ function getNormalizedAnonymousMessagesFromStorage({ publicOnly = true } = {}) {
   });
 }
 
+function alignLocationWithExistingFootprint(location) {
+  const city = String(location && location.city || '').trim().toLowerCase();
+  const country = String(location && location.country || '').trim().toLowerCase();
+  if (!city) return location;
+
+  const match = getNormalizedFootprintsFromStorage().find((footprint) => {
+    const fpCity = String(footprint.city || '').trim().toLowerCase();
+    const fpCountry = String(footprint.country || '').trim().toLowerCase();
+    if (!fpCity) return false;
+    if (fpCity !== city) return false;
+    if (country && fpCountry && fpCountry !== country) return false;
+    return Number.isFinite(footprint.lat) && Number.isFinite(footprint.lng);
+  });
+
+  if (!match) return location;
+
+  return {
+    ...location,
+    displayName: String(match.displayName || match.name || location.displayName || '').trim() || location.displayName,
+    city: String(match.city || location.city || '').trim() || location.city,
+    country: String(match.country || location.country || '').trim() || location.country,
+    lat: Number(match.lat),
+    lng: Number(match.lng)
+  };
+}
+
+function getMarkerPriority(marker) {
+  if (!marker || !marker.userData) return 0;
+  if (marker.userData._isPreview) return 4;
+  if (marker.userData.kind === 'message') return 3;
+  return 1;
+}
+
 function getAnonymousMessageClustersFromStorage() {
   const messages = getNormalizedAnonymousMessagesFromStorage({ publicOnly: true });
   const grouped = new Map();
 
   for (const message of messages) {
-    const key = `${message.name}__${message.lat.toFixed(3)}__${message.lng.toFixed(3)}`;
+    const cityKey = `${String(message.city || message.name || 'unknown').trim().toLowerCase()}__${String(message.country || '').trim().toLowerCase()}`;
+    const key = cityKey || `${message.name}__fallback`;
     if (!grouped.has(key)) {
       grouped.set(key, {
         id: `msg_cluster_${key}`,
         kind: 'message',
         name: message.name,
+        city: message.city || message.name,
+        country: message.country || '',
         lat: message.lat,
         lng: message.lng,
         intensity: 1,
@@ -186,10 +228,48 @@ function getAnonymousMessageClustersFromStorage() {
 }
 
 function getCombinedGlobeItemsFromStorage() {
-  return [
+  const items = [
     ...getNormalizedFootprintsFromStorage(),
     ...getAnonymousMessageClustersFromStorage()
   ];
+  const preview = getAnonymousMessagePreviewItem();
+  if (preview) items.push(preview);
+  return items;
+}
+
+let anonymousMessagePreviewState = null;
+
+function getAnonymousMessagePreviewItem() {
+  if (!anonymousMessagePreviewState || !anonymousMessagePreviewState.place) return null;
+  const place = anonymousMessagePreviewState.place;
+  if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return null;
+
+  const previewText = String(anonymousMessagePreviewState.message || '').trim() || PREVIEW_PLACEHOLDER_MESSAGE;
+  return {
+    id: anonymousMessagePreviewState.id || 'msg_preview_current_user',
+    kind: 'message',
+    name: place.displayName || [place.city, place.country].filter(Boolean).join(', ') || 'Your City',
+    city: place.city || place.displayName || 'Your City',
+    country: place.country || '',
+    lat: Number(place.lat),
+    lng: Number(place.lng),
+    intensity: 1,
+    count: 1,
+    isPreview: true,
+    pulse: true,
+    messages: [
+      {
+        id: 'preview_message',
+        message: previewText,
+        createdAt: anonymousMessagePreviewState.submittedAt || 'Awaiting curation',
+        isPreview: true
+      }
+    ]
+  };
+}
+
+function hasActiveAnonymousMessagePreview() {
+  return Boolean(anonymousMessagePreviewState && anonymousMessagePreviewState.place);
 }
 
 function latLngToVector3(lat, lng, radius) {
@@ -740,6 +820,11 @@ class FootprintsGlobe {
       const markerType = it.kind === 'message' ? 'message' : 'footprint';
       const markerTexture = this.markerTextures[markerType] || this.markerTextures.footprint;
       const glowTexture = this.markerGlowTextures[markerType] || this.markerGlowTextures.footprint;
+      const isPreview = Boolean(it.isPreview);
+      const markerRenderOrder = isPreview ? 28 : (markerType === 'message' ? 24 : 20);
+      const visiblePixelSize = visibleBasePixels * (isPreview ? 1.22 : 1);
+      const glowPixelSize = glowBasePixels * (isPreview ? 1.42 : 1);
+      const hitPixelSize = hitBasePixels * (isPreview ? 1.08 : 1);
 
       const mat = new THREE.SpriteMaterial({
         map: markerTexture,
@@ -749,10 +834,11 @@ class FootprintsGlobe {
       });
       const visibleDot = new THREE.Sprite(mat);
       visibleDot.position.set(0, 0, 0);
-      visibleDot.renderOrder = 20;
+      visibleDot.renderOrder = markerRenderOrder;
       visibleDot.userData = it;
-      visibleDot.userData._pixelSize = visibleBasePixels;
+      visibleDot.userData._pixelSize = visiblePixelSize;
       visibleDot.userData._markerGroup = marker;
+      visibleDot.userData._isPreview = isPreview;
       marker.add(visibleDot);
 
       const glowMat = new THREE.SpriteMaterial({
@@ -765,8 +851,9 @@ class FootprintsGlobe {
       });
       const glowDot = new THREE.Sprite(glowMat);
       glowDot.position.set(0, 0, 0);
-      glowDot.renderOrder = 19;
-      glowDot.userData._pixelSize = glowBasePixels;
+      glowDot.renderOrder = markerRenderOrder - 1;
+      glowDot.userData._pixelSize = glowPixelSize;
+      glowDot.userData._isPreview = isPreview;
       marker.add(glowDot);
 
       const hitMat = new THREE.SpriteMaterial({
@@ -778,12 +865,13 @@ class FootprintsGlobe {
       });
       const hitDot = new THREE.Sprite(hitMat);
       hitDot.position.set(0, 0, 0);
-      hitDot.renderOrder = 21;
+      hitDot.renderOrder = markerRenderOrder + 1;
       hitDot.userData = it;
       hitDot.userData._markerGroup = marker;
       hitDot.userData._visibleDot = visibleDot;
       hitDot.userData._glowDot = glowDot;
-      hitDot.userData._pixelSize = hitBasePixels;
+      hitDot.userData._pixelSize = hitPixelSize;
+      hitDot.userData._isPreview = isPreview;
       marker.add(hitDot);
 
       this.pointsGroup.add(marker);
@@ -806,6 +894,7 @@ class FootprintsGlobe {
   }
 
   isLayerVisible(kind) {
+    if (kind === 'message_preview') return true;
     if (kind === 'message') return this.layerVisibility.message !== false;
     return this.layerVisibility.footprint !== false;
   }
@@ -861,7 +950,7 @@ class FootprintsGlobe {
       this.controls.autoRotate = this.autoRotate;
 
       // Resume auto-rotate if user hasn't interacted for a while and we're not hovering a marker.
-      if (Date.now() > this.userInteractingUntil && !this.hovered && !this.isTooltipPinned()) {
+      if (Date.now() > this.userInteractingUntil && !this.hovered && !this.isTooltipPinned() && !hasActiveAnonymousMessagePreview()) {
         if (!this.autoRotate) this.setAutoRotate(true);
       }
 
@@ -954,6 +1043,7 @@ class FootprintsGlobe {
 
   updateMarkerScreenScale() {
     if (!this.camera || !this.pointsGroup || !this.renderer) return;
+    const pulseTime = performance.now() * 0.0032;
 
     for (const marker of this.points) {
       if (!marker || !marker.userData) continue;
@@ -963,14 +1053,21 @@ class FootprintsGlobe {
       const basePixels = marker.userData._pixelSize || 10;
       const isHovered = this.hovered === marker;
       const isPinned = this.pinnedMarker === marker && this.isTooltipPinned();
-      const emphasis = isHovered || isPinned ? 1.12 : 1.0;
+      const pulse = marker.userData._isPreview ? (1 + Math.sin(pulseTime) * 0.12) : 1;
+      const emphasis = (isHovered || isPinned ? 1.12 : 1.0) * pulse;
 
       marker.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, basePixels * emphasis));
 
       const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
       if (glow) {
         const glowPixels = glow.userData && glow.userData._pixelSize ? glow.userData._pixelSize : 16;
-        glow.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, glowPixels * (isHovered || isPinned ? 1.12 : 1.02)));
+        const glowPulse = glow.userData && glow.userData._isPreview ? (1.24 + Math.sin(pulseTime) * 0.28) : (isHovered || isPinned ? 1.12 : 1.02);
+        glow.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, glowPixels * glowPulse));
+        if (glow.material) {
+          glow.material.opacity = glow.userData && glow.userData._isPreview
+            ? 0.6 + ((Math.sin(pulseTime) + 1) * 0.14)
+            : 0.46;
+        }
       }
 
       const hit = markerGroup.children.find((child) => child.userData && child.userData._visibleDot === marker);
@@ -999,8 +1096,9 @@ class FootprintsGlobe {
       if (!markerGroup) continue;
 
       const worldPosition = markerGroup.getWorldPosition(new THREE.Vector3()).normalize();
-      const layerEnabled = this.isLayerVisible(marker.userData.kind);
-      const isVisible = layerEnabled && worldPosition.dot(cameraDir) > 0.08;
+      const isPreview = Boolean(marker.userData.isPreview);
+      const layerEnabled = isPreview ? true : this.isLayerVisible(marker.userData.kind);
+      const isVisible = layerEnabled && (isPreview ? worldPosition.dot(cameraDir) > -0.12 : worldPosition.dot(cameraDir) > 0.08);
 
       marker.visible = isVisible;
 
@@ -1081,6 +1179,7 @@ class FootprintsGlobe {
 
     let bestMarker = null;
     let bestDistance = Infinity;
+    let bestPriority = -Infinity;
 
     for (const marker of this.points) {
       if (!marker || !marker.userData) continue;
@@ -1090,8 +1189,16 @@ class FootprintsGlobe {
       const distance = Math.hypot(point.x - clientX, point.y - clientY);
       const basePixels = marker.userData._pixelSize || 10;
       const effectiveThreshold = Math.max(thresholdPx, basePixels * 0.48);
+      const priority = getMarkerPriority(marker);
 
-      if (distance <= effectiveThreshold && distance < bestDistance) {
+      if (
+        distance <= effectiveThreshold &&
+        (
+          priority > bestPriority ||
+          (priority === bestPriority && distance < bestDistance)
+        )
+      ) {
+        bestPriority = priority;
         bestDistance = distance;
         bestMarker = marker;
       }
@@ -1100,15 +1207,30 @@ class FootprintsGlobe {
     return bestMarker;
   }
 
-  focusOnMarker(marker) {
+  focusOnMarker(marker, { zoomFactor = 0.84, duration = 1100 } = {}) {
     if (!marker) return;
     const markerWorld = marker.parent.getWorldPosition(new THREE.Vector3()).normalize();
-    this.focusCameraTowardsVector(markerWorld, { zoomFactor: 0.84 });
+    this.focusCameraTowardsVector(markerWorld, { zoomFactor, duration });
   }
 
-  focusOnLatLng(lat, lng, { zoomFactor = 0.84 } = {}) {
-    const target = latLngToVector3(lat, lng, 1).normalize();
-    this.focusCameraTowardsVector(target, { zoomFactor });
+  getWorldDirectionForLatLng(lat, lng) {
+    const local = latLngToVector3(lat, lng, 1);
+    const world = local.clone();
+    if (this.pointsGroup) {
+      this.pointsGroup.updateWorldMatrix(true, false);
+      world.applyMatrix4(this.pointsGroup.matrixWorld);
+    }
+    return world.normalize();
+  }
+
+  getMarkerByDataId(id) {
+    if (!id) return null;
+    return this.points.find((marker) => marker && marker.userData && marker.userData.id === id) || null;
+  }
+
+  focusOnLatLng(lat, lng, { zoomFactor = 0.84, duration = 1100 } = {}) {
+    const target = this.getWorldDirectionForLatLng(lat, lng);
+    this.focusCameraTowardsVector(target, { zoomFactor, duration });
   }
 
   focusCameraTowardsVector(targetDir, { zoomFactor = 1, duration = 1100 } = {}) {
@@ -1142,12 +1264,13 @@ class FootprintsGlobe {
   showTooltip(data, { pinned, marker } = {}) {
     this.ensureTooltipHost();
     const isMessage = data.kind === 'message';
+    const isPreview = Boolean(data.isPreview);
     const title = data.name ? String(data.name) : 'Unknown';
 
     if (isMessage) {
       const messages = Array.isArray(data.messages) ? data.messages : [];
       const count = messages.length || Number(data.count) || 0;
-      if (pinned && count > 0) {
+      if ((pinned || isPreview) && count > 0) {
         const currentIndex = clamp(Number(data._activeMessageIndex) || 0, 0, count - 1);
         data._activeMessageIndex = currentIndex;
         const currentMessage = messages[currentIndex];
@@ -1156,13 +1279,13 @@ class FootprintsGlobe {
         this.tooltip.innerHTML = `
           <div class="lt-body lt-message-body">
             <button class="lt-close" type="button" aria-label="Close details" title="Close details">&times;</button>
-            <div class="lt-pill lt-message-pill">Anonymous Message</div>
+            <div class="lt-pill lt-message-pill">${isPreview ? 'Anonymous Message Preview' : 'Anonymous Message'}</div>
             <div class="lt-title">${escapeHtml(title)}</div>
-            <div class="lt-date">${count} message${count > 1 ? 's' : ''} in this city</div>
+            <div class="lt-date">${isPreview ? 'Pending curation before public display' : `${count} message${count > 1 ? 's' : ''} in this city`}</div>
             <div class="lt-message-text">${escapeHtml(currentMessage.message || '')}</div>
             <div class="lt-message-footer">
               <div class="lt-message-meta">${escapeHtml(currentMessage.createdAt ? currentMessage.createdAt.slice(0, 10) : 'Anonymous')}</div>
-              <div class="lt-message-nav">
+              <div class="lt-message-nav" ${count <= 1 ? 'style="visibility:hidden"' : ''}>
                 <button class="lt-nav-btn" type="button" data-dir="-1" ${canPrev ? '' : 'disabled'} aria-label="Previous message">
                   <i class="fas fa-chevron-left"></i>
                 </button>
@@ -1207,11 +1330,20 @@ class FootprintsGlobe {
       closeBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (isPreview) {
+          this.tooltipPinnedUntil = 0;
+          this.pinnedData = null;
+          this.pinnedMarker = null;
+          this.hideTooltip();
+          this.hovered = null;
+          this.canvas.style.cursor = 'grab';
+          return;
+        }
         this.clearPinnedTooltip();
       }, { once: true });
     }
 
-    if (isMessage && pinned) {
+    if (isMessage && (pinned || isPreview)) {
       Array.from(this.tooltip.querySelectorAll('.lt-nav-btn')).forEach((btn) => {
         btn.addEventListener('click', (event) => {
           event.preventDefault();
@@ -1219,7 +1351,7 @@ class FootprintsGlobe {
           const delta = Number(btn.getAttribute('data-dir') || '0');
           const total = Array.isArray(data.messages) ? data.messages.length : 0;
           data._activeMessageIndex = clamp((Number(data._activeMessageIndex) || 0) + delta, 0, Math.max(0, total - 1));
-          this.showTooltip(data, { pinned: true, marker });
+          this.showTooltip(data, { pinned: pinned || isPreview, marker });
         });
       });
     }
@@ -1395,14 +1527,14 @@ function setLocationStatus(message = '') {
   if (status) status.textContent = message || 'City-level location will be inferred after consent.';
 }
 
-function toggleComposer(open) {
+function toggleComposer(open, { focusText = true } = {}) {
   const { launcher, composer, text } = getMapUiElements();
   if (!launcher || !composer) return;
   const nextOpen = typeof open === 'boolean' ? open : composer.hidden;
   composer.hidden = !nextOpen;
   launcher.setAttribute('aria-expanded', String(nextOpen));
   launcher.classList.toggle('is-open', nextOpen);
-  if (nextOpen && text) text.focus();
+  if (nextOpen && focusText && text) text.focus();
 }
 
 function togglePrivacyModal(open) {
@@ -1411,53 +1543,181 @@ function togglePrivacyModal(open) {
   privacyModal.hidden = !open;
 }
 
+function refreshAnonymousMessagePreview(globeInstance, { keepVisible = true } = {}) {
+  const { text } = getMapUiElements();
+  if (!anonymousMessagePreviewState || !anonymousMessagePreviewState.place) return;
+  anonymousMessagePreviewState.message = String(text && text.value || '').trim().slice(0, 100);
+  if (globeInstance && keepVisible) {
+    globeInstance.setData(getCombinedGlobeItemsFromStorage());
+  }
+}
+
+function clearAnonymousMessagePreview(globeInstance) {
+  anonymousMessagePreviewState = null;
+  if (globeInstance) {
+    globeInstance.setData(getCombinedGlobeItemsFromStorage());
+  }
+}
+
+async function prepareAnonymousMessagePreview(globeInstance) {
+  const rawLocation = await locateCurrentCity(globeInstance, { skipFocus: true });
+  const location = alignLocationWithExistingFootprint(rawLocation);
+  anonymousMessagePreviewState = {
+    id: 'msg_preview_current_user',
+    place: {
+      displayName: location.displayName,
+      city: location.city,
+      country: location.country,
+      countryCode: location.countryCode || '',
+      lat: location.lat,
+      lng: location.lng,
+      source: 'browser_geolocation'
+    },
+    message: '',
+    submittedAt: '',
+    isSubmitted: false
+  };
+  if (globeInstance) {
+    globeInstance.setData(getCombinedGlobeItemsFromStorage());
+    globeInstance.setAutoRotate(false);
+    globeInstance.userInteractingUntil = Date.now() + 12000;
+    const previewMarker = globeInstance.getMarkerByDataId(anonymousMessagePreviewState.id);
+    if (previewMarker) {
+      globeInstance.focusOnMarker(previewMarker, { zoomFactor: 0.78, duration: 860 });
+    } else {
+      globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: 0.78, duration: 860 });
+    }
+  }
+  return location;
+}
+
+async function fetchIpApproximateLocation() {
+  if (!window.cloudflareApi || typeof window.cloudflareApi.approximatePlace !== 'function') {
+    throw new Error('Approximate city lookup is unavailable right now.');
+  }
+
+  const data = await window.cloudflareApi.approximatePlace();
+  if (!data || !Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lng))) {
+    throw new Error('Unable to infer your city from IP right now.');
+  }
+
+  return {
+    id: data.id || '',
+    displayName: String(data.displayName || '').trim(),
+    city: String(data.city || '').trim(),
+    country: String(data.country || '').trim(),
+    countryCode: String(data.countryCode || '').trim(),
+    lat: Number(data.lat),
+    lng: Number(data.lng),
+    source: data.source || 'cloudflare_ip',
+    timestamp: Date.now()
+  };
+}
+
 async function fetchApproximateLocation({ force = false } = {}) {
-  if (!force && approxLocationCache && (Date.now() - approxLocationCache.timestamp) < 30 * 60 * 1000) {
+  if (!force && approxLocationCache && (Date.now() - approxLocationCache.timestamp) < 5 * 60 * 1000) {
     return approxLocationCache;
   }
 
-  const candidates = [
-    'https://ipwho.is/',
-    'https://ipapi.co/json/'
-  ];
+  let geoError = null;
+  let permissionState = 'unknown';
 
-  for (const url of candidates) {
+  if (window.isSecureContext && navigator.permissions && typeof navigator.permissions.query === 'function') {
     try {
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
-      const data = await response.json();
-      const lat = Number(data.latitude ?? data.lat);
-      const lng = Number(data.longitude ?? data.lon);
-      const city = String(data.city || data.region_city || '').trim();
-      const country = String(data.country || data.country_name || '').trim();
-      if (!Number.isFinite(lat) || !Number.isFinite(lng) || !city) continue;
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      permissionState = permission && permission.state ? permission.state : 'unknown';
+    } catch (error) {
+      console.warn('Unable to query geolocation permission state:', error);
+    }
+  }
+
+  if (window.isSecureContext && navigator.geolocation && permissionState !== 'denied') {
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 4500,
+          maximumAge: 0
+        });
+      });
+
+      const lat = Number(position && position.coords && position.coords.latitude);
+      const lng = Number(position && position.coords && position.coords.longitude);
+      const accuracy = Number(position && position.coords && position.coords.accuracy);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error('Unable to read your device location.');
+      }
+      if (Number.isFinite(accuracy) && accuracy > 50000) {
+        throw new Error('Your current city-level location is too imprecise.');
+      }
+
+      let resolved = null;
+      if (window.cloudflareApi && typeof window.cloudflareApi.reversePlace === 'function') {
+        const data = await window.cloudflareApi.reversePlace(lat, lng);
+        resolved = data && data.displayName ? data : null;
+      }
+
+      if (!resolved) {
+        throw new Error('Unable to resolve your city from the current location.');
+      }
 
       approxLocationCache = {
-        city,
-        country,
+        ...resolved,
         lat,
         lng,
-        displayName: `${city}${country ? ', ' + country : ''}`,
-        source: url.includes('ipwho') ? 'ipwho.is' : 'ipapi.co',
+        accuracy,
+        source: 'browser_geolocation',
+        permissionState,
         timestamp: Date.now()
       };
       return approxLocationCache;
     } catch (error) {
-      console.warn('Approximate location lookup failed:', url, error);
+      geoError = error;
+      console.warn('Browser geolocation failed, falling back to IP-based city lookup:', error);
     }
+  } else {
+    geoError = new Error(
+      permissionState === 'denied'
+        ? 'Browser geolocation permission is denied.'
+        : 'Browser geolocation unavailable in this context.'
+    );
   }
 
-  throw new Error('Unable to infer city-level location right now.');
+  try {
+    const fallback = await fetchIpApproximateLocation();
+    approxLocationCache = {
+      ...fallback,
+      permissionState,
+      geoError: geoError ? String(geoError.message || geoError) : ''
+    };
+    return approxLocationCache;
+  } catch (ipError) {
+    throw new Error(
+      permissionState === 'denied'
+        ? 'Browser location is blocked, and we could not infer your city from Cloudflare IP location.'
+        : 'We could not determine your city from browser or Cloudflare IP location right now.'
+    );
+  }
 }
 
-async function locateCurrentCity(globeInstance, { rotateOnly = false } = {}) {
+async function locateCurrentCity(globeInstance, { rotateOnly = false, skipFocus = false } = {}) {
   setComposerFeedback('');
-  setLocationStatus('Detecting your approximate city...');
-  const location = await fetchApproximateLocation();
-  setLocationStatus(`Approximate city: ${location.displayName}`);
-  if (globeInstance) {
+  setLocationStatus('Requesting browser city-level location...');
+  const location = await fetchApproximateLocation({ force: true });
+  if (location.source === 'browser_geolocation') {
+    setLocationStatus(`Approximate city: ${location.displayName}`);
+  } else {
+    const blocked = location.permissionState === 'denied';
+    setLocationStatus(
+      blocked
+        ? `Browser location is blocked, using Cloudflare IP city fallback: ${location.displayName}`
+        : `Approximate city via Cloudflare IP fallback: ${location.displayName}`
+    );
+  }
+  if (globeInstance && !skipFocus) {
     globeInstance.setAutoRotate(false);
     globeInstance.userInteractingUntil = Date.now() + 12000;
-    globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: rotateOnly ? 0.86 : 0.82 });
+    globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: rotateOnly ? 0.84 : 0.78, duration: rotateOnly ? 820 : 860 });
   }
   return location;
 }
@@ -1482,29 +1742,45 @@ async function submitAnonymousMessage(globeInstance) {
   try {
     if (send) send.disabled = true;
     setComposerFeedback('Locating your city and preparing your submission...', 'info');
-    const location = await locateCurrentCity(globeInstance);
-    const websiteData = readWebsiteDataFromStorage();
-    websiteData.anonymousMessages.push({
-      id: `msg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+    const location = anonymousMessagePreviewState && anonymousMessagePreviewState.place
+      ? anonymousMessagePreviewState.place
+      : await prepareAnonymousMessagePreview(globeInstance);
+    if (!window.cloudflareApi || typeof window.cloudflareApi.submitAnonymousMessage !== 'function') {
+      throw new Error('Anonymous message submission is unavailable right now.');
+    }
+
+    const response = await window.cloudflareApi.submitAnonymousMessage({
+      message: rawText,
+      privacyAccepted: true,
+      lat: location.lat,
+      lng: location.lng,
       place: {
-        id: '',
         displayName: location.displayName,
         city: location.city,
         country: location.country,
-        countryCode: '',
+        countryCode: location.countryCode || '',
         lat: location.lat,
         lng: location.lng,
-        source: 'ip_geolocation'
+        source: location.source || 'browser_geolocation'
       },
-      message: rawText,
-      intensity: 1,
-      isVisible: false,
-      isFeatured: false,
-      privacyAccepted: true,
-      source: 'frontend',
-      createdAt: new Date().toISOString()
+      source: 'frontend'
     });
+
+    let websiteData = readWebsiteDataFromStorage();
+    if (response && response.content) {
+      websiteData = normalizeWebsiteDataForGlobe(response.content);
+    } else if (response && response.entry) {
+      websiteData.anonymousMessages.push(response.entry);
+    } else {
+      throw new Error('Anonymous message submission did not return a valid cloud response.');
+    }
+
     writeWebsiteDataToStorage(websiteData);
+    if (anonymousMessagePreviewState) {
+      anonymousMessagePreviewState.message = rawText;
+      anonymousMessagePreviewState.isSubmitted = true;
+      anonymousMessagePreviewState.submittedAt = new Date().toISOString().slice(0, 10);
+    }
     if (globeInstance) globeInstance.setData(getCombinedGlobeItemsFromStorage());
     text.value = '';
     privacy.checked = false;
@@ -1543,7 +1819,7 @@ function initFootprintsOverlay(globeInstance) {
 
   ui.locateBtn?.addEventListener('click', async () => {
     try {
-      const proceed = window.confirm('Allow this page to use your IP-derived approximate city location for globe navigation?');
+      const proceed = window.confirm('Allow this page to use your device location and resolve it to an approximate city for globe navigation?');
       if (!proceed) return;
       await locateCurrentCity(globeInstance, { rotateOnly: true });
     } catch (error) {
@@ -1554,18 +1830,47 @@ function initFootprintsOverlay(globeInstance) {
   ui.zoomInBtn?.addEventListener('click', () => globeInstance.zoomByStep(1));
   ui.zoomOutBtn?.addEventListener('click', () => globeInstance.zoomByStep(-1));
 
-  ui.launcher.addEventListener('click', () => {
-    toggleComposer();
+  ui.launcher.addEventListener('click', async () => {
+    const opening = !!ui.composer?.hidden;
+    toggleComposer(undefined, { focusText: false });
+    if (anonymousMessagePreviewState && anonymousMessagePreviewState.place) {
+      refreshAnonymousMessagePreview(globeInstance);
+      globeInstance?.setAutoRotate(false);
+      globeInstance && globeInstance.focusOnLatLng(
+        anonymousMessagePreviewState.place.lat,
+        anonymousMessagePreviewState.place.lng,
+        { zoomFactor: 0.78, duration: 620 }
+      );
+      if (!opening) return;
+      ui.text?.focus();
+      return;
+    }
+    if (!opening) return;
+    try {
+      setComposerFeedback('Requesting browser location permission. If unavailable, we will fall back to IP-based city detection.', 'info');
+      await prepareAnonymousMessagePreview(globeInstance);
+      refreshAnonymousMessagePreview(globeInstance);
+      ui.text?.focus();
+      setComposerFeedback('City preview ready. Write your anonymous message and send it for curation.', 'success');
+    } catch (error) {
+      clearAnonymousMessagePreview(globeInstance);
+      setLocationStatus('We could not determine your city from browser or IP right now.');
+      setComposerFeedback(error.message || 'Unable to detect your location right now.', 'error');
+    }
   });
 
   ui.cancel?.addEventListener('click', () => {
     toggleComposer(false);
     setComposerFeedback('');
+    if (!anonymousMessagePreviewState || !anonymousMessagePreviewState.isSubmitted) {
+      clearAnonymousMessagePreview(globeInstance);
+    }
   });
 
   ui.text?.addEventListener('input', () => {
     if (ui.counter) ui.counter.textContent = `${String(ui.text.value || '').length} / 100`;
     if (ui.feedback && ui.feedback.dataset.state === 'error') setComposerFeedback('');
+    refreshAnonymousMessagePreview(globeInstance);
   });
 
   ui.send?.addEventListener('click', () => {

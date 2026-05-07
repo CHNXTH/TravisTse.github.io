@@ -1548,74 +1548,127 @@ function normalizeAnonymousMessages(targetIntensity = 1) {
 }
 
 function loadAnonymousMessageItems() {
-    const container = document.getElementById('anonymous-message-items');
-    if (!container) return;
-    container.innerHTML = '';
+    const featuredContainer = document.getElementById('anonymous-message-featured-items');
+    const pendingContainer = document.getElementById('anonymous-message-pending-items');
+    const featuredCountEl = document.getElementById('anonymous-message-featured-count');
+    const pendingCountEl = document.getElementById('anonymous-message-pending-count');
+    if (!featuredContainer || !pendingContainer) return;
+    featuredContainer.innerHTML = '';
+    pendingContainer.innerHTML = '';
 
     const messages = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages : [];
     if (messages.length === 0) {
-        container.innerHTML = '<p class="empty-message">暂无匿名留言，前台提交后会显示在这里。</p>';
+        featuredContainer.innerHTML = '<p class="empty-message">暂无已精选留言。</p>';
+        pendingContainer.innerHTML = '<p class="empty-message">暂无未精选留言，前台提交后会显示在这里。</p>';
+        if (featuredCountEl) featuredCountEl.textContent = '0';
+        if (pendingCountEl) pendingCountEl.textContent = '0';
         return;
     }
 
-    [...messages].sort((a, b) => {
+    const sortedMessages = [...messages].sort((a, b) => {
         const ta = Date.parse(a.createdAt || '') || 0;
         const tb = Date.parse(b.createdAt || '') || 0;
         return tb - ta;
-    }).forEach((entry) => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'item-card fade-in';
-        itemElement.setAttribute('data-id', entry.id);
-
-        const title = escapeHtml((entry.place && entry.place.displayName) || 'Unknown');
-        const text = escapeHtml(entry.message || '');
-        const statusBits = [
-            entry.isFeatured ? '<span class="admin-status-badge is-featured">精选</span>' : '<span class="admin-status-badge is-pending">待精选</span>',
-            entry.isVisible ? '<span class="admin-status-badge is-visible">公开中</span>' : '<span class="admin-status-badge is-hidden">未公开</span>'
-        ].join('');
-
-        itemElement.innerHTML = `
-            <div class="item-header">
-                <div class="item-title">${title}</div>
-                <div class="item-actions">
-                    <button class="action-btn edit-btn" data-id="${entry.id}" title="编辑">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn delete-btn" data-id="${entry.id}" title="删除">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="item-body">
-                <div class="admin-status-row">${statusBits}</div>
-                <div class="item-field">
-                    <div class="field-label">留言</div>
-                    <div class="field-value">${text}</div>
-                </div>
-                <div class="item-field">
-                    <div class="field-label">提交时间</div>
-                    <div class="field-value">${escapeHtml(entry.createdAt || '')}</div>
-                </div>
-                <div class="item-field">
-                    <div class="field-label">来源</div>
-                    <div class="field-value">${escapeHtml(entry.source || 'frontend')}</div>
-                </div>
-            </div>
-        `;
-
-        container.appendChild(itemElement);
-
-        itemElement.querySelector('.edit-btn').addEventListener('click', function() {
-            editAnonymousMessage(this.getAttribute('data-id'));
-        });
-
-        itemElement.querySelector('.delete-btn').addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            if (confirm('确定要删除这条匿名留言吗？')) {
-                deleteAnonymousMessage(id);
-            }
-        });
     });
+
+    const grouped = new Map();
+    sortedMessages.forEach((entry) => {
+        const place = entry.place || {};
+        const cityName = String(place.city || place.displayName || 'Unknown').trim();
+        const countryName = String(place.country || '').trim();
+        const key = `${cityName.toLowerCase()}__${countryName.toLowerCase()}`;
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                place: {
+                    ...place,
+                    displayName: place.displayName || [cityName, countryName].filter(Boolean).join(', ') || 'Unknown',
+                    city: cityName,
+                    country: countryName
+                },
+                featured: [],
+                pending: []
+            });
+        }
+        const bucket = grouped.get(key);
+        if (entry.isFeatured) bucket.featured.push(entry);
+        else bucket.pending.push(entry);
+    });
+
+    const featuredGroups = Array.from(grouped.values()).filter((group) => group.featured.length > 0);
+    const pendingGroups = Array.from(grouped.values()).filter((group) => group.pending.length > 0);
+
+    if (featuredCountEl) featuredCountEl.textContent = String(sortedMessages.filter((entry) => entry.isFeatured).length);
+    if (pendingCountEl) pendingCountEl.textContent = String(sortedMessages.filter((entry) => !entry.isFeatured).length);
+
+    const renderGroupList = (target, groups, type) => {
+        if (groups.length === 0) {
+            target.innerHTML = type === 'featured'
+                ? '<p class="empty-message">暂无已精选留言。</p>'
+                : '<p class="empty-message">暂无未精选留言。</p>';
+            return;
+        }
+
+        groups.forEach((group) => {
+            const entries = type === 'featured' ? group.featured : group.pending;
+            const card = document.createElement('div');
+            card.className = 'anonymous-city-card fade-in';
+
+            const title = escapeHtml(group.place.displayName || 'Unknown');
+            const meta = `Lat: ${group.place.lat}, Lng: ${group.place.lng}`;
+            card.innerHTML = `
+                <div class="anonymous-city-header">
+                    <div>
+                        <h4 class="anonymous-city-title">${title}</h4>
+                        <div class="anonymous-city-meta">${escapeHtml(meta)}</div>
+                    </div>
+                    <div class="anonymous-city-count">${entries.length} 条</div>
+                </div>
+                <div class="anonymous-message-entry-list"></div>
+            `;
+
+            const list = card.querySelector('.anonymous-message-entry-list');
+            entries.forEach((entry) => {
+                const row = document.createElement('div');
+                row.className = 'anonymous-message-entry-item';
+                const statusBits = [
+                    entry.isFeatured ? '<span class="admin-status-badge is-featured">精选</span>' : '<span class="admin-status-badge is-pending">待精选</span>',
+                    entry.isVisible ? '<span class="admin-status-badge is-visible">公开中</span>' : '<span class="admin-status-badge is-hidden">未公开</span>'
+                ].join('');
+                row.innerHTML = `
+                    <div class="admin-status-row">${statusBits}</div>
+                    <div class="anonymous-message-entry-text">${escapeHtml(entry.message || '')}</div>
+                    <div class="anonymous-message-entry-meta">
+                        ${escapeHtml(entry.createdAt || '')} · ${escapeHtml(entry.source || 'frontend')}
+                    </div>
+                    <div class="anonymous-message-entry-actions">
+                        <button class="action-btn edit-btn" data-id="${entry.id}" title="编辑">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn delete-btn" data-id="${entry.id}" title="删除">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(row);
+
+                row.querySelector('.edit-btn').addEventListener('click', function() {
+                    editAnonymousMessage(this.getAttribute('data-id'));
+                });
+
+                row.querySelector('.delete-btn').addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    if (confirm('确定要删除这条匿名留言吗？')) {
+                        deleteAnonymousMessage(id);
+                    }
+                });
+            });
+
+            target.appendChild(card);
+        });
+    };
+
+    renderGroupList(featuredContainer, featuredGroups, 'featured');
+    renderGroupList(pendingContainer, pendingGroups, 'pending');
 }
 
 function openAnonymousMessageModal(entry = null) {
