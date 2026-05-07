@@ -3005,15 +3005,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
         width: 50px;
         height: 50px;
     }
-    
-    .ai-chat-container {
-        width: 90%;
-        height: 70vh;
-        bottom: 80px;
-        right: 5%;
-        left: 5%;
-    }
-    
+
     .chat-tooltip {
         display: none;
     }
@@ -3354,6 +3346,20 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     backdrop-filter: saturate(180%) blur(35px);
     -webkit-backdrop-filter: saturate(180%) blur(35px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+
+  .ai-chat-container {
+    width: min(90vw, 350px);
+    max-width: calc(100vw - 24px);
+    height: min(70vh, 500px);
+    left: 50%;
+    right: auto;
+    bottom: 80px;
+    transform: translate(-50%, 20px);
+  }
+
+  .ai-chat-container.active {
+    transform: translate(-50%, 0);
   }
 } 
 

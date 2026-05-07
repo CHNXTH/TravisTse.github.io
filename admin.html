@@ -39,7 +39,9 @@
     <div class="admin-panel" id="admin-panel" style="display: none;">
         <header class="admin-header">
             <div class="admin-logo">
-                <img src="assets/images/avatar-round.png" alt="Travis Tse" class="admin-avatar-small">
+                <button class="admin-sidebar-trigger" id="admin-sidebar-trigger" type="button" aria-label="切换侧边栏" aria-expanded="false">
+                    <img src="assets/images/avatar-round.png" alt="Travis Tse" class="admin-avatar-small">
+                </button>
                 <h1>Travis Tse 网站管理</h1>
             </div>
             <div class="admin-actions">
@@ -68,6 +70,8 @@
 	                    <li data-target="settings-section"><i class="fas fa-cog"></i> 网站设置</li>
 	                </ul>
 	            </div>
+
+            <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
 
             <div class="admin-main">
                 <!-- 个人资料部分 -->
@@ -712,10 +716,10 @@
     </div>
     
     <!-- 数据监控面板 -->
-    <div id="data-monitor-panel" class="data-monitor">
+    <div id="data-monitor-panel" class="data-monitor collapsed">
         <div class="data-monitor-header">
             <span>数据监控</span>
-            <button id="data-monitor-toggle">▼</button>
+            <button id="data-monitor-toggle">▲</button>
         </div>
         <div class="data-monitor-content">
             <div class="data-monitor-item">

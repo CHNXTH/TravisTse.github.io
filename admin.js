@@ -14,6 +14,7 @@ let cloudRefreshIntervalId = null;
 document.addEventListener('DOMContentLoaded', async function() {
     initLoginSystem();
     initNavigationSystem();
+    initSidebarToggle();
     initDataMonitorPanel();
 
     const isLoggedIn = await checkLoginStatus();
@@ -843,6 +844,25 @@ function normalizeSocialType(label) {
 // 初始化导航系统
 function initNavigationSystem() {
     const menuItems = document.querySelectorAll('.admin-menu li');
+    const closeSidebarIfMobile = () => {
+        if (window.innerWidth > 768) return;
+
+        const sidebar = document.querySelector('.admin-sidebar');
+        const overlay = document.getElementById('admin-sidebar-overlay');
+        const trigger = document.getElementById('admin-sidebar-trigger');
+
+        if (sidebar) {
+            sidebar.classList.remove('active');
+        }
+
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    };
     
     menuItems.forEach(item => {
         item.addEventListener('click', async function() {
@@ -865,7 +885,52 @@ function initNavigationSystem() {
             if (targetId === 'anonymous-messages-section') {
                 await refreshAnonymousMessagesFromCloud({ silent: true });
             }
+
+            closeSidebarIfMobile();
         });
+    });
+}
+
+function initSidebarToggle() {
+    const trigger = document.getElementById('admin-sidebar-trigger');
+    const sidebar = document.querySelector('.admin-sidebar');
+    const overlay = document.getElementById('admin-sidebar-overlay');
+
+    if (!trigger || !sidebar || !overlay) {
+        return;
+    }
+
+    function setSidebarOpen(open) {
+        const isMobile = window.innerWidth <= 768;
+
+        if (!isMobile) {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+            return;
+        }
+
+        sidebar.classList.toggle('active', open);
+        overlay.classList.toggle('active', open);
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    trigger.addEventListener('click', function() {
+        if (window.innerWidth > 768) {
+            return;
+        }
+
+        setSidebarOpen(!sidebar.classList.contains('active'));
+    });
+
+    overlay.addEventListener('click', function() {
+        setSidebarOpen(false);
+    });
+
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            setSidebarOpen(false);
+        }
     });
 }
 
@@ -996,11 +1061,17 @@ function initDataMonitorPanel() {
     const createBackup = document.getElementById('create-backup');
     
     if (!panel) return;
+
+    function syncMonitorToggleState() {
+        toggle.textContent = panel.classList.contains('collapsed') ? '▲' : '▼';
+    }
+
+    syncMonitorToggleState();
     
     // 折叠/展开面板
     toggle.addEventListener('click', function() {
         panel.classList.toggle('collapsed');
-        toggle.textContent = panel.classList.contains('collapsed') ? '▲' : '▼';
+        syncMonitorToggleState();
     });
     
     // 强制同步
@@ -1050,9 +1121,9 @@ function initDataMonitorPanel() {
     updateMonitorPanel();
     setInterval(updateMonitorPanel, 30000); // 每30秒更新一次
     
-    // 添加到页面初始化后的面板状态
+    // 初始化时保持默认折叠状态，仅刷新显示数据
     setTimeout(function() {
-        panel.classList.remove('collapsed');
+        syncMonitorToggleState();
         updateMonitorPanel();
     }, 1000);
 }

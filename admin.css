@@ -415,11 +415,23 @@ button {
     align-items: center;
 }
 
+.admin-sidebar-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
 .admin-avatar-small {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    margin-right: 12px;
+    display: block;
 }
 
 .admin-header h1 {
@@ -481,6 +493,10 @@ button {
     bottom: 0;
     overflow-y: auto;
     z-index: 90;
+}
+
+.admin-sidebar-overlay {
+    display: none;
 }
 
 .admin-menu {
@@ -947,10 +963,32 @@ button {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
         width: 280px;
+        z-index: 130;
     }
     
     .admin-sidebar.active {
         transform: translateX(0);
+    }
+
+    .admin-sidebar-overlay {
+        position: fixed;
+        top: var(--admin-header-height);
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        z-index: 120;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+        display: block;
+    }
+
+    .admin-sidebar-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
     }
     
     .admin-main {
@@ -964,9 +1002,9 @@ button {
     .admin-header h1 {
         font-size: 16px;
     }
-    
-    .sidebar-toggle {
-        display: block;
+
+    .admin-sidebar-trigger {
+        margin-right: 10px;
     }
     
     .grid-container {
