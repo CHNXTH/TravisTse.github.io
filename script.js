@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    initHeroSummaryTypingOnce();
 	    updateDynamicAgeDisplays();
 	    initHeroPointerDispersion();
+        initHeroOverlayFade();
 
 	    // 项目轮播功能
 	    initProjectsCarousel();
@@ -277,21 +278,16 @@ function initHeroPointerDispersion() {
         return;
     }
 
-    // Start position matches the CSS fallback. We keep the last position on leave (no snap-back),
-    // and add a tiny inertial drift to avoid a "hard stop".
+    // Start position matches the CSS fallback. The glow field drifts on its own,
+    // and pointer movement only gently biases that drift.
     const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
     let posX = 80;
     let posY = 30;
-    let targetX = posX;
-    let targetY = posY;
-    let velX = 0;
-    let velY = 0;
-    let rafId = 0;
-
-    let lastMoveTs = 0;
-    let lastMoveX = posX;
-    let lastMoveY = posY;
+    let pointerX = posX;
+    let pointerY = posY;
+    let pointerInfluence = 0;
+    let pointerActive = false;
 
     const write = () => {
         heroContainer.style.setProperty('--hero-glow-x', `${posX.toFixed(2)}%`);
@@ -300,32 +296,30 @@ function initHeroPointerDispersion() {
 
     write();
 
-    const tick = () => {
-        // A small spring towards target, plus damping for a "floaty" but controlled feel.
-        const stiffness = 0.12;
-        const damping = 0.78;
+    const tick = (now = performance.now()) => {
+        const t = now * 0.000075;
+        const ambientX =
+            80 +
+            Math.sin(t * 0.95) * 4.2 +
+            Math.cos(t * 0.33) * 2.1;
+        const ambientY =
+            30 +
+            Math.cos(t * 0.74) * 3.6 +
+            Math.sin(t * 0.41) * 1.5;
 
-        velX = (velX + (targetX - posX) * stiffness) * damping;
-        velY = (velY + (targetY - posY) * stiffness) * damping;
-        posX = clamp(posX + velX, 0, 100);
-        posY = clamp(posY + velY, 0, 100);
+        const influenceTarget = pointerActive ? 0.28 : 0;
+        pointerInfluence += (influenceTarget - pointerInfluence) * 0.02;
+
+        const targetX = ambientX * (1 - pointerInfluence) + pointerX * pointerInfluence;
+        const targetY = ambientY * (1 - pointerInfluence) + pointerY * pointerInfluence;
+
+        // Pure easing, no spring, no bounce.
+        posX += (targetX - posX) * 0.018;
+        posY += (targetY - posY) * 0.018;
+        posX = clamp(posX, 0, 100);
+        posY = clamp(posY, 0, 100);
         write();
-
-        const stillMoving =
-            Math.abs(velX) + Math.abs(velY) > 0.04 ||
-            Math.abs(targetX - posX) + Math.abs(targetY - posY) > 0.04;
-
-        if (stillMoving) {
-            rafId = window.requestAnimationFrame(tick);
-        } else {
-            rafId = 0;
-        }
-    };
-
-    const kick = () => {
-        if (!rafId) {
-            rafId = window.requestAnimationFrame(tick);
-        }
+        window.requestAnimationFrame(tick);
     };
 
     const onMove = (event) => {
@@ -334,36 +328,18 @@ function initHeroPointerDispersion() {
 
         const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
         const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
-        targetX = x;
-        targetY = y;
-
-        const now = (typeof event.timeStamp === 'number' && event.timeStamp > 0) ? event.timeStamp : performance.now();
-        const dt = Math.max(8, now - (lastMoveTs || now)); // ms
-        const dx = x - lastMoveX;
-        const dy = y - lastMoveY;
-
-        // Estimate velocity in "percent per frame" to keep it stable across refresh rates.
-        const scale = 16 / dt;
-        velX = dx * scale;
-        velY = dy * scale;
-
-        lastMoveTs = now;
-        lastMoveX = x;
-        lastMoveY = y;
-
-        kick();
+        pointerX = x;
+        pointerY = y;
+        pointerActive = true;
     };
 
     const onLeave = () => {
-        // Keep the current target (no snap). Add a small drift in the direction of the last velocity.
-        const drift = 8; // percent
-        targetX = clamp(posX + velX * drift, 0, 100);
-        targetY = clamp(posY + velY * drift, 0, 100);
-        kick();
+        pointerActive = false;
     };
 
     heroContainer.addEventListener('pointermove', onMove, { passive: true });
     heroContainer.addEventListener('pointerleave', onLeave, { passive: true });
+    window.requestAnimationFrame(tick);
 }
 
 function calculateAgeFromBirthdate(birthdateString) {
@@ -1132,6 +1108,41 @@ function initScrollAnimation() {
     sections.forEach(section => {
         observer.observe(section);
     });
+}
+
+function initHeroOverlayFade() {
+    const hero = document.querySelector('.hero');
+    const heroContent = document.querySelector('.hero-content');
+    const heroKicker = document.querySelector('.hero-kicker');
+    const education = document.getElementById('education');
+    const experience = document.getElementById('experience');
+    if (!hero || !heroContent || !heroKicker || !education || !experience) return;
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+    function updateHeroFade() {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const educationRect = education.getBoundingClientRect();
+        const experienceRect = experience.getBoundingClientRect();
+        const kickerRect = heroKicker.getBoundingClientRect();
+
+        const fadeStartLine = kickerRect.top;
+        const fadeDistance = Math.max(220, experienceRect.top - fadeStartLine - viewportHeight * 0.08);
+        const progress = clamp((fadeStartLine - educationRect.top) / fadeDistance, 0, 1);
+        const opacity = 1 - progress;
+        heroContent.style.setProperty('--hero-content-opacity', opacity.toFixed(3));
+
+        if (progress >= 0.999) {
+            heroContent.setAttribute('aria-hidden', 'true');
+        } else {
+            heroContent.removeAttribute('aria-hidden');
+        }
+    }
+
+    window.addEventListener('scroll', updateHeroFade, { passive: true });
+    window.addEventListener('resize', updateHeroFade);
+    window.addEventListener('load', updateHeroFade);
+    updateHeroFade();
 }
 
 // 侧边栏高亮功能
