@@ -8,7 +8,211 @@ document.addEventListener('DOMContentLoaded', () => {
     let heroSectionTop;
     let avatarSectionTop;
     
-    // 检测深色模式
+    // 从websiteData.settings读取“强制深浅色”配置
+    function getThemeModeFromStorage() {
+        try {
+            const raw = localStorage.getItem('websiteData');
+            if (!raw) return 'system';
+            const data = JSON.parse(raw);
+            const settings = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
+            const mode = settings && typeof settings.themeMode === 'string' ? settings.themeMode : 'system';
+            return ['system', 'light', 'dark'].includes(mode) ? mode : 'system';
+        } catch (_) {
+            return 'system';
+        }
+    }
+
+    // 供后台/同步脚本在数据更新后主动触发
+    window.applyThemePreferenceFromStorage = function () {
+        checkDarkMode();
+    };
+
+    function ensureForcedThemeStyles() {
+        if (document.getElementById('forced-theme-overrides')) return;
+
+        const style = document.createElement('style');
+        style.id = 'forced-theme-overrides';
+        style.textContent = `
+/* Injected by script.js to allow overriding prefers-color-scheme via admin setting. */
+:root.force-light {
+  --primary-color: #000;
+  --secondary-color: #86868b;
+  --accent-color: #0071e3;
+  --background-color: #fff;
+  --background-color-rgb: 255, 255, 255;
+  --light-gray: #f5f5f7;
+  --divider-color: #d2d2d7;
+  --header-bg-color: rgba(255, 255, 255, 0.65);
+  --header-bg-color-rgb: 255, 255, 255;
+  --header-bg-scrolled: rgba(255, 255, 255, 0.75);
+  --header-bg-scrolled-rgb: 255, 255, 255;
+  --hero-content-bg: rgba(255, 255, 255, 0.8);
+  --card-bg: white;
+  --card-shadow: rgba(0, 0, 0, 0.1);
+  --hero-bg-filter: brightness(0.7);
+  --section-bg-overlay: rgba(255, 255, 255, 0.05);
+  --timeline-color: #d2d2d7;
+  --timeline-dot-color: #0033A0;
+  --search-bg: rgba(0, 0, 0, 0.8);
+  --search-box-bg: white;
+  --search-result-border: var(--light-gray);
+  --search-close-color: white;
+  --country-fill: #d1d1d1;
+  --country-stroke: #F4F4F4;
+  --footprint-color: #0066ff;
+  --footer-bg: var(--light-gray);
+  --connect-wave-bg: #ffffff;
+  --connect-wave-dot: rgba(38, 79, 140, 0.11);
+  --connect-wave-dot-strong: rgba(38, 79, 140, 0.18);
+  --connect-wave-glow: rgba(0, 113, 227, 0.06);
+  --hero-code-bg: rgba(6, 24, 44, 0.06);
+  --hero-code-border: rgba(15, 23, 42, 0.10);
+  --hero-code-text: rgba(15, 23, 42, 0.86);
+  --hero-code-accent: rgba(0, 113, 227, 0.95);
+  --hero-glow-blue: rgba(0, 123, 255, 0.18);
+  --hero-glow-orange: rgba(255, 140, 0, 0.12);
+  --hero-sheen-start: rgba(255, 255, 255, 0.18);
+  --hero-sheen-end: rgba(255, 255, 255, 0.03);
+  --stack-surface: rgba(255, 255, 255, 0.52);
+  --stack-border: rgba(255, 255, 255, 0.26);
+  --stack-shadow: 0 -18px 60px rgba(15, 23, 42, 0.12);
+  --stack-blur: 26px;
+  --code-tok-kw: #AF00DB;
+  --code-tok-type: #267F99;
+  --code-tok-fn: #795E26;
+  --code-tok-var: #001080;
+  --code-tok-str: #A31515;
+  --code-tok-num: #098658;
+  --code-tok-op: #000000;
+}
+
+:root.force-light .contact-info {
+  color: rgba(15, 23, 42, 0.72) !important;
+}
+
+:root.force-light .contact-info a {
+  color: rgba(0, 113, 227, 0.95) !important;
+}
+
+:root.force-light .experience-logo img[data-invert-on-dark="true"],
+:root.force-light .custom-icon,
+:root.force-light .custom-project-icon {
+  filter: none !important;
+}
+
+:root.force-dark {
+  --primary-color: #f5f5f7;
+  --secondary-color: #a1a1a6;
+  --background-color: #1a1a1a;
+  --background-color-rgb: 26, 26, 26;
+  --light-gray: #2a2a2a;
+  --divider-color: #38383c;
+  --header-bg-color: rgba(26, 26, 26, 0.65);
+  --header-bg-color-rgb: 26, 26, 26;
+  --header-bg-scrolled: rgba(26, 26, 26, 0.75);
+  --header-bg-scrolled-rgb: 26, 26, 26;
+  --hero-content-bg: rgba(26, 26, 26, 0.8);
+  --card-bg: #252525;
+  --card-shadow: rgba(0, 0, 0, 0.3);
+  --hero-bg-filter: brightness(0.4);
+  --section-bg-overlay: rgba(0, 0, 0, 0.2);
+  --timeline-color: #38383c;
+  --timeline-dot-color: #0071e3;
+  --search-bg: rgba(0, 0, 0, 0.9);
+  --search-box-bg: #2a2a2a;
+  --search-result-border: #38383c;
+  --search-close-color: #f5f5f7;
+  --country-fill: #333333;
+  --country-stroke: #444444;
+  --footprint-color: #0082fc;
+  --footer-bg: #252525;
+  --connect-wave-bg: #1a1a1a;
+  --connect-wave-dot: rgba(170, 210, 255, 0.11);
+  --connect-wave-dot-strong: rgba(190, 225, 255, 0.18);
+  --connect-wave-glow: rgba(0, 130, 252, 0.10);
+  --hero-code-bg: rgba(7, 12, 20, 0.62);
+  --hero-code-border: rgba(148, 206, 255, 0.14);
+  --hero-code-text: rgba(210, 230, 255, 0.88);
+  --hero-code-accent: rgba(138, 180, 255, 0.95);
+  --hero-glow-blue: rgba(0, 130, 252, 0.22);
+  --hero-glow-orange: rgba(255, 164, 57, 0.14);
+  --hero-sheen-start: rgba(26, 26, 26, 0.18);
+  --hero-sheen-end: rgba(26, 26, 26, 0.04);
+  --stack-surface: rgba(22, 22, 24, 0.42);
+  --stack-border: rgba(255, 255, 255, 0.1);
+  --stack-shadow: 0 -24px 72px rgba(0, 0, 0, 0.34);
+  --stack-blur: 30px;
+  --code-tok-kw: #C586C0;
+  --code-tok-type: #4EC9B0;
+  --code-tok-fn: #DCDCAA;
+  --code-tok-var: #9CDCFE;
+  --code-tok-str: #CE9178;
+  --code-tok-num: #B5CEA8;
+  --code-tok-op: rgba(210, 230, 255, 0.88);
+}
+
+:root.force-dark .experience-logo img[data-invert-on-dark="true"],
+:root.force-dark .custom-icon,
+:root.force-dark .custom-project-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+:root.force-dark .hero-btn-ghost {
+  background: rgba(0, 0, 0, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+:root.force-dark .hero-btn-ghost:hover {
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35) !important;
+}
+
+:root.force-dark .ai-chat-container {
+  background-color: rgba(30, 30, 30, 0.6) !important;
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root.force-dark .ai-chat-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+:root.force-dark .ai-chat-close {
+  color: #aaa !important;
+}
+
+:root.force-dark .ai-chat-close:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+:root.force-dark .ai-chat-input-container {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+:root.force-dark .ai-chat-input {
+  background-color: rgba(50, 50, 50, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+:root.force-dark .ai-message-content {
+  background-color: rgba(60, 60, 60, 0.8) !important;
+  color: white !important;
+}
+`;
+        document.head.appendChild(style);
+    }
+
+    function setMetaColorScheme(mode) {
+        const meta = document.querySelector('meta[name="color-scheme"]');
+        if (!meta) return;
+        if (mode === 'dark') meta.setAttribute('content', 'dark');
+        else if (mode === 'light') meta.setAttribute('content', 'light');
+        else meta.setAttribute('content', 'light dark');
+    }
+
+    // 检测深色模式（支持强制配置）
     checkDarkMode();
     
     // 监听系统深色模式变化
@@ -49,7 +253,29 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 检测系统深色模式并适配
     function checkDarkMode() {
-        const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const forcedMode = getThemeModeFromStorage();
+        ensureForcedThemeStyles();
+
+        if (forcedMode === 'light') {
+            document.documentElement.classList.add('force-light');
+            document.documentElement.classList.remove('force-dark');
+            setMetaColorScheme('light');
+        } else if (forcedMode === 'dark') {
+            document.documentElement.classList.add('force-dark');
+            document.documentElement.classList.remove('force-light');
+            setMetaColorScheme('dark');
+        } else {
+            document.documentElement.classList.remove('force-light');
+            document.documentElement.classList.remove('force-dark');
+            setMetaColorScheme('system');
+        }
+
+        const isDarkMode =
+            forcedMode === 'dark'
+                ? true
+                : forcedMode === 'light'
+                    ? false
+                    : window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (isDarkMode) {
             document.documentElement.classList.add('dark-mode');
             // 调整地图颜色和组件（如果需要）

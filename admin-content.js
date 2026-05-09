@@ -736,6 +736,45 @@ function deleteExperience(id) {
 
 // 初始化设置部分
 function initSettingsSection() {
+    // 显示模式（强制深浅色）
+    try {
+        const themeSelect = document.getElementById('theme-mode');
+        const themeSaveBtn = document.getElementById('save-theme-mode');
+        const themeMessage = document.getElementById('theme-mode-message');
+
+        const settings = websiteData.settings && typeof websiteData.settings === 'object' ? websiteData.settings : {};
+        const currentMode = typeof settings.themeMode === 'string' ? settings.themeMode : 'system';
+        if (themeSelect) themeSelect.value = ['system', 'light', 'dark'].includes(currentMode) ? currentMode : 'system';
+
+        if (themeSaveBtn) {
+            themeSaveBtn.addEventListener('click', async function () {
+                const nextMode = themeSelect ? String(themeSelect.value || 'system') : 'system';
+                const normalized = ['system', 'light', 'dark'].includes(nextMode) ? nextMode : 'system';
+
+                websiteData.settings = websiteData.settings && typeof websiteData.settings === 'object' ? websiteData.settings : {};
+                websiteData.settings.themeMode = normalized;
+
+                const ok = await saveWebsiteData();
+                if (ok) {
+                    if (themeMessage) {
+                        themeMessage.textContent = '显示模式已保存';
+                        themeMessage.className = 'password-message text-success';
+                    }
+                    // 让前台即时生效（如果当前页面是前台）
+                    if (typeof window.applyThemePreferenceFromStorage === 'function') {
+                        window.applyThemePreferenceFromStorage();
+                    }
+                    showMessage('显示模式已更新', 'success');
+                } else if (themeMessage) {
+                    themeMessage.textContent = '保存失败，请重试';
+                    themeMessage.className = 'password-message text-danger';
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('初始化显示模式设置失败:', e);
+    }
+
     // 修改密码
     document.getElementById('save-password').addEventListener('click', async function() {
         const newPassword = document.getElementById('admin-password').value.trim();
@@ -844,7 +883,16 @@ function initSettingsSection() {
     document.getElementById('clear-cache').addEventListener('click', function() {
         if (confirm('确定要清除网站缓存吗？这将删除所有本地存储的数据，包括您的设置和内容。')) {
             localStorage.removeItem('websiteData');
-            sessionStorage.removeItem('adminLoggedIn');
+            try {
+                sessionStorage.removeItem('adminLoggedIn');
+            } catch (e) {
+                try {
+                    localStorage.removeItem('admin_session_fallback_adminLoggedIn');
+                    localStorage.removeItem('cf_fallback_adminLoggedIn');
+                } catch (_) {
+                    // ignore
+                }
+            }
             
             showMessage('缓存已清除，将在3秒后刷新页面', 'success');
             setTimeout(() => {

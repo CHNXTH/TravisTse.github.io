@@ -699,6 +699,11 @@ function updateFrontend() {
         // 同步桥/其他脚本可能直接调用 updateFrontend，因此这里保证从存储加载最新数据
         loadWebsiteDataFromStorage();
 
+        // 0. 更新强制主题（深色/浅色/跟随系统）
+        if (typeof window.applyThemePreferenceFromStorage === 'function') {
+            window.applyThemePreferenceFromStorage();
+        }
+
         // 1. 更新个人资料
         updateProfileFrontend();
         

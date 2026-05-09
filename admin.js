@@ -9,6 +9,45 @@ let cloudAutoSeedAttempted = false;
 let cloudRefreshListenersBound = false;
 let cloudRefreshIntervalId = null;
 
+const ADMIN_SESSION_FALLBACK_PREFIX = 'admin_session_fallback_';
+
+function safeSessionGet(key) {
+    try {
+        return sessionStorage.getItem(key);
+    } catch (e) {
+        try {
+            return localStorage.getItem(ADMIN_SESSION_FALLBACK_PREFIX + key);
+        } catch (_) {
+            return null;
+        }
+    }
+}
+
+function safeSessionSet(key, value) {
+    try {
+        sessionStorage.setItem(key, value);
+        return;
+    } catch (e) {
+        try {
+            localStorage.setItem(ADMIN_SESSION_FALLBACK_PREFIX + key, value);
+        } catch (_) {
+            // ignore
+        }
+    }
+}
+
+function safeSessionRemove(key) {
+    try {
+        sessionStorage.removeItem(key);
+    } catch (e) {
+        try {
+            localStorage.removeItem(ADMIN_SESSION_FALLBACK_PREFIX + key);
+        } catch (_) {
+            // ignore
+        }
+    }
+}
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', async function() {
     initLoginSystem();
@@ -387,7 +426,7 @@ async function login(password) {
         }
 
         loginError.textContent = '';
-        sessionStorage.setItem('adminLoggedIn', 'true');
+        safeSessionSet('adminLoggedIn', 'true');
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'flex';
 
@@ -412,7 +451,7 @@ window.addEventListener('cf-admin-unauthorized', () => {
 // 退出登录函数
 function logout() {
     // 清除登录状态
-    sessionStorage.removeItem('adminLoggedIn');
+    safeSessionRemove('adminLoggedIn');
     if (USE_CLOUDFLARE_ADMIN) {
         window.cloudflareApi.logout();
     }
@@ -427,13 +466,13 @@ function logout() {
 
 // 检查登录状态
 async function checkLoginStatus() {
-    const hasSession = sessionStorage.getItem('adminLoggedIn') === 'true';
+    const hasSession = safeSessionGet('adminLoggedIn') === 'true';
 
     if (hasSession && USE_CLOUDFLARE_ADMIN && !window.cloudflareApi.getAdminToken()) {
-        sessionStorage.removeItem('adminLoggedIn');
+        safeSessionRemove('adminLoggedIn');
     }
 
-    const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+    const isLoggedIn = safeSessionGet('adminLoggedIn') === 'true';
     if (isLoggedIn) {
         document.getElementById('admin-login').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'flex';

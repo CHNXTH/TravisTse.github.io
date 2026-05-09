@@ -1,4 +1,43 @@
 (function () {
+    const FALLBACK_PREFIX = 'cf_fallback_';
+
+    function safeSessionGet(key) {
+        try {
+            return sessionStorage.getItem(key);
+        } catch (e) {
+            try {
+                return localStorage.getItem(FALLBACK_PREFIX + key);
+            } catch (_) {
+                return null;
+            }
+        }
+    }
+
+    function safeSessionSet(key, value) {
+        try {
+            sessionStorage.setItem(key, value);
+            return;
+        } catch (e) {
+            try {
+                localStorage.setItem(FALLBACK_PREFIX + key, value);
+            } catch (_) {
+                // ignore
+            }
+        }
+    }
+
+    function safeSessionRemove(key) {
+        try {
+            sessionStorage.removeItem(key);
+        } catch (e) {
+            try {
+                localStorage.removeItem(FALLBACK_PREFIX + key);
+            } catch (_) {
+                // ignore
+            }
+        }
+    }
+
     function getWorkerBaseUrl() {
         return (window.TRAVIS_AI_API_URL || '').replace(/\/+$/, '');
     }
@@ -9,21 +48,21 @@
     }
 
     function getAdminToken() {
-        return sessionStorage.getItem('cfAdminToken') || '';
+        return safeSessionGet('cfAdminToken') || '';
     }
 
     function setAdminToken(token) {
         if (token) {
-            sessionStorage.setItem('cfAdminToken', token);
+            safeSessionSet('cfAdminToken', token);
         } else {
-            sessionStorage.removeItem('cfAdminToken');
+            safeSessionRemove('cfAdminToken');
         }
     }
 
     function handleUnauthorized() {
         // Token expired/invalid: clear both the token and the UI login flag.
         setAdminToken('');
-        sessionStorage.removeItem('adminLoggedIn');
+        safeSessionRemove('adminLoggedIn');
         try {
             window.dispatchEvent(new CustomEvent('cf-admin-unauthorized'));
         } catch (_) {

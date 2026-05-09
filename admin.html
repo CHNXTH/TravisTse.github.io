@@ -9,8 +9,36 @@
     <title>管理后台 - Travis Tse</title>
     <script>
         if (window.location.protocol === 'file:') {
-            const localhostUrl = 'http://127.0.0.1:4173/admin.html';
-            window.location.replace(localhostUrl);
+            (async () => {
+                const candidatePorts = [4173, 5173, 3000, 8000, 8080];
+                const targetPath = '/admin.html';
+
+                const tryPort = async (port) => {
+                    const url = `http://127.0.0.1:${port}${targetPath}`;
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 600);
+                    try {
+                        // We only need to know if it’s reachable; opaque responses are fine.
+                        await fetch(url, { method: 'HEAD', mode: 'no-cors', signal: controller.signal });
+                        return url;
+                    } catch (_) {
+                        return null;
+                    } finally {
+                        clearTimeout(timer);
+                    }
+                };
+
+                for (const port of candidatePorts) {
+                    const url = await tryPort(port);
+                    if (url) {
+                        window.location.replace(url);
+                        return;
+                    }
+                }
+
+                // If no dev server is found, stay on file:// and show a hint.
+                console.warn('未检测到本地 HTTP 服务，请先启动本地服务器后再打开后台。');
+            })();
         }
     </script>
     <link rel="icon" href="assets/images/avatar-round.png" type="image/png">
@@ -681,6 +709,25 @@
                             </div>
                             <button class="admin-btn" id="save-password">保存密码</button>
                             <p class="password-message" id="password-message"></p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>显示模式</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="theme-mode">强制深浅色模式</label>
+                                <select id="theme-mode">
+                                    <option value="system">适应设备（跟随系统）</option>
+                                    <option value="light">强制浅色</option>
+                                    <option value="dark">强制深色</option>
+                                </select>
+                                <p class="help-text">配置后将对所有访问者生效（以云端内容为准）；如未连接云端，将仅对本地缓存生效。</p>
+                            </div>
+                            <button class="admin-btn" id="save-theme-mode">保存显示模式</button>
+                            <p class="password-message" id="theme-mode-message"></p>
                         </div>
                     </div>
                     
