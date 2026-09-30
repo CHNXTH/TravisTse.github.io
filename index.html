@@ -5,9 +5,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#1a1a1a">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
+    <script>
+        (function () {
+            var defaultMode = 'dark';
+            var mode = defaultMode;
+            try {
+                var raw = localStorage.getItem('websiteData');
+                if (raw) {
+                    var data = JSON.parse(raw);
+                    var savedMode = data && data.settings && data.settings.themeMode;
+                    if (savedMode === 'light' || savedMode === 'dark' || savedMode === 'system') {
+                        mode = savedMode;
+                    }
+                }
+            } catch (_) {}
+
+            var root = document.documentElement;
+            root.classList.remove('force-light', 'force-dark', 'dark-mode');
+            if (mode === 'light') {
+                root.classList.add('force-light');
+                root.style.colorScheme = 'light';
+            } else if (mode === 'dark') {
+                root.classList.add('force-dark', 'dark-mode');
+                root.style.colorScheme = 'dark';
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                root.classList.add('dark-mode');
+                root.style.colorScheme = 'dark';
+            } else {
+                root.style.colorScheme = 'light';
+            }
+        })();
+    </script>
     <title>Travis Tse (谢堂华)</title>
     
     <!-- SEO元标签 -->
@@ -27,6 +59,7 @@
     <link rel="icon" href="assets/images/avatar-round.png" type="image/png">
     <link rel="shortcut icon" href="assets/images/avatar-round.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/images/avatar-round.png">
+    <link rel="preload" href="assets/images/avatar.jpg" as="image" fetchpriority="high">
     
     <!-- Open Graph 元标签 -->
     <meta property="og:title" content="谢堂华 (Travis Tse) - 产品经理、交互设计师">
@@ -75,7 +108,7 @@
         <nav>
             <div class="logo">
                 <div class="nav-avatar-container">
-                    <img src="assets/images/avatar.jpg" alt="Travis Tse" class="nav-avatar-img" onerror="this.src='https://via.placeholder.com/200x200?text=T'">
+                    <img src="assets/images/avatar.jpg" alt="Travis Tse" class="nav-avatar-img" decoding="async" onerror="this.src='https://via.placeholder.com/200x200?text=T'">
                     <span class="nav-logo-text">Travis Tse</span>
                 </div>
             </div>
@@ -99,26 +132,36 @@
 
     <main>
         <section class="hero">
+            <div class="hero-bg" aria-hidden="true"></div>
             <div class="container">
-	                <section class="avatar-section">
-	                    <div class="avatar-container">
-	                        <div class="avatar-outer-circle">
-	                            <div class="avatar-inner-circle">
-	                                <div class="avatar-flip" aria-label="Flip avatar" role="button" tabindex="0">
-	                                    <div class="avatar-face avatar-face-front">
-	                                        <img src="assets/images/avatar.jpg" alt="Travis Tse" class="avatar-img" onerror="this.src='https://via.placeholder.com/200x200?text=Travis+Tse'">
-	                                    </div>
-	                                    <div class="avatar-face avatar-face-back">
-	                                        <img src="assets/images/avatar.jpg" alt="Travis Tse (flip)" class="avatar-img-back" onerror="this.src='https://via.placeholder.com/200x200?text=Travis+Tse'">
-	                                    </div>
-	                                </div>
-	                            </div>
-	                        </div>
-	                    </div>
-	                </section>
-                <h1 class="name" data-en="Travis Tse" data-zh="谢堂华 Travis Tse">Travis Tse</h1>
-                <div class="contact-info">
-                    <p><span class="dynamic-age" data-birthdate="2002-03-03"></span> Years Old | <a href="tel:+86 13020264160">+86 13020264160</a> | <a href="mailto:chnxth@gmail.com">chnxth@gmail.com</a></p>
+                <div class="hero-content">
+                        <div class="avatar-container">
+                            <div class="avatar-outer-circle">
+                                <div class="avatar-inner-circle">
+                                    <div class="avatar-flip" aria-label="Flip avatar" role="button" tabindex="0">
+                                        <div class="avatar-face avatar-face-front">
+                                            <img src="assets/images/avatar.jpg" alt="Travis Tse" class="avatar-img" loading="eager" fetchpriority="high" decoding="async" onerror="this.src='https://via.placeholder.com/200x200?text=Travis+Tse'">
+                                        </div>
+                                        <div class="avatar-face avatar-face-back">
+                                            <img src="assets/images/avatar.jpg" alt="Travis Tse (flip)" class="avatar-img-back" loading="eager" decoding="async" onerror="this.src='https://via.placeholder.com/200x200?text=Travis+Tse'">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <div class="hero-info">
+                        <div class="hero-kicker" data-en="HELLO, I'M" data-zh="你好，我是"><span class="hero-kicker-dot" aria-hidden="true"></span><span class="hero-kicker-text">HELLO, I'M</span></div>
+                        <h1 class="name" data-en="Travis Tse" data-zh="谢堂华 Travis Tse">Travis Tse</h1>
+                        <div class="location-info"><i class="fas fa-map-marker-alt"></i>Shanghai</div>
+                        <div class="contact-info">
+                            <p><span class="dynamic-age" data-birthdate="2002-03-03"></span> Years Old | <a href="tel:+86 13020264160">+86 13020264160</a> | <a href="mailto:chnxth@gmail.com">chnxth@gmail.com</a></p>
+                        </div>
+                        <p class="hero-summary" data-typing-pending data-en="AI product + interaction design, with an architecture background. I care about clarity, craft, and shipping things people actually use." data-zh="AI 产品与交互设计方向，建筑背景出身。我关注清晰表达、体验细节，以及把真正能用的东西做出来。"></p>
+                        <div class="hero-cta">
+                            <a class="hero-btn hero-btn-primary" href="#experience">Explore Experience</a>
+                            <a class="hero-btn hero-btn-ghost" href="#recent-projects">View Projects</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

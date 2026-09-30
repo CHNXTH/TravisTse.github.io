@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 滚动效果
     const header = document.querySelector('header');
     const heroSection = document.querySelector('.hero');
-    const avatarSection = document.querySelector('.avatar-section');
+    const avatarSection = document.querySelector('.avatar-container');
     
     // 获取头像部分的初始位置和大小
     let heroSectionTop;
@@ -288,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 更新地图深色模式（如果地图已初始化）
     function updateMapForDarkMode(isDark) {
+        if (typeof d3 === 'undefined') return;
         // 如果地图已经初始化，则更新其颜色
         const worldMap = d3.select('#world-map svg');
         if (!worldMap.empty()) {
@@ -353,6 +354,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 初始化各个功能
     initLanguageToggle();
+    reorganizeHeroLayout();
+    initAvatarFlip();
+    initHeroSummaryTypingOnce();
     initScrollAnimation();
     initNavHighlight();
     initWorldMap();
@@ -360,16 +364,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initMobileScrollSelector();
     addLanguageIcon();
     
-    // 为hero部分添加背景图
-    const heroBg = document.createElement('div');
-    heroBg.className = 'hero-bg';
-    heroBg.style.backgroundImage = "url('assets/images/background.jpg')";
-    document.querySelector('.hero').prepend(heroBg);
+    // Ensure the hero background exists for older cached HTML. New HTML renders it before JS.
+    const hero = document.querySelector('.hero');
+    if (hero && !hero.querySelector('.hero-bg')) {
+        const heroBg = document.createElement('div');
+        heroBg.className = 'hero-bg';
+        heroBg.setAttribute('aria-hidden', 'true');
+        hero.prepend(heroBg);
+    }
     
 	    // 重组hero区域布局
-	    reorganizeHeroLayout();
-	    initAvatarFlip();
-	    initHeroSummaryTypingOnce();
 	    updateDynamicAgeDisplays();
 	    initHeroPointerDispersion();
         initHeroOverlayFade();
@@ -600,9 +604,21 @@ window.updateDynamicAgeDisplays = updateDynamicAgeDisplays;
 // 重组hero区域布局
 function reorganizeHeroLayout() {
     const heroContainer = document.querySelector('.hero .container');
+    if (!heroContainer) return;
+
+    const existingHeroContent = heroContainer.querySelector(':scope > .hero-content');
+    if (existingHeroContent) {
+        const summary = existingHeroContent.querySelector('.hero-summary');
+        if (summary) {
+            setHeroSummaryHighlighted(summary, document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en');
+        }
+        return;
+    }
+
     const avatarContainer = document.querySelector('.avatar-container');
     const nameElement = document.querySelector('.name');
     const contactInfo = document.querySelector('.contact-info');
+    if (!avatarContainer || !nameElement || !contactInfo) return;
     
     // 创建新的hero内容容器
     const heroContent = document.createElement('div');
@@ -748,7 +764,7 @@ function parseManualHighlightMarkup(raw) {
 function setHeroSummaryHighlighted(summaryEl, lang) {
     if (!summaryEl) return;
     // During typing, do not let other flows overwrite the content (prevents duplication).
-    if (heroSummaryTypingLock) return;
+    if (heroSummaryTypingLock || summaryEl.hasAttribute('data-typing-pending')) return;
     const raw =
         summaryEl.getAttribute(`data-${lang}`) ||
         summaryEl.getAttribute('data-en') ||
@@ -815,13 +831,20 @@ function renderHeroSummaryTyping(summaryEl, lang) {
     // Build the final highlighted content first.
     const prevLock = heroSummaryTypingLock;
     heroSummaryTypingLock = false;
-    setHeroSummaryHighlighted(summaryEl, lang);
+    const highlighted = summaryEl.cloneNode(false);
+    highlighted.removeAttribute('data-typing-pending');
+    setHeroSummaryHighlighted(highlighted, lang);
     heroSummaryTypingLock = prevLock;
-    const segments = buildHeroSummarySegments(summaryEl);
+    const segments = buildHeroSummarySegments(highlighted);
+
+    // Measure the final box before this task paints, keeping the hero steady while typing.
+    summaryEl.innerHTML = highlighted.innerHTML;
+    summaryEl.style.minHeight = `${summaryEl.getBoundingClientRect().height}px`;
 
     // ChatGPT-like: type characters into the existing layout (natural wrapping),
     // while preserving highlight spans.
     summaryEl.innerHTML = '';
+    summaryEl.removeAttribute('data-typing-pending');
 
     const totalChars = segments.reduce((n, s) => n + s.text.length, 0);
     const totalMs = 5000;
@@ -857,6 +880,7 @@ function renderHeroSummaryTyping(summaryEl, lang) {
         if (segIndex >= segments.length) {
             // Typing done: allow language/sync flows to rewrite normally.
             heroSummaryTypingLock = false;
+            summaryEl.style.minHeight = '';
             return;
         }
 
@@ -894,22 +918,25 @@ function initHeroSummaryTypingOnce() {
     if (!summaryEl) return;
 
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) return;
+    if (reduceMotion) {
+        summaryEl.removeAttribute('data-typing-pending');
+        setHeroSummaryHighlighted(summaryEl, document.documentElement.lang === 'zh' ? 'zh' : 'en');
+        return;
+    }
 
-    // Run on each page load (open or refresh). If the admin sync updates the text right after
-    // DOMContentLoaded, we delay slightly so we type the latest content.
+    // Start after synchronous initialization, without exposing the complete text first.
     heroSummaryTypingActive = true;
     heroSummaryTypingLock = true;
     const lang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
 
-    // Delay to let initial sync (if any) apply profile.summary first.
+    summaryEl.textContent = '';
     heroSummaryTypingTimerId = window.setTimeout(() => {
         heroSummaryTypingTimerId = 0;
         if (!heroSummaryTypingActive) return;
         // Start from empty box and type once.
         summaryEl.textContent = '';
         renderHeroSummaryTyping(summaryEl, lang);
-    }, 650);
+    }, 0);
 }
 
 // 语言切换功能
@@ -1509,6 +1536,8 @@ function initWorldMap() {
         window.refreshFootprintsGlobe();
         return;
     }
+
+    if (typeof d3 === 'undefined') return;
 
     // 检查是否有从localStorage加载的自定义足迹数据
     let customFootprintsData = null;
@@ -2363,7 +2392,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatOverlay = document.getElementById('chat-overlay');
     
     // 检测是否为移动设备
-    const isMobile = window.innerWidth <= 768;
+    let isMobile = window.innerWidth <= 768;
     
     // 打开聊天窗口
     floatingButton.addEventListener('click', function() {
