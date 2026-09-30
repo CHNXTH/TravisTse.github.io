@@ -2974,37 +2974,35 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 .projects-carousel {
     position: relative;
     /* 让标题下划线与卡片之间稍微“呼吸”一下 */
-    margin: 26px 0 12px;
+    width: 100vw;
+    margin: 26px calc(50% - 50vw) 12px;
+    --project-gutter: max(24px, calc((100vw - 1160px) / 2));
     /* Controls need to cast shadows; clip only the moving track via .projects-viewport */
     overflow: visible;
 }
 
 .projects-viewport {
     position: relative;
-    overflow: hidden;
-    /* Provide a bit of room so card shadows don't get clipped at the edges */
-    padding: 10px 4px 18px;
-    margin: -10px -4px 0;
-    border-radius: 12px; /* match project card rounding so edges don't feel "hard clipped" */
-
-    /* Soften the left/right cut with an edge fade (instead of a hard vertical crop) */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
-    -webkit-mask-size: 100% 100%;
-    mask-size: 100% 100%;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 16px var(--project-gutter) 28px;
+    scroll-padding-inline: var(--project-gutter);
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y pinch-zoom;
+    scrollbar-width: none;
 }
-
-.projects-wrapper {
-    display: flex;
-    transition: transform 0.5s ease-in-out;
-    margin-bottom: 18px;
-}
+.projects-viewport::-webkit-scrollbar { display: none; }
+.projects-viewport.is-wheeling { scroll-snap-type: none; }
+.projects-viewport:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+.projects-wrapper { display: flex; gap: 20px; }
 
 .project-item {
-    min-width: calc(33.333% - 30px);
-    margin: 0 15px;
+    flex: 0 0 360px;
+    min-width: 0;
+    margin: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: normal;
     background-color: var(--card-bg);
     border-radius: 12px;
     overflow: hidden;
@@ -3014,7 +3012,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 }
 
 .project-item:hover {
-    transform: translateY(-12px);
+    transform: translateY(-4px);
     box-shadow: 0 16px 30px rgba(0, 0, 0, 0.15);
 }
 
@@ -3106,90 +3104,47 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     width: 100%;
 }
 
-.carousel-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 30px;
-}
-
+.carousel-controls { position: absolute; inset: 16px 0 28px; pointer-events: none; }
 .carousel-prev,
 .carousel-next {
-    background: var(--card-bg);
-    border: none;
-    border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--primary-color);
-    font-size: 18px;
-    margin: 0 20px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.carousel-prev:hover,
-.carousel-next:hover {
-    background-color: var(--accent-color);
-    color: white;
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-}
-
-.carousel-dots {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: var(--border-color);
-    margin: 0 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-}
-
-.dot::before {
-    content: '';
     position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 56px;
+    height: 56px;
+    border: 0;
     border-radius: 50%;
-    background-color: transparent;
-    transition: background-color 0.3s ease;
+    background: rgba(210, 210, 215, .82);
+    color: #555558;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 23px;
+    cursor: pointer;
+    pointer-events: auto;
+    backdrop-filter: blur(8px);
+    transition: background-color .2s ease;
 }
-
-.dot:hover::before {
-    background-color: rgba(0, 113, 227, 0.1);
+.carousel-prev { left: 16px; }
+.carousel-next { right: 16px; }
+.carousel-prev[hidden], .carousel-next[hidden] { display: none; }
+.carousel-prev:hover, .carousel-next:hover { background: rgba(232, 232, 237, .96); }
+.carousel-prev:focus-visible, .carousel-next:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 4px;
 }
-
-.dot.active {
-    width: 12px;
-    height: 12px;
-    background-color: var(--accent-color);
-    transform: scale(1.2);
-}
-
-/* 响应式设计 */
 @media (max-width: 992px) {
-    .project-item {
-        min-width: calc(50% - 20px);
-    }
+    .project-item { flex-basis: 340px; }
 }
-
 @media (max-width: 768px) {
-    .project-item {
-        min-width: calc(100% - 20px);
-    }
+    .projects-wrapper { gap: 16px; }
+    .project-item { flex-basis: min(360px, 82vw); }
+    .carousel-prev, .carousel-next { width: 44px; height: 44px; font-size: 19px; }
+    .carousel-prev { left: 8px; }
+    .carousel-next { right: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .project-item, .project-image { transition: none; }
 }
 
 /* 添加子标题样式 */

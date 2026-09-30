@@ -362,7 +362,7 @@
                 <div class="divider"></div>
                 <h3 class="subsection-title" id="recent-projects">Recent Projects</h3>
                 <div class="projects-carousel">
-                    <div class="projects-viewport">
+                    <div class="projects-viewport" id="projects-viewport" tabindex="0" role="region" aria-labelledby="recent-projects">
                     <div class="projects-wrapper">
                         <div class="project-item">
                             <a href="https://www.behance.net/gallery/177525313/MatConstruct-Architecture-Education-App" target="_blank" class="project-link">
@@ -423,16 +423,8 @@
                     </div>
                     </div>
                     <div class="carousel-controls">
-                        <button class="carousel-prev" aria-label="Previous projects"><i class="fas fa-chevron-left"></i></button>
-                        <div class="carousel-dots">
-                            <span class="dot active"></span>
-                            <span class="dot"></span>
-                            <span class="dot"></span>
-                            <span class="dot"></span>
-                            <span class="dot"></span>
-                            <!-- 随后可添加更多项目的导航点 -->
-                        </div>
-                        <button class="carousel-next" aria-label="Next projects"><i class="fas fa-chevron-right"></i></button>
+                        <button class="carousel-prev" type="button" hidden aria-controls="projects-viewport" aria-label="Previous projects"><i class="fas fa-chevron-left"></i></button>
+                        <button class="carousel-next" type="button" aria-controls="projects-viewport" aria-label="Next projects"><i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
             </div>

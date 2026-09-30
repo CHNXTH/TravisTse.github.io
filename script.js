@@ -2135,286 +2135,91 @@ function initNavHighlight() {
 
 // 项目轮播功能
 function initProjectsCarousel() {
-    const projectsCarousel = document.querySelector('.projects-carousel');
-    const projectsWrapper = document.querySelector('.projects-wrapper');
-    const prevBtn = document.querySelector('.carousel-prev');
-    const nextBtn = document.querySelector('.carousel-next');
-    const dotsContainer = document.querySelector('.carousel-dots');
-
-    if (!projectsCarousel || !projectsWrapper) {
-        return;
-    }
-
-    // Prevent double-binding when the section is re-rendered by sync.
-    if (projectsCarousel._carouselAbortController) {
-        projectsCarousel._carouselAbortController.abort();
-    }
+    const carousel = document.querySelector('.projects-carousel');
+    const viewport = carousel?.querySelector('.projects-viewport');
+    const wrapper = carousel?.querySelector('.projects-wrapper');
+    if (!viewport || !wrapper) return;
+    carousel._carouselAbortController?.abort();
     const controller = new AbortController();
     const { signal } = controller;
-    projectsCarousel._carouselAbortController = controller;
-
-    // We animate ONLY the wrapper transform. Do NOT scroll the carousel container,
-    // otherwise the controls will move with the content.
-    projectsCarousel.scrollLeft = 0;
-    projectsCarousel.style.overflow = 'hidden';
-
-    // Remove old clones (if any), then snapshot originals.
-    projectsWrapper.querySelectorAll('[data-project-clone="true"]').forEach((el) => el.remove());
-    const originals = Array.from(projectsWrapper.querySelectorAll('.project-item'));
-    if (!originals.length) return;
-    const originalCount = originals.length;
-
-    // Clone once to make an endless loop.
-    originals.forEach((item) => {
-        const clone = item.cloneNode(true);
-        clone.setAttribute('data-project-clone', 'true');
-        clone.setAttribute('aria-hidden', 'true');
-        projectsWrapper.appendChild(clone);
-    });
-
-    const prefersReduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
-
-    const getProjectsPerView = () => {
-        if (window.innerWidth > 992) return 3;
-        if (window.innerWidth > 768) return 2;
-        return 1;
+    carousel._carouselAbortController = controller;
+    const prev = carousel.querySelector('.carousel-prev');
+    const next = carousel.querySelector('.carousel-next');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const maxScroll = () => Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    const clamp = x => Math.max(0, Math.min(maxScroll(), x));
+    const stops = () => {
+        const cards = [...wrapper.children];
+        const first = cards[0]?.offsetLeft || 0;
+        return [...new Set([0, ...cards.map(card => clamp(card.offsetLeft - first)), maxScroll()])];
     };
-
-    const getStride = () => {
-        const first = projectsWrapper.querySelector('.project-item');
-        if (!first) return 0;
-        const style = window.getComputedStyle(first);
-        const marginLeft = parseFloat(style.marginLeft) || 0;
-        const marginRight = parseFloat(style.marginRight) || 0;
-        return first.getBoundingClientRect().width + marginLeft + marginRight;
+    const update = () => {
+        const x = viewport.scrollLeft;
+        if (prev) prev.hidden = prev.disabled = x <= 2;
+        if (next) next.hidden = next.disabled = x >= maxScroll() - 2;
     };
-
-    // Wrapper should feel smooth.
-    projectsWrapper.style.willChange = 'transform';
-    projectsWrapper.style.transition = 'none';
-
-    // Auto marquee (slower, constant)
-    const speedPxPerSec = 12;
-    let isHovered = false;
-    let pausedUntil = 0; // resume after 10s idle
-    let rafId = 0;
-    let lastTs = 0;
-    let manualAnim = null; // { from, to, start, duration }
-    let stride = 0;
-    let resetPoint = 0;
-    let offsetPx = 0; // how far we've moved to the left
-    let needsMeasure = true;
-    let measureRaf = 0;
-
-    const nowMs = () => performance.now();
-
-    const measure = () => {
-        const oldStride = stride || 0;
-        const newStride = getStride();
-        if (!newStride) return;
-        stride = newStride;
-        resetPoint = stride * originalCount;
-        if (oldStride > 0 && Math.abs(oldStride - stride) > 0.5) {
-            // Keep the same fractional index when resizing.
-            const idx = offsetPx / oldStride;
-            offsetPx = idx * stride;
-        }
-        offsetPx = ((offsetPx % resetPoint) + resetPoint) % resetPoint;
+    const move = x => viewport.scrollTo({ left: clamp(x), behavior: reduced.matches ? 'instant' : 'smooth' });
+    const step = direction => {
+        const x = viewport.scrollLeft;
+        const points = stops();
+        move(direction > 0 ? (points.find(p => p > x + 2) ?? maxScroll()) :
+            ([...points].reverse().find(p => p < x - 2) ?? 0));
     };
-
-    const applyTransform = () => {
-        // translate3d for GPU acceleration
-        projectsWrapper.style.transform = `translate3d(${-offsetPx}px, 0, 0)`;
-    };
-
-    const normalizedBaseOffset = () => {
-        if (!resetPoint) return 0;
-        return ((offsetPx % resetPoint) + resetPoint) % resetPoint;
-    };
-
-    const markInteraction = () => {
-        pausedUntil = nowMs() + 10_000;
-    };
-
-    const ensureDots = () => {
-        if (!dotsContainer) return;
-        const perView = getProjectsPerView();
-        const pages = Math.max(1, Math.ceil(originalCount / perView));
-        const existing = Array.from(dotsContainer.querySelectorAll('.dot'));
-        if (existing.length !== pages) {
-            dotsContainer.innerHTML = '';
-            for (let i = 0; i < pages; i += 1) {
-                const dot = document.createElement('span');
-                dot.className = 'dot' + (i === 0 ? ' active' : '');
-                dot.setAttribute('data-index', String(i));
-                dotsContainer.appendChild(dot);
-            }
-        }
-    };
-
-    const setActiveDots = () => {
-        if (!dotsContainer || !stride) return;
-        const dots = Array.from(dotsContainer.querySelectorAll('.dot'));
-        if (!dots.length) return;
-        const perView = getProjectsPerView();
-        const base = normalizedBaseOffset();
-        const index = Math.round(base / stride) % originalCount;
-        const page = Math.floor(index / perView);
-        dots.forEach((dot, i) => dot.classList.toggle('active', i === page));
-    };
-
-    const requestMeasure = () => {
-        needsMeasure = true;
-        if (measureRaf) return;
-        measureRaf = window.requestAnimationFrame(() => {
-            measureRaf = 0;
-            if (!needsMeasure) return;
-            needsMeasure = false;
-            measure();
-            applyTransform();
-            ensureDots();
-            setActiveDots();
-        });
-    };
-
-    const schedule = () => {
-        if (!rafId) rafId = window.requestAnimationFrame(tick);
-    };
-
-    const animateTo = (toOffset, duration = 420) => {
-        manualAnim = { from: offsetPx, to: toOffset, start: nowMs(), duration };
-        schedule();
-    };
-
-    const stepByOneCard = (dir) => {
-        if (prefersReduce) return;
-        requestMeasure();
-        if (!stride || !resetPoint) return;
-        markInteraction();
-        // Seamless wrap:
-        // - Next from the last card should slide into the cloned set, then normalize back.
-        // - Prev from the first card should jump to the cloned set (equivalent position) before animating.
-        if (dir < 0) {
-            const base = normalizedBaseOffset();
-            if (base < stride * 0.5) {
-                offsetPx += resetPoint;
-                applyTransform();
-            }
-        }
-
-        let to = offsetPx + dir * stride;
-        // keep to within a reasonable range (we allow [0, 2*resetPoint) for seamless wrap)
-        const maxRange = resetPoint * 2;
-        if (to < 0) to += resetPoint;
-        if (to >= maxRange) to -= resetPoint;
-        animateTo(to, 420);
-    };
-
-    const onPrev = () => stepByOneCard(-1);
-    const onNext = () => stepByOneCard(1);
-
-    if (prevBtn) prevBtn.addEventListener('click', onPrev, { signal });
-    if (nextBtn) nextBtn.addEventListener('click', onNext, { signal });
-
-    // Dots click: jump to page (pause auto)
-    if (dotsContainer) {
-        dotsContainer.addEventListener('click', (e) => {
-            const dot = e.target.closest('.dot');
-            if (!dot) return;
-            const pageIndex = parseInt(dot.getAttribute('data-index') || '0', 10) || 0;
-            measure();
-            const perView = getProjectsPerView();
-            const targetIndex = clamp(pageIndex * perView, 0, Math.max(0, originalCount - 1));
-            markInteraction();
-            animateTo(targetIndex * stride, 420);
-        }, { signal });
-    }
-
-    // Hover pauses marquee immediately (use multiple events for robustness).
-    const onEnter = () => { isHovered = true; };
-    const onLeave = () => { isHovered = false; };
-    projectsCarousel.addEventListener('pointerenter', onEnter, { signal });
-    projectsCarousel.addEventListener('pointerleave', onLeave, { signal });
-    projectsCarousel.addEventListener('mouseenter', onEnter, { signal });
-    projectsCarousel.addEventListener('mouseleave', onLeave, { signal });
-    projectsWrapper.addEventListener('mouseenter', onEnter, { signal });
-    projectsWrapper.addEventListener('mouseleave', onLeave, { signal });
-
-    // Wheel / touch: treat as user interaction (pause for 10s)
-    projectsCarousel.addEventListener('wheel', (e) => {
+    prev?.addEventListener('click', () => step(-1), { signal });
+    next?.addEventListener('click', () => step(1), { signal });
+    viewport.addEventListener('keydown', e => {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
         e.preventDefault();
-        if (e.deltaY > 0) onNext();
-        else onPrev();
-    }, { passive: false, signal });
-
-    let touchStartX = 0;
-    let touchEndX = 0;
-    projectsCarousel.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true, signal });
-	    projectsCarousel.addEventListener('touchend', (e) => {
-	        touchEndX = e.changedTouches[0].screenX;
-	        const swipeThreshold = 50;
-	        if (touchEndX < touchStartX - swipeThreshold) onNext();
-	        else if (touchEndX > touchStartX + swipeThreshold) onPrev();
-	    }, { passive: true, signal });
-
-	    const ro = new ResizeObserver(() => {
-	        requestMeasure();
-	    });
-    ro.observe(projectsCarousel);
-    ro.observe(projectsWrapper);
-    signal.addEventListener('abort', () => ro.disconnect());
-
-    window.addEventListener('resize', () => {
-        requestMeasure();
+        if (e.key === 'Home') move(0);
+        else if (e.key === 'End') move(maxScroll());
+        else step(e.key === 'ArrowRight' ? 1 : -1);
     }, { signal });
 
-    const tick = (ts) => {
-        rafId = 0;
-        if (!lastTs) lastTs = ts;
-        const dt = Math.min(0.05, (ts - lastTs) / 1000);
-        lastTs = ts;
-
-        if (!stride || !resetPoint) {
-            requestMeasure();
-        }
-
-        // Manual animation (linear for predictable "one card" motion)
-        if (manualAnim) {
-            const t = (nowMs() - manualAnim.start) / manualAnim.duration;
-            if (t >= 1) {
-                offsetPx = manualAnim.to;
-                manualAnim = null;
-                // Normalize back into the base range when we end up in the cloned segment.
-                if (resetPoint) {
-                    const base = normalizedBaseOffset();
-                    offsetPx = base;
-                }
-            } else {
-                const p = clamp(t, 0, 1);
-                offsetPx = manualAnim.from + (manualAnim.to - manualAnim.from) * p;
-            }
-        } else {
-            const idleOk = nowMs() >= pausedUntil;
-            if (!prefersReduce && !isHovered && idleOk && stride && resetPoint) {
-                offsetPx += speedPxPerSec * dt;
-                // Avoid stutter: wrap immediately without huge while-loops
-                if (offsetPx >= resetPoint) offsetPx -= resetPoint;
-            }
-        }
-
-        applyTransform();
-        setActiveDots();
-        schedule();
+    // Native touch/trackpad scrolling owns direction locking and momentum.
+    // Only discrete mouse-wheel input is translated from vertical to horizontal.
+    // Browsers expose no reliable device type; pixel-mode precision input stays native.
+    let wheelTimer;
+    let lastWheelTime = 0;
+    let discreteGesture = false;
+    let wheelActive = false;
+    const finishWheel = () => {
+        wheelActive = false;
+        const x = viewport.scrollLeft;
+        const target = stops().reduce((best, p) => Math.abs(p - x) < Math.abs(best - x) ? p : best, 0);
+        viewport.classList.remove('is-wheeling');
+        move(target);
     };
-
-    requestMeasure();
-    ensureDots();
-    applyTransform();
-    setActiveDots();
-    schedule();
+    viewport.addEventListener('wheel', e => {
+        if (e.ctrlKey || e.metaKey) return;
+        const now = performance.now();
+        const amount = Math.abs(e.deltaY);
+        if (now - lastWheelTime > 220) {
+            discreteGesture = e.deltaMode !== 0 || (amount >= 100 && (amount % 100 === 0 || amount % 120 === 0));
+        }
+        lastWheelTime = now;
+        if (Math.abs(e.deltaX) > 0 || e.shiftKey) discreteGesture = false;
+        if (!discreteGesture || !e.deltaY) return;
+        const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewport.clientWidth : 1);
+        const x = viewport.scrollLeft;
+        if ((delta < 0 && x <= 2) || (delta > 0 && x >= maxScroll() - 2)) return;
+        e.preventDefault();
+        wheelActive = true;
+        viewport.classList.add('is-wheeling');
+        viewport.scrollLeft = clamp(x + delta);
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(finishWheel, 180);
+    }, { passive: false, signal });
+    viewport.addEventListener('scroll', update, { passive: true, signal });
+    const observer = new ResizeObserver(update);
+    observer.observe(viewport);
+    observer.observe(wrapper);
+    signal.addEventListener('abort', () => {
+        observer.disconnect();
+        clearTimeout(wheelTimer);
+        if (wheelActive) viewport.classList.remove('is-wheeling');
+    }, { once: true });
+    update();
 }
 
 // AI聊天相关功能
