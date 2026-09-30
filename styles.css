@@ -2758,6 +2758,33 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
   }
 }
 
+/* Reveal individual entries without also animating their parent container. */
+#education > .container,
+#experience > .container,
+#papers > .container,
+#awards > .container {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .section-reveal-enabled .section-title,
+  .section-reveal-enabled .education-item,
+  .section-reveal-enabled .experience-item,
+  .section-reveal-enabled .timeline-item {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .section-reveal-enabled .section-revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* One shared axis for the rail and markers, independent of date wrapping and DPR. */
 .timeline-section .timeline {
   --timeline-axis: 8px;
@@ -2773,6 +2800,7 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
 }
 
 .timeline-section .timeline-item {
+  z-index: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   row-gap: 10px;

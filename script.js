@@ -1338,6 +1338,7 @@ function initLanguageToggle() {
 
 // 滚动动画功能
 function initScrollAnimation() {
+    initSectionReveal();
     // 获取所有部分
     const sections = document.querySelectorAll('.section');
     
@@ -1360,6 +1361,42 @@ function initScrollAnimation() {
     // 观察每个部分
     sections.forEach(section => {
         observer.observe(section);
+    });
+}
+
+function initSectionReveal() {
+    const sections = document.querySelectorAll('#education, #experience, #papers, #awards');
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!('IntersectionObserver' in window) || motion.matches) return;
+
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('section-revealed');
+            observer.unobserve(entry.target);
+        });
+    }, { rootMargin: '0px 0px -40px 0px', threshold: 0 });
+
+    const observed = new WeakSet();
+    const observeTargets = section => {
+        section.querySelectorAll('.section-title, .education-item, .experience-item, .timeline-item').forEach(target => {
+            if (observed.has(target)) return;
+            observed.add(target);
+            observer.observe(target);
+        });
+    };
+    // Admin data can replace section items after initial page setup.
+    const updates = new MutationObserver(() => sections.forEach(observeTargets));
+    sections.forEach(section => {
+        section.classList.add('section-reveal-enabled');
+        observeTargets(section);
+        updates.observe(section, { childList: true, subtree: true });
+    });
+    motion.addEventListener('change', event => {
+        if (!event.matches) return;
+        observer.disconnect();
+        updates.disconnect();
+        sections.forEach(section => section.classList.remove('section-reveal-enabled'));
     });
 }
 
