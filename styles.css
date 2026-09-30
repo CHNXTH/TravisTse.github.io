@@ -2761,7 +2761,7 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
 /* One shared axis for the rail and markers, independent of date wrapping and DPR. */
 .timeline-section .timeline {
   --timeline-axis: 8px;
-  --timeline-marker-size: 16px;
+  --timeline-marker-size: 12px;
   padding-left: 0;
 }
 
@@ -2774,8 +2774,8 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
 
 .timeline-section .timeline-item {
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  column-gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 10px;
   margin-left: 0;
   padding-left: 36px;
 }
@@ -2784,13 +2784,13 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
   content: '';
   position: absolute;
   left: var(--timeline-axis);
-  top: 4px;
+  top: 6px;
   width: var(--timeline-marker-size);
   height: var(--timeline-marker-size);
   transform: translateX(-50%);
   border-radius: 50%;
   background: #0033A0;
-  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9);
   z-index: 5;
 }
 
@@ -2810,13 +2810,6 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
   min-width: 0;
   padding-left: 0;
   overflow-wrap: anywhere;
-}
-
-@media (max-width: 768px) {
-  .timeline-section .timeline-item {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 10px;
-  }
 }
 
 .paper-link {
