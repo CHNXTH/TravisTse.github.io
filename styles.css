@@ -3553,7 +3553,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 
 /* Awards, Footprints and Connect share one continuous viewport of sky. */
 .footprints-story { position: relative; isolation: isolate; }
-#footprints { height: 360svh; padding: 0; overflow: visible; pointer-events: none; }
+#footprints { height: 510svh; padding: 0; overflow: visible; pointer-events: none; }
 .footprints-story #map-container {
   position: sticky; top: 0; width: 100%; height: 100svh;
   border: 0; border-radius: 0; padding: 0; background: transparent;
@@ -3624,3 +3624,6 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 .footprints-story #social { z-index: 2; }
 .footprints-story .globe-modal-backdrop { pointer-events: auto; }
 .footprints-story #awards::before { content: none; }
+
+/* Preserve an unsent draft as a single-line preview in the collapsed pill. */
+#globe-message-label { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

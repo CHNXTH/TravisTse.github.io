@@ -348,9 +348,10 @@ class FootprintsStory {
     }
     if (hash !== '#footprints' && hash !== '#social') return;
     const lead = this.motion.matches ? 0 : innerHeight * .45;
-    const range = this.section.offsetHeight - innerHeight + lead;
+    const hold = this.motion.matches ? 0 : this.section.offsetHeight * 150 / 510;
+    const range = this.section.offsetHeight - innerHeight + lead - hold;
     const top = this.section.getBoundingClientRect().top + scrollY;
-    window.scrollTo({ top: top - lead + range * (hash === '#social' ? 1 : (this.motion.matches ? 0 : .62)),
+    window.scrollTo({ top: top - lead + range * (hash === '#social' ? 1 : (this.motion.matches ? 0 : .62)) + (hash === '#social' ? hold : hold / 2),
       behavior: smooth && !this.motion.matches ? 'smooth' : 'instant' });
   }
 
@@ -400,7 +401,11 @@ class FootprintsStory {
     const reduced = this.motion.matches;
     const sectionTop = this.section.getBoundingClientRect().top;
     const lead = reduced ? 0 : innerHeight * .45;
-    const raw = clamp((lead - sectionTop) / Math.max(1, this.section.offsetHeight - innerHeight + lead), 0, 1);
+    // Add a reversible dwell interval without slowing the entrance or exit.
+    const hold = reduced ? 0 : this.section.offsetHeight * 150 / 510;
+    const range = Math.max(1, this.section.offsetHeight - innerHeight + lead - hold);
+    const traveled = lead - sectionTop;
+    const raw = clamp((traveled - clamp(traveled - range * .62, 0, hold)) / range, 0, 1);
     const awardsVisible = sectionTop > lead + 1;
     const awardsOpacity = reduced ? 1 : clamp((sectionTop / innerHeight - .15) / .60, 0, 1);
     this.root.style.setProperty('--awards-opacity', awardsOpacity);
@@ -466,7 +471,7 @@ class FootprintsStory {
     }
     g.controls.enabled = phase === 2;
     g.controls.autoRotate = phase === 2 && !reduced && g.autoRotate;
-    g.controls.minDistance = this.radiusFor(.82);
+    g.controls.minDistance = this.radiusFor(innerWidth > 767 ? .94 : .82);
     g.controls.maxDistance = this.radiusFor(.24);
     if (phase === 2) {
       g.camera.position.clampLength(g.controls.minDistance, g.controls.maxDistance);
@@ -948,7 +953,7 @@ class FootprintsGlobe {
   }
 
   spawnMeteorBurst() {
-    const burstCount = Math.random() < 0.45 ? 2 : 1;
+    const burstCount = Math.random() < 0.60 ? 2 : 1;
     let spawned = 0;
 
     for (const meteor of this.meteorPool) {
@@ -977,7 +982,7 @@ class FootprintsGlobe {
       if (spawned >= burstCount) break;
     }
 
-    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(4500, 10000);
+    this.nextMeteorAt = performance.now() + THREE.MathUtils.randFloat(2000, 5000);
   }
 
   updateMeteorLine(meteor) {
@@ -1292,7 +1297,7 @@ class FootprintsGlobe {
       const pulse = marker.userData._isPreview ? (1 + Math.sin(pulseTime) * 0.12) : 1;
       const emphasis = (isHovered || isPinned ? 1.12 : 1.0) * pulse;
 
-      marker.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, basePixels * emphasis));
+      marker.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, basePixels * emphasis * (innerWidth <= 767 ? .5 : 1)));
 
       const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
       if (glow) {
@@ -1306,7 +1311,7 @@ class FootprintsGlobe {
         }
       }
 
-      const hit = markerGroup.children.find((child) => child.userData && child.userData._visibleDot === marker);
+      const hit = markerGroup.children.find((child) => child !== marker && child.userData && child.userData._visibleDot === marker);
       if (hit) {
         const hitPixels = hit.userData && hit.userData._pixelSize ? hit.userData._pixelSize : 24;
         hit.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, hitPixels * (this.isCoarsePointer ? 1.08 : 1)));
@@ -1341,7 +1346,7 @@ class FootprintsGlobe {
       const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
       if (glow) glow.visible = isVisible;
 
-      const hit = markerGroup.children.find((child) => child.userData && child.userData._visibleDot === marker);
+      const hit = markerGroup.children.find((child) => child !== marker && child.userData && child.userData._visibleDot === marker);
       if (hit) hit.visible = isVisible;
 
       if (!isVisible) {
@@ -1765,7 +1770,7 @@ function setMessageState(state) {
   ui.launcher.inert = expanded;
   ui.launcher.setAttribute('aria-expanded', String(expanded));
   ui.launcher.disabled = state === 'sent';
-  ui.label.textContent = state === 'sent' ? 'Sent successfully ！' : 'Leave a message';
+  ui.label.textContent = state === 'sent' ? 'Sent successfully ！' : (ui.text.value.trim() || 'Leave a message');
   ui.send.disabled = state !== 'editing' || !ui.text.value.trim();
   ui.entry.setAttribute('aria-busy', String(state === 'locating' || state === 'sending'));
 }
