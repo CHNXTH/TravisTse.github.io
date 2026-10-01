@@ -297,6 +297,199 @@ function getEarthUtcRotation(date = new Date()) {
   return -THREE.MathUtils.degToRad(subsolarLongitudeDeg);
 }
 
+// The story owns the camera only outside the free interaction window.
+// OrbitControls receives gestures on a projected sphere disk, never on the sky.
+class FootprintsStory {
+  constructor(globe) {
+    this.globe = globe;
+    this.root = document.getElementById('footprints-story');
+    this.section = document.getElementById('footprints');
+    this.awards = document.getElementById('awards');
+    this.planetOpacity = { value: 0 };
+    this.social = document.getElementById('social');
+    this.motion = matchMedia('(prefers-reduced-motion: reduce)');
+    this.phase = -1;
+    this.progress = null;
+    this.active = false;
+    this.ui = [...globe.container.querySelectorAll('.globe-overlay-controls, .globe-message-entry, .map-fullscreen-btn, .map-fullscreen-exit-btn')];
+    this.ui.forEach(el => el.classList.add('globe-story-ui'));
+    this.onAnchor = event => {
+      const link = event.target.closest('a[href="#awards"], a[href="#footprints"], a[href="#social"]');
+      if (!link) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      document.querySelectorAll('.hamburger-menu, .mobile-menu').forEach(el => el.classList.remove('active'));
+      this.goTo(link.getAttribute('href'), true);
+    };
+    this.onHash = () => this.goTo(location.hash, false);
+    document.addEventListener('click', this.onAnchor, true);
+    window.addEventListener('hashchange', this.onHash);
+    this.onVisibility = () => {
+      if (this.active && !document.hidden) globe.start();
+      else globe.stop();
+    };
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.observer = new IntersectionObserver(([entry]) => {
+      this.active = entry.isIntersecting;
+      this.onVisibility();
+    });
+    this.observer.observe(this.root);
+    requestAnimationFrame(() => this.onHash());
+  }
+
+  goTo(hash, smooth) {
+    if (hash === '#awards') {
+      window.scrollTo({ top: this.awards.getBoundingClientRect().top + scrollY,
+        behavior: smooth && !this.motion.matches ? 'smooth' : 'instant' });
+      return;
+    }
+    if (hash !== '#footprints' && hash !== '#social') return;
+    const lead = this.motion.matches ? 0 : innerHeight * .45;
+    const range = this.section.offsetHeight - innerHeight + lead;
+    const top = this.section.getBoundingClientRect().top + scrollY;
+    window.scrollTo({ top: top - lead + range * (hash === '#social' ? 1 : (this.motion.matches ? 0 : .62)),
+      behavior: smooth && !this.motion.matches ? 'smooth' : 'instant' });
+  }
+
+  preparePlanetFade() {
+    // One shared alpha uniform fades only Earth and its markers, never the stars.
+    this.globe.globeGroup.traverse(object => {
+      const material = object.material;
+      if (!material || material.userData.storyFade) return;
+      material.userData.storyFade = true;
+      material.transparent = true;
+      const inject = source => 'uniform float uStoryOpacity;\n' + source.replace(/}\s*$/, 'gl_FragColor.a *= uStoryOpacity;\n}');
+      if (material.isShaderMaterial) {
+        material.uniforms.uStoryOpacity = this.planetOpacity;
+        material.fragmentShader = inject(material.fragmentShader);
+      } else {
+        material.onBeforeCompile = shader => {
+          shader.uniforms.uStoryOpacity = this.planetOpacity;
+          shader.fragmentShader = inject(shader.fragmentShader);
+        };
+        material.customProgramCacheKey = () => 'footprints-story-alpha';
+      }
+      material.needsUpdate = true;
+    });
+  }
+
+  radiusFor(fraction) {
+    const camera = this.globe.camera;
+    const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+    const extent = fraction * Math.tan(halfFov) * Math.min(1, camera.aspect);
+    return Math.sqrt(1 + 1 / (extent * extent));
+  }
+
+  poseEntrance(t) {
+    const g = this.globe;
+    // Longitude offset is shared with the existing marker coordinate system.
+    const longitude = THREE.MathUtils.lerp(20, 105, t);
+    g.globeGroup.rotation.y = THREE.MathUtils.degToRad(-longitude - MARKER_LONGITUDE_OFFSET_DEG) - getEarthUtcRotation();
+    const latitude = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(5, 32, t));
+    const radius = THREE.MathUtils.lerp(this.radiusFor(.34), this.radiusFor(.70), t);
+    g.camera.position.set(0, Math.sin(latitude) * radius, Math.cos(latitude) * radius);
+    g.camera.lookAt(0, 0, 0);
+    g.globeGroup.scale.setScalar(1);
+  }
+
+  update(dt) {
+    const g = this.globe;
+    const reduced = this.motion.matches;
+    const sectionTop = this.section.getBoundingClientRect().top;
+    const lead = reduced ? 0 : innerHeight * .45;
+    const raw = clamp((lead - sectionTop) / Math.max(1, this.section.offsetHeight - innerHeight + lead), 0, 1);
+    const awardsVisible = sectionTop > lead + 1;
+    const awardsOpacity = reduced ? 1 : clamp((sectionTop / innerHeight - .15) / .60, 0, 1);
+    this.root.style.setProperty('--awards-opacity', awardsOpacity);
+    this.awards.inert = awardsOpacity === 0;
+    if (this.progress === null || reduced) this.progress = raw;
+    else this.progress += (raw - this.progress) * (1 - Math.exp(-Math.min(dt, .1) * 22));
+    if (Math.abs(raw - this.progress) < .0001) this.progress = raw;
+    const p = this.progress;
+    const fullscreen = document.fullscreenElement === g.container;
+    const phase = fullscreen ? 2 : awardsVisible ? 0 : reduced ? 2 : p < .55 ? 1 : p <= .72 ? 2 : 3;
+    if (phase !== this.phase || reduced !== this.reduced) {
+      if (phase < 2 && this.phase >= 2) {
+        this.reversePose = { position: g.camera.position.clone(), rotation: g.globeGroup.rotation.y };
+      }
+      // Drain OrbitControls' damping deltas before transferring camera ownership.
+      g.controls.autoRotate = false;
+      g.controls.enableDamping = false;
+      g.controls.update();
+      g.controls.enableDamping = true;
+      if (phase >= 2 && (this.phase < 2 || (reduced && !this.reduced))) {
+        if (this.reversePose && !reduced) {
+          g.camera.position.copy(this.reversePose.position);
+          g.globeGroup.rotation.y = this.reversePose.rotation;
+        } else this.poseEntrance(1);
+      }
+      if (phase !== 2) {
+        g.clearPinnedTooltip();
+        g.hovered = null;
+        g.hideTooltip();
+      }
+      this.ui.forEach(el => {
+        el.classList.toggle('section-revealed', phase === 2);
+        el.inert = phase !== 2;
+      });
+      this.reduced = reduced;
+      this.phase = phase;
+      this.root.dataset.phase = String(phase);
+    }
+    const exit = reduced || fullscreen ? 0 : clamp((p - .72) / .28, 0, 1);
+    if (phase < 2) {
+      this.poseEntrance(clamp(p / .55, 0, 1));
+      if (this.reversePose) {
+        const blend = clamp((.55 - p) / .12, 0, 1);
+        g.camera.position.lerp(this.reversePose.position, 1 - blend);
+        const delta = Math.atan2(Math.sin(g.globeGroup.rotation.y - this.reversePose.rotation),
+          Math.cos(g.globeGroup.rotation.y - this.reversePose.rotation));
+        g.globeGroup.rotation.y = this.reversePose.rotation + delta * blend;
+        g.camera.lookAt(0, 0, 0);
+        if (blend === 1) this.reversePose = null;
+      }
+    } else g.globeGroup.scale.setScalar(THREE.MathUtils.lerp(1, .41, exit));
+    g.controls.enabled = phase === 2;
+    g.controls.autoRotate = phase === 2 && !reduced && g.autoRotate;
+    g.controls.minDistance = this.radiusFor(.82);
+    g.controls.maxDistance = this.radiusFor(.24);
+    if (phase === 2) {
+      g.camera.position.clampLength(g.controls.minDistance, g.controls.maxDistance);
+      g.controls.update();
+    }
+    this.planetOpacity.value = fullscreen ? 1 : awardsVisible ? 0 : reduced ? 1 : clamp(p / .12, 0, 1);
+    g.globeGroup.visible = this.planetOpacity.value > 0;
+    this.root.style.setProperty('--connect-opacity', reduced ? 1 : clamp((exit - .25) / .65, 0, 1));
+    this.social.inert = !reduced && exit < .3;
+    const connectVisible = reduced
+      ? this.social.getBoundingClientRect().top < innerHeight * .75
+      : exit > .25;
+    this.root.dataset.connectVisible = String(connectVisible);
+    this.root.style.setProperty('--globe-exit', exit);
+    this.ui.forEach(el => { el.inert = phase !== 2 || connectVisible; });
+    const bounds = this.root.getBoundingClientRect();
+    if (bounds.top <= innerHeight * .2 && bounds.bottom > innerHeight * .3) {
+      const id = sectionTop > innerHeight * .2 ? '#awards' : raw > .86 ? '#social' : '#footprints';
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === id);
+      });
+    }
+    // Exact perspective silhouette of a unit sphere plus a stable 2px edge tolerance.
+    const r = g.camera.position.length();
+    const diameter = g.container.clientHeight / (Math.tan(THREE.MathUtils.degToRad(g.camera.fov / 2)) * Math.sqrt(r * r - 1)) + 4;
+    g.gestureSurface.style.width = `${diameter}px`;
+    g.gestureSurface.style.height = `${diameter}px`;
+    g.gestureSurface.style.pointerEvents = phase === 2 ? 'auto' : 'none';
+  }
+
+  destroy() {
+    this.observer.disconnect();
+    document.removeEventListener('click', this.onAnchor, true);
+    window.removeEventListener('hashchange', this.onHash);
+    document.removeEventListener('visibilitychange', this.onVisibility);
+  }
+}
+
 class FootprintsGlobe {
   constructor({ canvas, container }) {
     this.canvas = canvas;
@@ -419,7 +612,12 @@ class FootprintsGlobe {
     this.sunLight.position.set(5, 2, 5);
     this.scene.add(this.sunLight);
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.gestureSurface = document.createElement('div');
+    this.gestureSurface.className = 'globe-gesture-surface';
+    this.gestureSurface.setAttribute('aria-label', 'Rotate and zoom the globe');
+    this.container.appendChild(this.gestureSurface);
+    this.canvas.style.touchAction = 'pan-y';
+    this.controls = new OrbitControls(this.camera, this.gestureSurface);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.enablePan = false;
@@ -437,17 +635,17 @@ class FootprintsGlobe {
     await this.loadEarth();
 
     window.addEventListener('resize', this._onResize);
-    this.canvas.addEventListener('pointermove', this._onPointerMove, { passive: true });
-    this.canvas.addEventListener('pointerenter', this._onPointerEnter, { passive: true });
-    this.canvas.addEventListener('pointerleave', this._onCanvasLeave, { passive: true });
-    this.canvas.addEventListener('pointerdown', this._onPointerDownCanvas, { passive: true });
-    this.canvas.addEventListener('pointerup', this._onPointerUpCanvas, { passive: true });
-    this.canvas.addEventListener('click', this._onClick, { passive: true });
+    this.gestureSurface.addEventListener('pointermove', this._onPointerMove, { passive: true });
+    this.gestureSurface.addEventListener('pointerenter', this._onPointerEnter, { passive: true });
+    this.gestureSurface.addEventListener('pointerleave', this._onCanvasLeave, { passive: true });
+    this.gestureSurface.addEventListener('pointerdown', this._onPointerDownCanvas, { passive: true });
+    this.gestureSurface.addEventListener('pointerup', this._onPointerUpCanvas, { passive: true });
+    this.gestureSurface.addEventListener('click', this._onClick, { passive: true });
     document.addEventListener('fullscreenchange', this._onFullscreenChange);
     this.handleFullscreenChange();
 
     this.resize();
-    this.start();
+    this.story = new FootprintsStory(this);
   }
 
   async loadEarth() {
@@ -664,7 +862,7 @@ class FootprintsGlobe {
       const i3 = i * 3;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
-      const radius = THREE.MathUtils.randFloat(9.5, 12.5);
+      const radius = THREE.MathUtils.randFloat(35, 45);
       const sinPhi = Math.sin(phi);
 
       positions[i3] = radius * sinPhi * Math.cos(theta);
@@ -682,7 +880,7 @@ class FootprintsGlobe {
     starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     const starMaterial = new THREE.PointsMaterial({
-      size: 0.065,
+      size: 0.16,
       sizeAttenuation: true,
       vertexColors: true,
       transparent: true,
@@ -927,6 +1125,7 @@ class FootprintsGlobe {
     const duration = 280;
 
     const animate = (now) => {
+      if (this.story && this.story.phase !== 2) return;
       const t = clamp((now - start) / duration, 0, 1);
       const eased = 1 - Math.pow(1 - t, 3);
       const radius = THREE.MathUtils.lerp(startRadius, targetRadius, eased);
@@ -939,7 +1138,15 @@ class FootprintsGlobe {
     requestAnimationFrame(animate);
   }
 
+  stop() {
+    cancelAnimationFrame(this._raf);
+    this._raf = 0;
+    this.clock.getDelta();
+  }
+
   start() {
+    if (this._raf) return;
+    this.clock.getDelta();
     const loop = () => {
       this._raf = requestAnimationFrame(loop);
 
@@ -955,11 +1162,11 @@ class FootprintsGlobe {
       if (this.sunLight) this.sunLight.position.copy(this.sunDir.clone().multiplyScalar(6));
 
       const dt = this.clock.getDelta();
-      if (this.starfieldGroup) {
+      if (this.starfieldGroup && !this.story.motion.matches) {
         this.starfieldGroup.rotation.y += dt * 0.016;
         this.starfieldGroup.rotation.x = Math.sin(now.getTime() * 0.00005) * 0.03;
       }
-      this.updateMeteors(dt, performance.now());
+      if (!this.story.motion.matches) this.updateMeteors(dt, performance.now());
       // Spin the globe itself so markers stay locked to geography while the planet rotates.
       this.controls.autoRotate = this.autoRotate;
 
@@ -972,10 +1179,11 @@ class FootprintsGlobe {
         this.hideTooltip();
       }
 
-      this.controls.update();
+      this.story.update(dt);
       this.updateMarkerVisibility();
       this.updateMarkerScreenScale();
-      this.updateHover();
+      if (this.story.phase === 2) this.updateHover();
+      this.story.preparePlanetFade();
       this.renderer.render(this.scene, this.camera);
     };
     loop();
@@ -1258,6 +1466,7 @@ class FootprintsGlobe {
     const ease = (t) => 1 - Math.pow(1 - t, 3);
 
     const animate = (now) => {
+      if (this.story && this.story.phase !== 2) return;
       const t = clamp((now - start) / duration, 0, 1);
       const k = ease(t);
       const stepQuat = new THREE.Quaternion().slerpQuaternions(
@@ -1469,14 +1678,17 @@ class FootprintsGlobe {
   }
 
   destroy() {
-    cancelAnimationFrame(this._raf);
+    this.stop();
+    this.story?.destroy();
+    this.controls?.dispose();
+    this.gestureSurface?.remove();
     window.removeEventListener('resize', this._onResize);
-    this.canvas.removeEventListener('pointermove', this._onPointerMove);
-    this.canvas.removeEventListener('pointerenter', this._onPointerEnter);
-    this.canvas.removeEventListener('pointerleave', this._onCanvasLeave);
-    this.canvas.removeEventListener('pointerdown', this._onPointerDownCanvas);
-    this.canvas.removeEventListener('pointerup', this._onPointerUpCanvas);
-    this.canvas.removeEventListener('click', this._onClick);
+    this.gestureSurface.removeEventListener('pointermove', this._onPointerMove);
+    this.gestureSurface.removeEventListener('pointerenter', this._onPointerEnter);
+    this.gestureSurface.removeEventListener('pointerleave', this._onCanvasLeave);
+    this.gestureSurface.removeEventListener('pointerdown', this._onPointerDownCanvas);
+    this.gestureSurface.removeEventListener('pointerup', this._onPointerUpCanvas);
+    this.gestureSurface.removeEventListener('click', this._onClick);
     document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     this.hideTooltip();
     if (this.renderer) this.renderer.dispose();

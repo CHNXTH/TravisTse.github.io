@@ -26,11 +26,6 @@
   --country-stroke: #F4F4F4;
   --footprint-color: #0066ff;
   --footer-bg: var(--light-gray);
-  --connect-wave-bg: #ffffff;
-  /* Slight blue tint for the particle waves */
-  --connect-wave-dot: rgba(38, 79, 140, 0.11);
-  --connect-wave-dot-strong: rgba(38, 79, 140, 0.18);
-  --connect-wave-glow: rgba(0, 113, 227, 0.06);
 
   /* Hero "code" summary + interactive glow */
   --hero-code-bg: rgba(6, 24, 44, 0.06);
@@ -84,11 +79,6 @@
     --country-stroke: #444444;
 	    --footprint-color: #0082fc;
 	    --footer-bg: #252525;
-	    --connect-wave-bg: #1a1a1a;
-	    /* Keep a cool blue tint in dark mode too */
-	    --connect-wave-dot: rgba(170, 210, 255, 0.11);
-	    --connect-wave-dot-strong: rgba(190, 225, 255, 0.18);
-	    --connect-wave-glow: rgba(0, 130, 252, 0.10);
 
     --hero-code-bg: rgba(7, 12, 20, 0.62);
     --hero-code-border: rgba(148, 206, 255, 0.14);
@@ -143,10 +133,6 @@
   --country-stroke: #F4F4F4;
   --footprint-color: #0066ff;
   --footer-bg: var(--light-gray);
-  --connect-wave-bg: #ffffff;
-  --connect-wave-dot: rgba(38, 79, 140, 0.11);
-  --connect-wave-dot-strong: rgba(38, 79, 140, 0.18);
-  --connect-wave-glow: rgba(0, 113, 227, 0.06);
   --hero-code-bg: rgba(6, 24, 44, 0.06);
   --hero-code-border: rgba(15, 23, 42, 0.10);
   --hero-code-text: rgba(15, 23, 42, 0.86);
@@ -195,10 +181,6 @@
   --country-stroke: #444444;
   --footprint-color: #0082fc;
   --footer-bg: #252525;
-  --connect-wave-bg: #1a1a1a;
-  --connect-wave-dot: rgba(170, 210, 255, 0.11);
-  --connect-wave-dot-strong: rgba(190, 225, 255, 0.18);
-  --connect-wave-glow: rgba(0, 130, 252, 0.10);
   --hero-code-bg: rgba(7, 12, 20, 0.62);
   --hero-code-border: rgba(148, 206, 255, 0.14);
   --hero-code-text: rgba(210, 230, 255, 0.88);
@@ -1176,9 +1158,7 @@ main {
   overflow: hidden;
   padding: 110px 0 70px;
   margin-top: 40px;
-  background: radial-gradient(900px 420px at 60% 0%, var(--connect-wave-glow), transparent 65%),
-              linear-gradient(180deg, rgba(255, 255, 255, 0.0), rgba(255, 255, 255, 0.0));
-  background-color: var(--connect-wave-bg);
+  background: transparent;
 }
 
 .connect-footer-section .container {
@@ -1186,14 +1166,6 @@ main {
   z-index: 1;
 }
 
-.connect-wave-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-}
 
 .connect-footer-bottom {
   margin-top: 36px;
@@ -3691,3 +3663,89 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     cursor: url("assets/cursor/cursor-hand.svg") 11 7, pointer !important;
   }
 }
+
+/* Awards, Footprints and Connect share one continuous viewport of sky. */
+.footprints-story { position: relative; isolation: isolate; }
+#footprints { height: 360svh; padding: 0; overflow: visible; pointer-events: none; }
+.footprints-story #map-container {
+  position: sticky; top: 0; width: 100%; height: 100svh;
+  border: 0; border-radius: 0; padding: 0; background: transparent;
+  isolation: isolate; margin-bottom: -100svh; pointer-events: none;
+}
+.footprints-story #map-container::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(ellipse at 58% 42%, #0d2040, #01040c 75%);
+  opacity: 1;
+}
+.globe-gesture-surface {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  clip-path: circle(50%); border-radius: 50%; touch-action: none;
+  cursor: grab; z-index: 1;
+}
+.globe-gesture-surface:active { cursor: grabbing; }
+.footprints-story .globe-story-ui {
+  opacity: 0; transform: translateY(28px); visibility: hidden; pointer-events: none;
+  transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 700ms cubic-bezier(0.22, 1, 0.36, 1), visibility 700ms;
+}
+.footprints-story .globe-story-ui.section-revealed {
+  opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto;
+}
+.footprints-story #social {
+  position: absolute; bottom: 0; width: 100%; height: 100svh; box-sizing: border-box;
+  margin: 0; padding: 0 24px 6svh; background: transparent;
+  display: flex; align-items: flex-end; pointer-events: none;
+  color: #f5f7ff;
+}
+.footprints-story #social > .container {
+  opacity: var(--connect-opacity, 0); transform: none; transition: none;
+  pointer-events: auto;
+}
+.footprints-story #social .section-title { color: #f5f7ff; }
+.footprints-story #social #copyright-text { color: #c1cadb; }
+.footprints-story #social .social-icon { color: #f5f7ff; background: rgba(130,160,210,.14); }
+.footprints-story #map-container:fullscreen { height: 100%; margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  #footprints { height: 200svh; }
+  .footprints-story .globe-story-ui { transition: none; transform: none; }
+  .footprints-story #social { height: auto; padding-bottom: 4svh; }
+}
+/* Leave room for the site's existing floating chat launcher. */
+.footprints-story .globe-message-entry { bottom: max(100px, env(safe-area-inset-bottom)); }
+@media (max-width: 767px) {
+  .footprints-story .map-fullscreen-btn,
+  .footprints-story .map-fullscreen-exit-btn { top: 124px; }
+  .footprints-story .globe-overlay-controls { top: 176px; }
+  .footprints-story #map-container:fullscreen .map-fullscreen-exit-btn { top: 14px; }
+  .footprints-story #map-container:fullscreen .globe-overlay-controls { top: 66px; }
+}
+@media (max-width: 767px) {
+  .footprints-story #social { padding-bottom: 100px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footprints-story #world-map { transform: translateY(-18svh); }
+  .footprints-story .globe-gesture-surface { top: 32%; }
+  .footprints-story .globe-message-entry { top: 76px; bottom: auto; left: 14px; right: auto; }
+  .footprints-story #social { padding-bottom: 100px; }
+}
+/* Connect takes over the foreground once its content starts appearing. */
+.footprints-story[data-connect-visible="true"] .globe-story-ui {
+  opacity: 0; visibility: hidden; pointer-events: none; transition: none;
+}
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .footprints-story #world-map { transform: translateY(calc(var(--globe-exit, 0) * -4svh)); }
+}
+
+/* Awards stays readable on the shared sky; only its content fades at the handoff. */
+.footprints-story #awards {
+  margin: 0; padding: 80px 0; background: transparent; z-index: 2;
+  color: #f5f7ff; --primary-color: #f5f7ff;
+  --timeline-color: rgba(177, 204, 245, .28); --timeline-dot-color: #8dbaff;
+}
+.footprints-story #awards > .container {
+  opacity: var(--awards-opacity, 1); transition: none;
+}
+.footprints-story #awards .timeline-date::after { background-color: #71a6ff; }
+.footprints-story #social { z-index: 2; }
+.footprints-story .globe-modal-backdrop { pointer-events: auto; }
+.footprints-story #awards::before { content: none; }
