@@ -1291,19 +1291,25 @@ async function searchPlacesByQuery(query) {
 
 async function reverseGeocodeCity(lat, lng) {
     const upstream = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=10&addressdetails=1`;
-    const response = await fetch(upstream, {
-        headers: {
-            Accept: 'application/json',
-            'Accept-Language': 'en'
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error('Reverse geocoding failed');
+    let address;
+    try {
+        const response = await fetch(upstream, {
+            headers: { Accept: 'application/json', 'Accept-Language': 'en' },
+            signal: AbortSignal.timeout(6000)
+        });
+        if (!response.ok) throw new Error('Reverse geocoding failed');
+        address = (await response.json()).address;
+        if (!address) throw new Error('Missing address');
+    } catch (_) {
+        // Both providers resolve the device coordinates, never the visitor's IP.
+        const fallback = await fetch(`https://photon.komoot.io/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&lang=en`, {
+            headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000)
+        });
+        if (!fallback.ok) throw new Error('Reverse geocoding failed');
+        const properties = (await fallback.json()).features?.[0]?.properties;
+        if (!properties) throw new Error('City-level location unavailable');
+        address = { ...properties, country_code: properties.countrycode };
     }
-
-    const data = await response.json().catch(() => ({}));
-    const address = data && data.address ? data.address : {};
     const country = address.country || '';
     const countryCode = typeof address.country_code === 'string' ? address.country_code.toUpperCase() : '';
     const directAdmin = String(address.state || '').trim();
