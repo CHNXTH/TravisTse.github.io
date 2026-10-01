@@ -2986,6 +2986,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
     overflow-x: auto;
     overflow-y: hidden;
     padding: 16px var(--project-gutter) 28px;
+    padding-right: max(var(--project-gutter), var(--project-end-space, var(--project-gutter)));
     scroll-padding-inline: var(--project-gutter);
     scroll-snap-type: x mandatory;
     overscroll-behavior-x: contain;
@@ -2995,7 +2996,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 .projects-viewport::-webkit-scrollbar { display: none; }
 .projects-viewport.is-wheeling { scroll-snap-type: none; }
 .projects-viewport:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
-.projects-wrapper { display: flex; gap: 20px; }
+.projects-wrapper { display: flex; width: max-content; min-width: 100%; gap: 20px; }
 
 .project-item {
     flex: 0 0 360px;
@@ -3139,9 +3140,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 @media (max-width: 768px) {
     .projects-wrapper { gap: 16px; }
     .project-item { flex-basis: min(360px, 82vw); }
-    .carousel-prev, .carousel-next { width: 44px; height: 44px; font-size: 19px; }
-    .carousel-prev { left: 8px; }
-    .carousel-next { right: 8px; }
+    .carousel-controls { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
     .project-item, .project-image { transition: none; }

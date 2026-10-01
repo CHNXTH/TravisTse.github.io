@@ -2146,6 +2146,21 @@ function initProjectsCarousel() {
     const prev = carousel.querySelector('.carousel-prev');
     const next = carousel.querySelector('.carousel-next');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncEndSpace = () => {
+        const firstCard = wrapper.firstElementChild;
+        if (!firstCard) return;
+        const viewportStyles = window.getComputedStyle(viewport);
+        const startPadding = parseFloat(viewportStyles.paddingLeft) || 0;
+        const cardWidth = firstCard.getBoundingClientRect().width;
+        const gap = parseFloat(window.getComputedStyle(wrapper).columnGap) || 0;
+        // Leave one additional card step at the end, without scrolling past
+        // the last card's leading-edge snap point on narrow screens.
+        const endSpace = Math.max(startPadding, Math.min(
+            startPadding + cardWidth + gap,
+            viewport.clientWidth - startPadding - cardWidth
+        ));
+        viewport.style.setProperty('--project-end-space', `${endSpace}px`);
+    };
     const maxScroll = () => Math.max(0, viewport.scrollWidth - viewport.clientWidth);
     const clamp = x => Math.max(0, Math.min(maxScroll(), x));
     const stops = () => {
@@ -2211,15 +2226,22 @@ function initProjectsCarousel() {
         wheelTimer = setTimeout(finishWheel, 180);
     }, { passive: false, signal });
     viewport.addEventListener('scroll', update, { passive: true, signal });
-    const observer = new ResizeObserver(update);
+    const refresh = () => {
+        syncEndSpace();
+        update();
+    };
+    const observer = new ResizeObserver(refresh);
     observer.observe(viewport);
     observer.observe(wrapper);
+    const contentObserver = new MutationObserver(refresh);
+    contentObserver.observe(wrapper, { childList: true });
     signal.addEventListener('abort', () => {
         observer.disconnect();
+        contentObserver.disconnect();
         clearTimeout(wheelTimer);
         if (wheelActive) viewport.classList.remove('is-wheeling');
     }, { once: true });
-    update();
+    refresh();
 }
 
 // AI聊天相关功能
