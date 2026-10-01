@@ -1554,7 +1554,6 @@ function addLanguageIcon() {
 function initWorldMap() {
     // Switched to 3D Earth globe (see footprints-globe.js).
     // Keep initWorldMap() as an entry point, but bail out before legacy D3 code runs.
-    initMapFullscreenControls();
     if (typeof window.refreshFootprintsGlobe === 'function') {
         // Remove any legacy SVG if it exists (cached DOM).
         try {
@@ -1630,7 +1629,6 @@ function initWorldMap() {
     const height = 600;
 
     // Fullscreen controls (button in index.html)
-    initMapFullscreenControls();
     
     // 判断当前是否为深色模式
     const isDarkMode = document.documentElement.classList.contains('dark-mode');
@@ -1899,30 +1897,6 @@ function initWorldMap() {
             svg.call(zoom);
         })
         .catch(error => console.error('加载世界地图数据时出错:', error));
-}
-
-function initMapFullscreenControls() {
-    const container = document.getElementById('map-container');
-    const btnEnter = document.getElementById('map-fullscreen-btn');
-    const btnExit = document.getElementById('map-fullscreen-exit-btn');
-    if (!container || !btnEnter || !btnExit) return;
-
-    const enter = async () => {
-        try {
-            if (container.requestFullscreen) await container.requestFullscreen();
-            else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-        } catch (_) {}
-    };
-
-    const exit = async () => {
-        try {
-            if (document.exitFullscreen) await document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        } catch (_) {}
-    };
-
-    btnEnter.addEventListener('click', enter);
-    btnExit.addEventListener('click', exit);
 }
 
 // 添加平滑滚动功能

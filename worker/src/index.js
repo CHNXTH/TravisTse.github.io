@@ -160,7 +160,7 @@ async function handlePlaceReverse(request) {
     const url = new URL(request.url);
     const lat = parseFloat(url.searchParams.get('lat') || '');
     const lng = parseFloat(url.searchParams.get('lng') || '');
-    if (!isFinite(lat) || !isFinite(lng)) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
         return jsonResponse(request, { error: 'Valid lat and lng are required' }, 400);
     }
 
@@ -180,16 +180,14 @@ async function handleAnonymousMessageSubmit(request, env) {
     const body = await safeJson(request);
     const message = typeof body.message === 'string' ? body.message.trim().slice(0, 100) : '';
     const privacyAccepted = body.privacyAccepted === true;
-    const lat = Number(body.lat);
-    const lng = Number(body.lng);
+    const hasLocation = body.lat != null && body.lng != null;
+    const lat = hasLocation ? Number(body.lat) : null;
+    const lng = hasLocation ? Number(body.lng) : null;
 
     if (!message) {
         return jsonResponse(request, { error: 'Message is required' }, 400);
     }
-    if (!privacyAccepted) {
-        return jsonResponse(request, { error: 'Privacy acceptance is required' }, 400);
-    }
-    if (!isFinite(lat) || !isFinite(lng)) {
+    if (hasLocation && (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)) {
         return jsonResponse(request, { error: 'Valid coordinates are required' }, 400);
     }
 
@@ -211,7 +209,7 @@ async function handleAnonymousMessageSubmit(request, env) {
         source: place && typeof place.source === 'string' ? place.source : 'browser_geolocation'
     };
 
-    if (!resolvedPlace.city || !resolvedPlace.displayName) {
+    if (hasLocation && (!resolvedPlace.city || !resolvedPlace.displayName)) {
         try {
             resolvedPlace = {
                 ...resolvedPlace,
@@ -227,7 +225,7 @@ async function handleAnonymousMessageSubmit(request, env) {
         }
     }
 
-    resolvedPlace = alignPlaceToExistingFootprint(content, resolvedPlace);
+    if (!hasLocation) resolvedPlace = null;
 
     const entry = {
         id: `msg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
@@ -236,7 +234,7 @@ async function handleAnonymousMessageSubmit(request, env) {
         intensity: 1,
         isVisible: false,
         isFeatured: false,
-        privacyAccepted: true,
+        privacyAccepted,
         source: typeof body.source === 'string' && body.source.trim() ? body.source.trim() : 'frontend',
         createdAt: new Date().toISOString()
     };

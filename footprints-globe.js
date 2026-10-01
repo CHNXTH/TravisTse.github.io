@@ -137,17 +137,20 @@ function getNormalizedAnonymousMessagesFromStorage({ publicOnly = true } = {}) {
     const place = entry && entry.place && typeof entry.place === 'object' ? entry.place : null;
     const city = place && place.city ? String(place.city) : String(entry.city || '');
     const country = place && place.country ? String(place.country) : String(entry.country || '');
-    const lat = place && Number.isFinite(place.lat) ? Number(place.lat) : parseFloat(entry.lat);
-    const lng = place && Number.isFinite(place.lng) ? Number(place.lng) : parseFloat(entry.lng);
+    const rawLat = place && Number.isFinite(place.lat) ? Number(place.lat) : parseFloat(entry.lat);
+    const rawLng = place && Number.isFinite(place.lng) ? Number(place.lng) : parseFloat(entry.lng);
+    const unlocated = !Number.isFinite(rawLat) || !Number.isFinite(rawLng);
+    const lat = unlocated ? -90 : rawLat;
+    const lng = unlocated ? 0 : rawLng;
     const displayName = place && place.displayName
       ? String(place.displayName)
       : `${city}${country ? ', ' + country : ''}`;
     return {
       id: entry.id || '',
       kind: 'message',
-      name: displayName || 'Unknown',
-      city: city || displayName || 'Unknown',
-      country: country || '',
+      name: unlocated ? 'No location · South Pole' : (displayName || 'Unknown'),
+      city: unlocated ? 'No location · South Pole' : (city || displayName || 'Unknown'),
+      country: unlocated ? '' : (country || ''),
       lat,
       lng,
       intensity: 1,
@@ -311,7 +314,7 @@ class FootprintsStory {
     this.phase = -1;
     this.progress = null;
     this.active = false;
-    this.ui = [...globe.container.querySelectorAll('.globe-overlay-controls, .globe-message-entry, .map-fullscreen-btn, .map-fullscreen-exit-btn')];
+    this.ui = [...globe.container.querySelectorAll('.globe-overlay-controls, .globe-message-entry')];
     this.ui.forEach(el => el.classList.add('globe-story-ui'));
     this.onAnchor = event => {
       const link = event.target.closest('a[href="#awards"], a[href="#footprints"], a[href="#social"]');
@@ -406,8 +409,7 @@ class FootprintsStory {
     else this.progress += (raw - this.progress) * (1 - Math.exp(-Math.min(dt, .1) * 22));
     if (Math.abs(raw - this.progress) < .0001) this.progress = raw;
     const p = this.progress;
-    const fullscreen = document.fullscreenElement === g.container;
-    const phase = fullscreen ? 2 : awardsVisible ? 0 : reduced ? 2 : p < .55 ? 1 : p <= .72 ? 2 : 3;
+    const phase = awardsVisible ? 0 : reduced ? 2 : p < .55 ? 1 : p <= .72 ? 2 : 3;
     if (phase !== this.phase || reduced !== this.reduced) {
       if (phase < 2 && this.phase >= 2) {
         this.reversePose = { position: g.camera.position.clone(), rotation: g.globeGroup.rotation.y };
@@ -436,7 +438,7 @@ class FootprintsStory {
       this.phase = phase;
       this.root.dataset.phase = String(phase);
     }
-    const exit = reduced || fullscreen ? 0 : clamp((p - .72) / .28, 0, 1);
+    const exit = reduced ? 0 : clamp((p - .72) / .28, 0, 1);
     if (phase < 2) {
       this.poseEntrance(clamp(p / .55, 0, 1));
       if (this.reversePose) {
@@ -448,7 +450,20 @@ class FootprintsStory {
         g.camera.lookAt(0, 0, 0);
         if (blend === 1) this.reversePose = null;
       }
-    } else g.globeGroup.scale.setScalar(THREE.MathUtils.lerp(1, .41, exit));
+    } else {
+      // Shrink first, then hold that diameter while lifting the globe toward Connect.
+      const extent = (g.camera.aspect < 1 ? .58 : .43) * Math.tan(THREE.MathUtils.degToRad(g.camera.fov / 2)) * Math.min(1, g.camera.aspect);
+      const targetScale = Math.min(.90, g.camera.position.length() * extent / Math.sqrt(1 + extent * extent));
+      const shrink = THREE.MathUtils.smoothstep(exit, 0, .35);
+      g.globeGroup.scale.setScalar(THREE.MathUtils.lerp(1, targetScale, shrink));
+    }
+    const lift = THREE.MathUtils.smoothstep(exit, .35, 1);
+    const width = g.container.clientWidth, height = g.container.clientHeight;
+    const offset = height * (g.camera.aspect < 1 ? .13 : .11) * lift;
+    if (this.viewOffset !== offset || this.viewWidth !== width || this.viewHeight !== height) {
+      g.camera.setViewOffset(width, height, 0, offset, width, height);
+      this.viewOffset = offset; this.viewWidth = width; this.viewHeight = height;
+    }
     g.controls.enabled = phase === 2;
     g.controls.autoRotate = phase === 2 && !reduced && g.autoRotate;
     g.controls.minDistance = this.radiusFor(.82);
@@ -457,7 +472,7 @@ class FootprintsStory {
       g.camera.position.clampLength(g.controls.minDistance, g.controls.maxDistance);
       g.controls.update();
     }
-    this.planetOpacity.value = fullscreen ? 1 : awardsVisible ? 0 : reduced ? 1 : clamp(p / .12, 0, 1);
+    this.planetOpacity.value = awardsVisible ? 0 : reduced ? 1 : clamp(p / .12, 0, 1);
     g.globeGroup.visible = this.planetOpacity.value > 0;
     this.root.style.setProperty('--connect-opacity', reduced ? 1 : clamp((exit - .25) / .65, 0, 1));
     this.social.inert = !reduced && exit < .3;
@@ -566,7 +581,6 @@ class FootprintsGlobe {
     this._onPointerUpCanvas = (e) => this.onPointerUpCanvas(e);
     this._onPointerDown = () => { this.userInteractingUntil = Date.now() + 12000; this.setAutoRotate(false); };
     this._onPointerUp = () => { this.userInteractingUntil = Date.now() + 12000; };
-    this._onFullscreenChange = () => this.handleFullscreenChange();
   }
 
   async init() {
@@ -641,8 +655,7 @@ class FootprintsGlobe {
     this.gestureSurface.addEventListener('pointerdown', this._onPointerDownCanvas, { passive: true });
     this.gestureSurface.addEventListener('pointerup', this._onPointerUpCanvas, { passive: true });
     this.gestureSurface.addEventListener('click', this._onClick, { passive: true });
-    document.addEventListener('fullscreenchange', this._onFullscreenChange);
-    this.handleFullscreenChange();
+    this.ensureTooltipHost();
 
     this.resize();
     this.story = new FootprintsStory(this);
@@ -1275,6 +1288,7 @@ class FootprintsGlobe {
       const basePixels = marker.userData._pixelSize || 10;
       const isHovered = this.hovered === marker;
       const isPinned = this.pinnedMarker === marker && this.isTooltipPinned();
+      if (marker.userData._isPreview) marker.material.opacity = this.story.motion.matches ? 1 : .6 + .4 * ((Math.sin(pulseTime) + 1) / 2);
       const pulse = marker.userData._isPreview ? (1 + Math.sin(pulseTime) * 0.12) : 1;
       const emphasis = (isHovered || isPinned ? 1.12 : 1.0) * pulse;
 
@@ -1661,20 +1675,13 @@ class FootprintsGlobe {
   }
 
   ensureTooltipHost() {
-    const desiredHost = document.fullscreenElement === this.container ? this.container : document.body;
+    const desiredHost = document.body;
     const desiredPosition = desiredHost === document.body ? 'fixed' : 'absolute';
     if (this.tooltipHost !== desiredHost || this.tooltip.parentElement !== desiredHost) {
       desiredHost.appendChild(this.tooltip);
       this.tooltipHost = desiredHost;
     }
     this.tooltip.style.position = desiredPosition;
-  }
-
-  handleFullscreenChange() {
-    this.ensureTooltipHost();
-    if (this.tooltip.style.visibility === 'visible') {
-      this.positionTooltip();
-    }
   }
 
   destroy() {
@@ -1689,7 +1696,6 @@ class FootprintsGlobe {
     this.gestureSurface.removeEventListener('pointerdown', this._onPointerDownCanvas);
     this.gestureSurface.removeEventListener('pointerup', this._onPointerUpCanvas);
     this.gestureSurface.removeEventListener('click', this._onClick);
-    document.removeEventListener('fullscreenchange', this._onFullscreenChange);
     this.hideTooltip();
     if (this.renderer) this.renderer.dispose();
   }
@@ -1726,10 +1732,10 @@ function getMapUiElements() {
     composer: document.getElementById('globe-message-composer'),
     text: document.getElementById('globe-message-text'),
     counter: document.getElementById('globe-message-counter'),
-    status: document.getElementById('globe-message-location-status'),
+    entry: document.getElementById('globe-message-entry'),
+    label: document.getElementById('globe-message-label'),
+    announcement: document.getElementById('globe-message-announcement'),
     feedback: document.getElementById('globe-message-feedback'),
-    privacy: document.getElementById('globe-message-privacy'),
-    cancel: document.getElementById('globe-message-cancel'),
     send: document.getElementById('globe-message-send'),
     privacyLink: document.getElementById('globe-privacy-link'),
     privacyModal: document.getElementById('globe-privacy-modal'),
@@ -1740,286 +1746,154 @@ function getMapUiElements() {
 
 let globeUiInitialized = false;
 let approxLocationCache = null;
+let messageRequest = 0;
+let messageSending = false;
+let messageResetTimer = 0;
 
 function setComposerFeedback(message = '', type = '') {
   const { feedback } = getMapUiElements();
-  if (!feedback) return;
-  feedback.textContent = message || '';
-  feedback.dataset.state = type || '';
+  feedback.textContent = type === 'error' ? message : '';
+  feedback.dataset.state = type;
 }
 
-function setLocationStatus(message = '') {
-  const { status } = getMapUiElements();
-  if (status) status.textContent = message || 'City-level location will be inferred after consent.';
+function setMessageState(state) {
+  const ui = getMapUiElements();
+  ui.entry.dataset.state = state;
+  const expanded = state === 'editing' || state === 'locating' || state === 'sending';
+  ui.composer.inert = !expanded;
+  ui.composer.setAttribute('aria-hidden', String(!expanded));
+  ui.launcher.inert = expanded;
+  ui.launcher.setAttribute('aria-expanded', String(expanded));
+  ui.launcher.disabled = state === 'sent';
+  ui.label.textContent = state === 'sent' ? 'Sent successfully ！' : 'Leave a message';
+  ui.send.disabled = state !== 'editing' || !ui.text.value.trim();
+  ui.entry.setAttribute('aria-busy', String(state === 'locating' || state === 'sending'));
 }
 
-function toggleComposer(open, { focusText = true } = {}) {
-  const { launcher, composer, text } = getMapUiElements();
-  if (!launcher || !composer) return;
-  const nextOpen = typeof open === 'boolean' ? open : composer.hidden;
-  composer.hidden = !nextOpen;
-  launcher.setAttribute('aria-expanded', String(nextOpen));
-  launcher.classList.toggle('is-open', nextOpen);
-  if (nextOpen && focusText && text) text.focus();
+function closeMessageComposer(globeInstance) {
+  if (messageSending || getMapUiElements().entry.dataset.state === 'sent') return;
+  messageRequest += 1;
+  setMessageState('closed');
+  setComposerFeedback('');
+  if (!anonymousMessagePreviewState?.isSubmitted) clearAnonymousMessagePreview(globeInstance);
 }
 
 function togglePrivacyModal(open) {
-  const { privacyModal } = getMapUiElements();
-  if (!privacyModal) return;
+  const { privacyModal, privacyClose, privacyLink } = getMapUiElements();
   privacyModal.hidden = !open;
+  if (open) privacyClose.focus();
+  else privacyLink.focus({ preventScroll: true });
 }
 
 function refreshAnonymousMessagePreview(globeInstance, { keepVisible = true } = {}) {
-  const { text } = getMapUiElements();
-  if (!anonymousMessagePreviewState || !anonymousMessagePreviewState.place) return;
-  anonymousMessagePreviewState.message = String(text && text.value || '').trim().slice(0, 100);
-  if (globeInstance && keepVisible) {
-    globeInstance.setData(getCombinedGlobeItemsFromStorage());
-  }
+  if (!anonymousMessagePreviewState?.place || anonymousMessagePreviewState.isSubmitted) return;
+  anonymousMessagePreviewState.message = getMapUiElements().text.value.trim().slice(0, 100);
+  if (globeInstance && keepVisible) globeInstance.setData(getCombinedGlobeItemsFromStorage());
 }
 
 function clearAnonymousMessagePreview(globeInstance) {
   anonymousMessagePreviewState = null;
-  if (globeInstance) {
-    globeInstance.setData(getCombinedGlobeItemsFromStorage());
-  }
+  if (globeInstance) globeInstance.setData(getCombinedGlobeItemsFromStorage());
 }
 
-async function prepareAnonymousMessagePreview(globeInstance) {
-  const rawLocation = await locateCurrentCity(globeInstance, { skipFocus: true });
-  const location = alignLocationWithExistingFootprint(rawLocation);
+async function prepareAnonymousMessagePreview(globeInstance, rawLocation) {
+  const location = rawLocation || await fetchApproximateLocation();
   anonymousMessagePreviewState = {
     id: 'msg_preview_current_user',
-    place: {
-      displayName: location.displayName,
-      city: location.city,
-      country: location.country,
-      countryCode: location.countryCode || '',
-      lat: location.lat,
-      lng: location.lng,
-      source: 'browser_geolocation'
-    },
-    message: '',
+    place: { ...location, source: 'browser_geolocation' },
+    message: getMapUiElements().text.value.trim(),
     submittedAt: '',
     isSubmitted: false
   };
-  if (globeInstance) {
-    globeInstance.setData(getCombinedGlobeItemsFromStorage());
-    globeInstance.setAutoRotate(false);
-    globeInstance.userInteractingUntil = Date.now() + 12000;
-    const previewMarker = globeInstance.getMarkerByDataId(anonymousMessagePreviewState.id);
-    if (previewMarker) {
-      globeInstance.focusOnMarker(previewMarker, { zoomFactor: 0.78, duration: 860 });
-    } else {
-      globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: 0.78, duration: 860 });
-    }
-  }
+  globeInstance.setData(getCombinedGlobeItemsFromStorage());
+  globeInstance.setAutoRotate(false);
+  globeInstance.userInteractingUntil = Date.now() + 12000;
+  globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: .84, duration: 860 });
   return location;
 }
 
-async function fetchIpApproximateLocation() {
-  if (!window.cloudflareApi || typeof window.cloudflareApi.approximatePlace !== 'function') {
-    throw new Error('Approximate city lookup is unavailable right now.');
-  }
-
-  const data = await window.cloudflareApi.approximatePlace();
-  if (!data || !Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lng))) {
-    throw new Error('Unable to infer your city from IP right now.');
-  }
-
-  return {
-    id: data.id || '',
-    displayName: String(data.displayName || '').trim(),
-    city: String(data.city || '').trim(),
-    country: String(data.country || '').trim(),
-    countryCode: String(data.countryCode || '').trim(),
-    lat: Number(data.lat),
-    lng: Number(data.lng),
-    source: data.source || 'cloudflare_ip',
-    timestamp: Date.now()
-  };
-}
-
-async function fetchApproximateLocation({ force = false } = {}) {
-  if (!force && approxLocationCache && (Date.now() - approxLocationCache.timestamp) < 5 * 60 * 1000) {
-    return approxLocationCache;
-  }
-
-  let geoError = null;
-  let permissionState = 'unknown';
-
-  if (window.isSecureContext && navigator.permissions && typeof navigator.permissions.query === 'function') {
-    try {
-      const permission = await navigator.permissions.query({ name: 'geolocation' });
-      permissionState = permission && permission.state ? permission.state : 'unknown';
-    } catch (error) {
-      console.warn('Unable to query geolocation permission state:', error);
-    }
-  }
-
-  if (window.isSecureContext && navigator.geolocation && permissionState !== 'denied') {
-    try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 4500,
-          maximumAge: 0
-        });
-      });
-
-      const lat = Number(position && position.coords && position.coords.latitude);
-      const lng = Number(position && position.coords && position.coords.longitude);
-      const accuracy = Number(position && position.coords && position.coords.accuracy);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        throw new Error('Unable to read your device location.');
-      }
-      if (Number.isFinite(accuracy) && accuracy > 50000) {
-        throw new Error('Your current city-level location is too imprecise.');
-      }
-
-      let resolved = null;
-      if (window.cloudflareApi && typeof window.cloudflareApi.reversePlace === 'function') {
-        const data = await window.cloudflareApi.reversePlace(lat, lng);
-        resolved = data && data.displayName ? data : null;
-      }
-
-      if (!resolved) {
-        throw new Error('Unable to resolve your city from the current location.');
-      }
-
-      approxLocationCache = {
-        ...resolved,
-        lat,
-        lng,
-        accuracy,
-        source: 'browser_geolocation',
-        permissionState,
-        timestamp: Date.now()
-      };
-      return approxLocationCache;
-    } catch (error) {
-      geoError = error;
-      console.warn('Browser geolocation failed, falling back to IP-based city lookup:', error);
-    }
-  } else {
-    geoError = new Error(
-      permissionState === 'denied'
-        ? 'Browser geolocation permission is denied.'
-        : 'Browser geolocation unavailable in this context.'
-    );
-  }
-
+async function fetchApproximateLocation() {
+  let permission = 'prompt';
+  try { permission = (await navigator.permissions.query({ name: 'geolocation' })).state; } catch (_) {}
+  // The browser owns permission persistence. Never cache a refusal as consent.
+  if (permission === 'granted' && approxLocationCache && Date.now() - approxLocationCache.resolvedAt < 300000) return approxLocationCache;
+  if (!window.isSecureContext || !navigator.geolocation) throw new Error('Location is unavailable in this browser.');
+  let position;
   try {
-    const fallback = await fetchIpApproximateLocation();
-    approxLocationCache = {
-      ...fallback,
-      permissionState,
-      geoError: geoError ? String(geoError.message || geoError) : ''
-    };
-    return approxLocationCache;
-  } catch (ipError) {
-    throw new Error(
-      permissionState === 'denied'
-        ? 'Browser location is blocked, and we could not infer your city from Cloudflare IP location.'
-        : 'We could not determine your city from browser or Cloudflare IP location right now.'
-    );
+    position = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }));
+  } catch (error) {
+    approxLocationCache = null;
+    throw new Error(error.code === 1
+      ? 'Location is blocked. Allow it in your browser and try again.'
+      : 'Could not find your location. Please try again.');
   }
+  const { latitude: lat, longitude: lng, accuracy } = position.coords;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(accuracy) || accuracy > 10000) throw new Error('Could not find your city. Please try again.');
+  const place = await window.cloudflareApi?.reversePlace(lat, lng);
+  if (!place?.displayName) throw new Error('Could not find your city. Please try again.');
+  // Keep only the resolved city coordinates when the geocoder supplies them.
+  approxLocationCache = { ...place, lat: Number.isFinite(place.lat) ? place.lat : lat,
+    lng: Number.isFinite(place.lng) ? place.lng : lng, source: 'browser_geolocation', resolvedAt: Date.now() };
+  return approxLocationCache;
 }
 
-async function locateCurrentCity(globeInstance, { rotateOnly = false, skipFocus = false } = {}) {
-  setComposerFeedback('');
-  setLocationStatus('Requesting browser city-level location...');
-  const location = await fetchApproximateLocation({ force: true });
-  if (location.source === 'browser_geolocation') {
-    setLocationStatus(`Approximate city: ${location.displayName}`);
-  } else {
-    const blocked = location.permissionState === 'denied';
-    setLocationStatus(
-      blocked
-        ? `Browser location is blocked, using Cloudflare IP city fallback: ${location.displayName}`
-        : `Approximate city via Cloudflare IP fallback: ${location.displayName}`
-    );
-  }
-  if (globeInstance && !skipFocus) {
-    globeInstance.setAutoRotate(false);
-    globeInstance.userInteractingUntil = Date.now() + 12000;
-    globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: rotateOnly ? 0.84 : 0.78, duration: rotateOnly ? 820 : 860 });
-  }
+async function locateCurrentCity(globeInstance) {
+  const location = await fetchApproximateLocation();
+  globeInstance.setAutoRotate(false);
+  globeInstance.userInteractingUntil = Date.now() + 12000;
+  globeInstance.focusOnLatLng(location.lat, location.lng, { zoomFactor: .84, duration: 820 });
   return location;
 }
 
 async function submitAnonymousMessage(globeInstance) {
-  const { text, privacy, send } = getMapUiElements();
-  const rawText = String(text && text.value || '').trim();
-
-  if (!rawText) {
-    setComposerFeedback('Please enter a short anonymous message first.', 'error');
+  const ui = getMapUiElements();
+  const rawText = ui.text.value.trim();
+  if (messageSending) return;
+  if (!rawText || rawText.length > 100) {
+    setComposerFeedback('Enter a message of up to 100 characters.', 'error');
     return;
   }
-  if (rawText.length > 100) {
-    setComposerFeedback('Please keep the message within 100 characters.', 'error');
-    return;
-  }
-  if (!privacy || !privacy.checked) {
-    setComposerFeedback('Please accept the Privacy Policy before sending.', 'error');
-    return;
-  }
-
+  const location = anonymousMessagePreviewState?.place;
+  messageSending = true;
+  setComposerFeedback('');
+  setMessageState('sending');
   try {
-    if (send) send.disabled = true;
-    setComposerFeedback('Locating your city and preparing your submission...', 'info');
-    const location = anonymousMessagePreviewState && anonymousMessagePreviewState.place
-      ? anonymousMessagePreviewState.place
-      : await prepareAnonymousMessagePreview(globeInstance);
-    if (!window.cloudflareApi || typeof window.cloudflareApi.submitAnonymousMessage !== 'function') {
-      throw new Error('Anonymous message submission is unavailable right now.');
-    }
-
     const response = await window.cloudflareApi.submitAnonymousMessage({
-      message: rawText,
-      privacyAccepted: true,
-      lat: location.lat,
-      lng: location.lng,
-      place: {
-        displayName: location.displayName,
-        city: location.city,
-        country: location.country,
-        countryCode: location.countryCode || '',
-        lat: location.lat,
-        lng: location.lng,
-        source: location.source || 'browser_geolocation'
-      },
-      source: 'frontend'
+      message: rawText, ...(location ? { lat: location.lat, lng: location.lng, place: location } : {}), source: 'frontend'
     });
-
-    let websiteData = readWebsiteDataFromStorage();
-    if (response && response.content) {
-      websiteData = normalizeWebsiteDataForGlobe(response.content);
-    } else if (response && response.entry) {
-      websiteData.anonymousMessages.push(response.entry);
-    } else {
-      throw new Error('Anonymous message submission did not return a valid cloud response.');
-    }
-
+    if (!response?.success || (!response.content && !response.entry)) throw new Error('Please try sending again.');
+    const websiteData = response.content ? normalizeWebsiteDataForGlobe(response.content) : readWebsiteDataFromStorage();
+    if (!response.content && response.entry) websiteData.anonymousMessages.push(response.entry);
     writeWebsiteDataToStorage(websiteData);
     if (anonymousMessagePreviewState) {
       anonymousMessagePreviewState.message = rawText;
       anonymousMessagePreviewState.isSubmitted = true;
       anonymousMessagePreviewState.submittedAt = new Date().toISOString().slice(0, 10);
+      globeInstance.setData(getCombinedGlobeItemsFromStorage());
+      const marker = globeInstance.getMarkerByDataId(anonymousMessagePreviewState.id);
+      if (marker && globeInstance.story.phase === 2) {
+        globeInstance.tooltipPinnedUntil = Number.POSITIVE_INFINITY;
+        globeInstance.pinnedData = marker.userData;
+        globeInstance.pinnedMarker = marker;
+        globeInstance.focusOnMarker(marker, { zoomFactor: 1, duration: 600 });
+        globeInstance.showTooltip(marker.userData, { pinned: true, marker });
+      }
     }
-    if (globeInstance) globeInstance.setData(getCombinedGlobeItemsFromStorage());
-    text.value = '';
-    privacy.checked = false;
-    const { counter } = getMapUiElements();
-    if (counter) counter.textContent = '0 / 100';
-    setLocationStatus(`Submitted from ${location.displayName}. It will appear publicly only after curation.`);
-    setComposerFeedback('Message submitted. It will appear publicly only after curation in the admin panel.', 'success');
-    toggleComposer(false);
+    ui.text.value = '';
+    ui.counter.textContent = '0/100';
+    setMessageState('sent');
+    ui.announcement.textContent = 'Sent successfully!';
+    clearTimeout(messageResetTimer);
+    messageResetTimer = setTimeout(() => {
+      setMessageState('closed');
+      ui.announcement.textContent = '';
+    }, 3000);
   } catch (error) {
-    console.error('Anonymous message submission failed:', error);
-    setComposerFeedback(error.message || 'Failed to submit your message right now.', 'error');
+    setMessageState('editing');
+    setComposerFeedback('Could not send. Please try again.', 'error');
   } finally {
-    if (send) send.disabled = false;
+    messageSending = false;
   }
 }
 
@@ -2027,94 +1901,60 @@ function initFootprintsOverlay(globeInstance) {
   if (globeUiInitialized) return;
   const ui = getMapUiElements();
   if (!ui.layerToggle || !ui.layerPanel || !ui.launcher) return;
-
   globeUiInitialized = true;
-  setLocationStatus('');
-
-  ui.layerToggle.addEventListener('click', () => {
-    ui.layerPanel.hidden = !ui.layerPanel.hidden;
+  ui.layerToggle.addEventListener('click', () => { ui.layerPanel.hidden = !ui.layerPanel.hidden; });
+  ui.toggleFootprints.addEventListener('change', () => globeInstance.setLayerVisibility({ footprint: ui.toggleFootprints.checked }));
+  ui.toggleMessages.addEventListener('change', () => globeInstance.setLayerVisibility({ message: ui.toggleMessages.checked }));
+  ui.locateBtn.addEventListener('click', async () => {
+    try { setComposerFeedback(''); await locateCurrentCity(globeInstance); }
+    catch (error) { setComposerFeedback(error.message, 'error'); }
   });
-
-  ui.toggleFootprints?.addEventListener('change', () => {
-    globeInstance.setLayerVisibility({ footprint: ui.toggleFootprints.checked });
-  });
-
-  ui.toggleMessages?.addEventListener('change', () => {
-    globeInstance.setLayerVisibility({ message: ui.toggleMessages.checked });
-  });
-
-  ui.locateBtn?.addEventListener('click', async () => {
-    try {
-      const proceed = window.confirm('Allow this page to use your device location and resolve it to an approximate city for globe navigation?');
-      if (!proceed) return;
-      await locateCurrentCity(globeInstance, { rotateOnly: true });
-    } catch (error) {
-      setComposerFeedback(error.message || 'Unable to detect your location right now.', 'error');
-    }
-  });
-
-  ui.zoomInBtn?.addEventListener('click', () => globeInstance.zoomByStep(1));
-  ui.zoomOutBtn?.addEventListener('click', () => globeInstance.zoomByStep(-1));
-
+  ui.zoomInBtn.addEventListener('click', () => globeInstance.zoomByStep(1));
+  ui.zoomOutBtn.addEventListener('click', () => globeInstance.zoomByStep(-1));
   ui.launcher.addEventListener('click', async () => {
-    const opening = !!ui.composer?.hidden;
-    toggleComposer(undefined, { focusText: false });
-    if (anonymousMessagePreviewState && anonymousMessagePreviewState.place) {
-      refreshAnonymousMessagePreview(globeInstance);
-      globeInstance?.setAutoRotate(false);
-      globeInstance && globeInstance.focusOnLatLng(
-        anonymousMessagePreviewState.place.lat,
-        anonymousMessagePreviewState.place.lng,
-        { zoomFactor: 0.78, duration: 620 }
-      );
-      if (!opening) return;
-      ui.text?.focus();
-      return;
-    }
-    if (!opening) return;
-    try {
-      setComposerFeedback('Requesting browser location permission. If unavailable, we will fall back to IP-based city detection.', 'info');
-      await prepareAnonymousMessagePreview(globeInstance);
-      refreshAnonymousMessagePreview(globeInstance);
-      ui.text?.focus();
-      setComposerFeedback('City preview ready. Write your anonymous message and send it for curation.', 'success');
-    } catch (error) {
-      clearAnonymousMessagePreview(globeInstance);
-      setLocationStatus('We could not determine your city from browser or IP right now.');
-      setComposerFeedback(error.message || 'Unable to detect your location right now.', 'error');
-    }
-  });
-
-  ui.cancel?.addEventListener('click', () => {
-    toggleComposer(false);
+    const request = ++messageRequest;
+    clearTimeout(messageResetTimer);
     setComposerFeedback('');
-    if (!anonymousMessagePreviewState || !anonymousMessagePreviewState.isSubmitted) {
+    setMessageState('locating');
+    globeInstance.clearPinnedTooltip();
+    try {
+      const location = await fetchApproximateLocation();
+      if (request !== messageRequest) return;
+      await prepareAnonymousMessagePreview(globeInstance, location);
+      setMessageState('editing');
+      if (globeInstance.story.phase === 2) ui.text.focus({ preventScroll: true });
+    } catch (error) {
+      if (request !== messageRequest) return;
       clearAnonymousMessagePreview(globeInstance);
+      setMessageState('editing');
+      setComposerFeedback('You can send without a location.');
+      if (globeInstance.story.phase === 2) ui.text.focus({ preventScroll: true });
     }
   });
-
-  ui.text?.addEventListener('input', () => {
-    if (ui.counter) ui.counter.textContent = `${String(ui.text.value || '').length} / 100`;
-    if (ui.feedback && ui.feedback.dataset.state === 'error') setComposerFeedback('');
+  ui.text.addEventListener('input', () => {
+    ui.counter.textContent = `${ui.text.value.length}/100`;
+    setComposerFeedback('');
     refreshAnonymousMessagePreview(globeInstance);
+    if (!messageSending && ui.entry.dataset.state === 'editing') setMessageState('editing');
   });
-
-  ui.send?.addEventListener('click', () => {
-    submitAnonymousMessage(globeInstance);
+  ui.send.addEventListener('click', () => submitAnonymousMessage(globeInstance));
+  ui.text.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !ui.send.disabled) {
+      event.preventDefault(); submitAnonymousMessage(globeInstance);
+    }
   });
-
-  ui.privacyLink?.addEventListener('click', () => togglePrivacyModal(true));
-  ui.privacyClose?.addEventListener('click', () => togglePrivacyModal(false));
-  ui.privacyAck?.addEventListener('click', () => togglePrivacyModal(false));
-  ui.privacyModal?.addEventListener('click', (event) => {
-    if (event.target === ui.privacyModal) togglePrivacyModal(false);
+  ui.privacyLink.addEventListener('click', () => togglePrivacyModal(true));
+  ui.privacyClose.addEventListener('click', () => togglePrivacyModal(false));
+  ui.privacyAck.addEventListener('click', () => togglePrivacyModal(false));
+  ui.privacyModal.addEventListener('click', event => { if (event.target === ui.privacyModal) togglePrivacyModal(false); });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (!ui.privacyModal.hidden) togglePrivacyModal(false);
+    else closeMessageComposer(globeInstance);
   });
-
-  document.addEventListener('click', (event) => {
-    if (ui.layerPanel.hidden) return;
-    const target = event.target;
-    if (ui.layerPanel.contains(target) || ui.layerToggle.contains(target)) return;
-    ui.layerPanel.hidden = true;
+  document.addEventListener('pointerdown', event => {
+    if (!ui.entry.contains(event.target) && ui.privacyModal.hidden) closeMessageComposer(globeInstance);
+    if (!ui.layerPanel.contains(event.target) && !ui.layerToggle.contains(event.target)) ui.layerPanel.hidden = true;
   });
 }
 

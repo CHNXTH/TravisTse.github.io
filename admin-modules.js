@@ -1509,7 +1509,7 @@ function normalizeAnonymousMessages(targetIntensity = 1) {
             id: message.id || generateId(),
             place: {
                 id: place.id || '',
-                displayName: place.displayName || `${place.city || message.city || ''}${place.country || message.country ? ', ' + (place.country || message.country) : ''}`.trim() || 'Unknown',
+                displayName: place.displayName || `${place.city || message.city || ''}${place.country || message.country ? ', ' + (place.country || message.country) : ''}`.trim() || '未提供定位',
                 city: place.city || message.city || '',
                 country: place.country || message.country || '',
                 countryCode: place.countryCode || message.countryCode || '',
@@ -1536,7 +1536,7 @@ function normalizeAnonymousMessages(targetIntensity = 1) {
             changed = true;
         }
         return normalized;
-    }).filter((message) => Number.isFinite(message.place.lat) && Number.isFinite(message.place.lng) && message.message);
+    }).filter((message) => message.message);
 
     if (!changed) return;
 
@@ -1574,7 +1574,7 @@ function loadAnonymousMessageItems() {
     const grouped = new Map();
     sortedMessages.forEach((entry) => {
         const place = entry.place || {};
-        const cityName = String(place.city || place.displayName || 'Unknown').trim();
+        const cityName = String(place.city || place.displayName || '未提供定位').trim();
         const countryName = String(place.country || '').trim();
         const key = `${cityName.toLowerCase()}__${countryName.toLowerCase()}`;
         if (!grouped.has(key)) {
@@ -1614,7 +1614,7 @@ function loadAnonymousMessageItems() {
             card.className = 'anonymous-city-card fade-in';
 
             const title = escapeHtml(group.place.displayName || 'Unknown');
-            const meta = `Lat: ${group.place.lat}, Lng: ${group.place.lng}`;
+            const meta = Number.isFinite(group.place.lat) && Number.isFinite(group.place.lng) ? `Lat: ${group.place.lat}, Lng: ${group.place.lng}` : '未提供定位 · 精选公开后显示于南极点';
             card.innerHTML = `
                 <div class="anonymous-city-header">
                     <div>
@@ -1734,7 +1734,8 @@ function saveAnonymousMessage() {
     const placeId = document.getElementById('anonymous-message-place-id').value.trim();
     const id = document.getElementById('anonymous-message-id').value.trim();
 
-    if (!displayName || !lat || !lng) {
+    const hasLocation = lat !== '' || lng !== '';
+    if (hasLocation && (!displayName || !lat || !lng)) {
         showMessage('请先搜索并选择城市（会自动填充坐标）', 'warning');
         return;
     }
@@ -1742,14 +1743,14 @@ function saveAnonymousMessage() {
         showMessage('请填写匿名留言内容', 'warning');
         return;
     }
-    if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
+    if (hasLocation && (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng)))) {
         showMessage('坐标必须是有效的数字', 'warning');
         return;
     }
 
     const entry = {
         id: id || generateId(),
-        place: {
+        place: hasLocation ? {
             id: placeId || '',
             displayName,
             city,
@@ -1758,12 +1759,12 @@ function saveAnonymousMessage() {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
             source: placeId ? 'photon' : 'manual'
-        },
+        } : null,
         message: text,
         intensity: 1,
         isVisible,
         isFeatured,
-        privacyAccepted: true,
+        privacyAccepted: (websiteData.anonymousMessages || []).find(item => item.id === id)?.privacyAccepted === true,
         source,
         createdAt
     };

@@ -468,12 +468,6 @@
 
         <div class="footprints-story" id="footprints-story">
                 <div id="map-container">
-                    <button class="map-fullscreen-btn" id="map-fullscreen-btn" type="button" aria-label="Full screen map" title="Full screen">
-                        <i class="fas fa-expand"></i>
-                    </button>
-                    <button class="map-fullscreen-exit-btn" id="map-fullscreen-exit-btn" type="button" aria-label="Exit full screen" title="Exit full screen">
-                        <i class="fas fa-compress"></i>
-                    </button>
                     <div class="globe-overlay-controls">
                         <div class="globe-control-stack">
                             <button class="globe-control-btn" id="globe-layer-toggle" type="button" aria-label="Toggle map layers" title="Map layers">
@@ -506,34 +500,27 @@
                     <div id="world-map">
                         <canvas id="footprints-globe-canvas" aria-label="3D Earth globe"></canvas>
                     </div>
-                    <div class="globe-message-entry" id="globe-message-entry">
-                        <button class="globe-message-launcher" id="globe-message-launcher" type="button" aria-expanded="false">
-                            <i class="far fa-comment-dots"></i>
-                            <span>Anonymous Message</span>
-                        </button>
-                        <div class="globe-message-composer" id="globe-message-composer" hidden>
-                            <div class="globe-message-composer-header">
-                                <div class="globe-message-composer-title">
-                                    <i class="far fa-comment-dots"></i>
-                                    <span>Anonymous Message</span>
+                    <div class="globe-message-entry" id="globe-message-entry" data-state="closed">
+                        <div class="globe-message-shell">
+                            <button class="globe-message-launcher" id="globe-message-launcher" type="button" aria-expanded="false" aria-controls="globe-message-composer">
+                                <span id="globe-message-label">Leave a message</span>
+                                <span class="globe-send-disc" aria-hidden="true"><img src="assets/icons/send.svg" alt=""></span>
+                            </button>
+                            <div class="globe-message-composer" id="globe-message-composer" inert aria-hidden="true">
+                                <div class="globe-message-composer-header">
+                                    <span>Leave a message</span>
+                                    <button id="globe-privacy-link" class="globe-message-help" type="button" aria-label="Privacy Policy"><span><img src="assets/icons/message-help.svg" alt=""></span></button>
+                                </div>
+                                <div class="globe-message-input-wrap">
+                                    <label class="sr-only" for="globe-message-text">Anonymous message</label>
+                                    <textarea id="globe-message-text" maxlength="100" placeholder="Leave an anonymous message in your city"></textarea>
+                                    <span id="globe-message-counter">0/100</span>
+                                    <button class="globe-send-disc" id="globe-message-send" type="button" aria-label="Send message" disabled><img src="assets/icons/send.svg" alt=""></button>
                                 </div>
                             </div>
-                            <label class="sr-only" for="globe-message-text">Anonymous message</label>
-                            <textarea id="globe-message-text" maxlength="100" placeholder="Leave a short anonymous note for this city..."></textarea>
-                            <div class="globe-message-meta">
-                                <span id="globe-message-counter">0 / 100</span>
-                                <span id="globe-message-location-status">City-level device location will be requested after consent.</span>
-                            </div>
-                            <label class="globe-privacy-row">
-                                <input type="checkbox" id="globe-message-privacy">
-                                <span>I agree to the <button type="button" class="globe-text-link" id="globe-privacy-link">Privacy Policy</button></span>
-                            </label>
-                            <div class="globe-message-feedback" id="globe-message-feedback" aria-live="polite"></div>
-                            <div class="globe-message-actions">
-                                <button class="globe-secondary-btn" id="globe-message-cancel" type="button">Cancel</button>
-                                <button class="globe-primary-btn" id="globe-message-send" type="button">Send</button>
-                            </div>
                         </div>
+                        <div class="globe-message-feedback" id="globe-message-feedback" role="status" aria-live="polite"></div>
+                        <span class="sr-only" id="globe-message-announcement" role="status" aria-live="polite"></span>
                     </div>
                     <div class="globe-modal-backdrop" id="globe-privacy-modal" hidden>
                         <div class="globe-modal-card" role="dialog" aria-modal="true" aria-labelledby="globe-privacy-title">

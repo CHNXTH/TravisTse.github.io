@@ -1550,53 +1550,6 @@ html:not(.dark-mode) #map-container {
     radial-gradient(1200px 700px at 55% 45%, rgba(7, 16, 38, 0.96), rgba(1, 4, 12, 0.995));
 }
 
-#map-container:fullscreen {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
-  background-color: #0a0d14;
-}
-
-.map-fullscreen-btn,
-.map-fullscreen-exit-btn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 38px;
-  height: 38px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(180, 180, 180, 0.10);
-  color: rgba(255, 255, 255, 0.92);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-  cursor: pointer;
-  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.map-fullscreen-btn:hover,
-.map-fullscreen-exit-btn:hover {
-  transform: translateY(-1px);
-  background: rgba(180, 180, 180, 0.16);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.map-fullscreen-exit-btn {
-  display: none;
-}
-
-#map-container:fullscreen .map-fullscreen-btn {
-  display: none;
-}
-
-#map-container:fullscreen .map-fullscreen-exit-btn {
-  display: inline-flex;
-}
-
 #world-map {
   width: 100%;
   height: 100%;
@@ -1642,8 +1595,10 @@ html:not(.dark-mode) #map-container {
 
 .globe-overlay-controls {
   position: absolute;
-  top: 66px;
-  right: 14px;
+  top: auto;
+  bottom: 40px;
+  left: clamp(14px, 3vw, 44px);
+  right: auto;
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -1691,8 +1646,10 @@ html:not(.dark-mode) #map-container {
 
 .globe-layer-panel {
   position: absolute;
-  top: 0;
-  right: calc(100% + 12px);
+  top: auto;
+  bottom: 0;
+  left: calc(100% + 12px);
+  right: auto;
   width: 232px;
   padding: 16px;
   border-radius: 22px;
@@ -1725,160 +1682,92 @@ html:not(.dark-mode) #map-container {
 }
 
 .globe-layer-option input,
-.globe-privacy-row input {
-  accent-color: #2367FB;
-}
-
+/* The three Figma states share one bottom-anchored shell. */
 .globe-message-entry {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  position: absolute; left: 50%; bottom: max(30px, env(safe-area-inset-bottom));
+  width: 250px; margin-left: -125px; z-index: 6;
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
 }
-
-.globe-message-launcher,
-.globe-primary-btn,
-.globe-secondary-btn {
-  border: 0;
-  cursor: pointer;
+.globe-message-shell {
+  position: relative; width: 250px; height: 41px; margin: 0 auto;
+  overflow: hidden; border-radius: 36px; background: rgba(28,31,39,.8);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  transition: width 420ms cubic-bezier(.22,1,.36,1), height 420ms cubic-bezier(.22,1,.36,1),
+    border-radius 420ms cubic-bezier(.22,1,.36,1), background 420ms ease;
 }
-
 .globe-message-launcher {
-  min-width: 202px;
-  min-height: 34px;
-  padding: 7px 16px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  background: rgba(180, 180, 180, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(237, 242, 252, 0.86);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  transition: transform 0.18s ease, background 0.18s ease;
+  position: absolute; inset: 0; width: 100%; height: 41px; padding: 0 42px 0 15px;
+  border: 0; background: transparent; color: #9a9a9b;
+  text-align: left; font: 600 14px/28px "PingFang SC", -apple-system, sans-serif;
+  letter-spacing: -.28px; cursor: pointer;
+  transition: opacity 180ms ease, transform 350ms cubic-bezier(.22,1,.36,1);
 }
-
-.globe-message-launcher i {
-  font-size: 16px;
+.globe-send-disc {
+  border: 0; padding: 0; width: 29px; height: 29px; border-radius: 50%;
+  background: #0171e3; color: white; display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; flex: 0 0 auto;
 }
-
-.globe-message-launcher:hover,
-.globe-message-launcher.is-open {
-  transform: translateY(-1px);
-  background: rgba(180, 180, 180, 0.16);
-}
-
-.globe-message-launcher.is-open {
-  opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
-}
-
+.globe-send-disc img { width: 29px; height: 29px; display: block; transition: transform 450ms cubic-bezier(.22,1,.36,1); }
+.globe-message-launcher .globe-send-disc { position: absolute; right: 5px; top: 6px; }
 .globe-message-composer {
-  width: 360px;
-  padding: 18px 18px 16px;
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(22, 28, 41, 0.9);
-  color: rgba(240, 244, 252, 0.94);
-  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  position: absolute; inset: 0; width: 250px; height: 149px;
+  opacity: 0; visibility: hidden; transform: translateY(12px);
+  transition: opacity 240ms ease, transform 420ms cubic-bezier(.22,1,.36,1), visibility 240ms;
 }
-
 .globe-message-composer-header {
-  margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+  height: 35px; padding-top: 6px; color: white; font-size: 14px; font-weight: 600; letter-spacing: -.28px;
 }
-
-.globe-message-composer-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(220, 228, 244, 0.9);
+.globe-message-help {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 28px; margin-right: -16px; padding: 0; border: 0; background: transparent; cursor: pointer;
 }
-
+.globe-message-help > span {
+  width: 8.922px; height: 8.922px; border-radius: 50%; background: #0171e3;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.globe-message-help img { display: block; }
+.globe-message-input-wrap {
+  position: absolute; top: 35px; left: 7px; width: 237px; height: 108px;
+  border-radius: 21px; background: rgba(30,36,49,.5); overflow: hidden;
+}
 .globe-message-composer textarea {
-  width: 100%;
-  min-height: 136px;
-  resize: none;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(244, 248, 255, 0.96);
-  padding: 14px 16px;
-  font: inherit;
-  line-height: 1.55;
-  outline: none;
+  display: block; width: 100%; height: 76px; padding: 11px 11px 5px; margin: 0;
+  border: 0; border-radius: 0; outline: none; resize: none; background: transparent;
+  color: #edf2fc; font: 400 12px/15px "PingFang SC", -apple-system, sans-serif;
+  letter-spacing: -.24px; box-shadow: none;
 }
-
-.globe-message-composer textarea::placeholder {
-  color: rgba(214, 222, 238, 0.46);
+.globe-message-composer textarea::placeholder { color: #727887; opacity: 1; }
+#globe-message-counter { position: absolute; bottom: 14px; left: 11px; font-size: 12px; line-height: 15px; color: #727887; }
+#globe-message-send { position: absolute; right: 7px; bottom: 7px; }
+#globe-message-send:disabled { cursor: default; opacity: .65; }
+.globe-message-entry:is([data-state="editing"], [data-state="locating"], [data-state="sending"]) .globe-message-shell {
+  height: 149px; border-radius: 21px; background: rgba(28,28,28,.9);
 }
-
-.globe-message-meta {
-  margin-top: 10px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  color: rgba(197, 207, 226, 0.7);
+.globe-message-entry:is([data-state="editing"], [data-state="locating"], [data-state="sending"]) .globe-message-launcher {
+  opacity: 0; transform: translateY(-10px); pointer-events: none;
 }
-
-.globe-privacy-row {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: rgba(237, 242, 252, 0.86);
+.globe-message-entry:is([data-state="editing"], [data-state="locating"], [data-state="sending"]) .globe-message-composer {
+  opacity: 1; visibility: visible; transform: translateY(0); transition-delay: 60ms;
 }
-
-.globe-text-link {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: rgba(255, 255, 255, 0.92);
-  text-decoration: underline;
-  cursor: pointer;
-  font: inherit;
-}
-
+.globe-message-entry[data-state="sent"] .globe-message-shell { width: 192px; }
+.globe-message-entry[data-state="sent"] .globe-message-launcher { padding-left: 15px; font-size: 13px; white-space: nowrap; cursor: default; }
+.globe-message-entry[data-state="sent"] .globe-message-launcher img { transform: rotate(-45deg); }
 .globe-message-feedback {
-  min-height: 18px;
-  margin-top: 12px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: rgba(203, 214, 236, 0.74);
+  position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  width: 250px; padding: 8px 12px; border-radius: 12px;
+  color: #ffb3ba; background: rgba(12,18,29,.94); font-size: 12px; text-align: center;
 }
-
-.globe-message-feedback[data-state="error"] {
-  color: #ffb3ba;
+.globe-message-feedback:empty { display: none; }
+.globe-message-entry button:focus-visible { outline: 2px solid #8dbaff; outline-offset: 2px; }
+.globe-message-composer textarea:focus-visible { box-shadow: inset 0 0 0 1px rgba(141,186,255,.35); }
+@media (max-width: 600px) {
+  .globe-message-entry { bottom: max(28px, env(safe-area-inset-bottom)); }
+  /* 16px avoids iOS's automatic text-field zoom without scaling the controls. */
+  .globe-message-composer textarea { font-size: 16px; line-height: 19px; }
 }
-
-.globe-message-feedback[data-state="success"] {
-  color: #baf3ca;
-}
-
-.globe-message-actions {
-  margin-top: 12px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+@media (prefers-reduced-motion: reduce) {
+  .globe-message-shell, .globe-message-launcher, .globe-message-composer, .globe-send-disc img { transition: none; }
 }
 
 .globe-primary-btn,
@@ -2351,9 +2240,7 @@ html:not(.dark-mode) .location-thumbnail .lt-close:hover {
     margin-left: 0;
   }
 
-  .globe-message-launcher {
-    min-width: 188px;
-  }
+
   
   .nav-center {
     display: none;
@@ -3704,37 +3591,25 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 .footprints-story #social .section-title { color: #f5f7ff; }
 .footprints-story #social #copyright-text { color: #c1cadb; }
 .footprints-story #social .social-icon { color: #f5f7ff; background: rgba(130,160,210,.14); }
-.footprints-story #map-container:fullscreen { height: 100%; margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) {
   #footprints { height: 200svh; }
   .footprints-story .globe-story-ui { transition: none; transform: none; }
   .footprints-story #social { height: auto; padding-bottom: 4svh; }
 }
-/* Leave room for the site's existing floating chat launcher. */
-.footprints-story .globe-message-entry { bottom: max(100px, env(safe-area-inset-bottom)); }
-@media (max-width: 767px) {
-  .footprints-story .map-fullscreen-btn,
-  .footprints-story .map-fullscreen-exit-btn { top: 124px; }
-  .footprints-story .globe-overlay-controls { top: 176px; }
-  .footprints-story #map-container:fullscreen .map-fullscreen-exit-btn { top: 14px; }
-  .footprints-story #map-container:fullscreen .globe-overlay-controls { top: 66px; }
-}
+
 @media (max-width: 767px) {
   .footprints-story #social { padding-bottom: 100px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .footprints-story #world-map { transform: translateY(-18svh); }
   .footprints-story .globe-gesture-surface { top: 32%; }
-  .footprints-story .globe-message-entry { top: 76px; bottom: auto; left: 14px; right: auto; }
   .footprints-story #social { padding-bottom: 100px; }
 }
 /* Connect takes over the foreground once its content starts appearing. */
 .footprints-story[data-connect-visible="true"] .globe-story-ui {
   opacity: 0; visibility: hidden; pointer-events: none; transition: none;
 }
-@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
-  .footprints-story #world-map { transform: translateY(calc(var(--globe-exit, 0) * -4svh)); }
-}
+
 
 /* Awards stays readable on the shared sky; only its content fades at the handoff. */
 .footprints-story #awards {
