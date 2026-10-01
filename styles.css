@@ -1681,7 +1681,11 @@ html:not(.dark-mode) #map-container {
   margin-top: 10px;
 }
 
-.globe-layer-option input,
+.globe-layer-option input {
+  position: static; width: 16px; height: 16px; margin: 0;
+  flex: 0 0 16px; accent-color: #1685ff; cursor: pointer;
+}
+
 /* The three Figma states share one bottom-anchored shell. */
 .globe-message-entry {
   position: absolute; left: 50%; bottom: max(30px, env(safe-area-inset-bottom));
