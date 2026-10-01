@@ -261,6 +261,7 @@ async function handleChat(request, env) {
     }
 
     const body = await safeJson(request);
+    const history = (Array.isArray(body.history) ? body.history : []).filter(item => item && ["user", "assistant"].includes(item.role) && typeof item.content === "string").slice(-16).map(item => ({ role: item.role, content: item.content.slice(0, 2000) }));
     const message = typeof body.message === 'string' ? body.message.trim() : '';
 
     if (!message) {
@@ -269,23 +270,26 @@ async function handleChat(request, env) {
 
     try {
         const content = await readWebsiteContent(env);
-        const knowledgeText = buildKnowledgeForQuery(content, message);
+        const knowledgeText = buildKnowledgeForQuery(content, [...history.filter(item => item.role === 'user').slice(-3).map(item => item.content), message].join('\n'));
         const systemPrompt = buildSystemPrompt(knowledgeText);
 
         const upstreamResponse = await fetch(DEEPSEEK_API_URL, {
             method: 'POST',
+            signal: AbortSignal.timeout(35000),
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${env.DEEPSEEK_API_KEY}`,
             },
             body: JSON.stringify({
-                model: 'deepseek-v4-flash',
+                model: 'deepseek-flash',
+                thinking: { type: 'disabled' },
                 messages: [
                     { role: 'system', content: systemPrompt },
+                    ...history,
                     { role: 'user', content: message }
                 ],
                 temperature: 0.7,
-                max_tokens: 512,
+                max_tokens: 2048,
                 stream: false
             }),
         });
@@ -1293,22 +1297,20 @@ async function reverseGeocodeCity(lat, lng) {
     const upstream = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=10&addressdetails=1`;
     let address;
     try {
+        const response = await fetch(`https://photon.komoot.io/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&lang=en`, {
+            headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(3000)
+        });
+        if (!response.ok) throw new Error('Reverse geocoding failed');
+        const properties = (await response.json()).features?.[0]?.properties;
+        if (!properties) throw new Error('Missing address');
+        address = { ...properties, country_code: properties.countrycode };
+    } catch (_) {
         const response = await fetch(upstream, {
-            headers: { Accept: 'application/json', 'Accept-Language': 'en' },
-            signal: AbortSignal.timeout(6000)
+            headers: { Accept: 'application/json', 'Accept-Language': 'en' }, signal: AbortSignal.timeout(3000)
         });
         if (!response.ok) throw new Error('Reverse geocoding failed');
         address = (await response.json()).address;
-        if (!address) throw new Error('Missing address');
-    } catch (_) {
-        // Both providers resolve the device coordinates, never the visitor's IP.
-        const fallback = await fetch(`https://photon.komoot.io/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&lang=en`, {
-            headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000)
-        });
-        if (!fallback.ok) throw new Error('Reverse geocoding failed');
-        const properties = (await fallback.json()).features?.[0]?.properties;
-        if (!properties) throw new Error('City-level location unavailable');
-        address = { ...properties, country_code: properties.countrycode };
+        if (!address) throw new Error('City-level location unavailable');
     }
     const country = address.country || '';
     const countryCode = typeof address.country_code === 'string' ? address.country_code.toUpperCase() : '';

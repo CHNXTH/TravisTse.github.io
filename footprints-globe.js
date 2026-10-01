@@ -583,7 +583,7 @@ class FootprintsGlobe {
     this._onPointerLeave = () => this.hideTooltip();
     this._onPointerEnter = () => { this.userInteractingUntil = Date.now() + 1500; this.setAutoRotate(false); };
     this._onCanvasLeave = () => { this.hideTooltip(); this.userInteractingUntil = Date.now() + 1500; };
-    this._onClick = () => this.onClick();
+    this._onClick = (e) => this.onClick(e);
     this._onPointerDownCanvas = (e) => this.onPointerDownCanvas(e);
     this._onPointerUpCanvas = (e) => this.onPointerUpCanvas(e);
     this._onPointerDown = () => { this.userInteractingUntil = Date.now() + 12000; this.setAutoRotate(false); };
@@ -1219,6 +1219,7 @@ class FootprintsGlobe {
   }
 
   onPointerMove(e) {
+    this.activePointerType = e.pointerType || "mouse";
     const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
@@ -1235,6 +1236,7 @@ class FootprintsGlobe {
   }
 
   onPointerDownCanvas(e) {
+    this.activePointerType = e.pointerType || "mouse";
     this.pointerDownInfo = {
       x: e.clientX,
       y: e.clientY,
@@ -1261,10 +1263,10 @@ class FootprintsGlobe {
     }
   }
 
-  onClick() {
-    if (this.hovered && this.hovered.userData) {
-      this.activateMarker(this.hovered);
-    }
+  onClick(event) {
+    if (this.pointerDownInfo && Math.hypot(event.clientX - this.pointerDownInfo.x, event.clientY - this.pointerDownInfo.y) > 10) return;
+    const marker = this.pickMarkerFromClientPoint(event.clientX, event.clientY);
+    if (marker?.userData) this.activateMarker(marker);
   }
 
   activateMarker(marker) {
@@ -1299,7 +1301,7 @@ class FootprintsGlobe {
       const pulse = marker.userData._isPreview ? (1 + Math.sin(pulseTime) * 0.12) : 1;
       const emphasis = (isHovered || isPinned ? 1.12 : 1.0) * pulse;
 
-      marker.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, basePixels * emphasis * (innerWidth <= 767 ? .5 : 1)));
+      marker.scale.setScalar(this.getWorldUnitsForPixels(worldPosition, basePixels * emphasis * (innerWidth <= 767 ? .5 : .85)));
 
       const glow = markerGroup.children.find((child) => child !== marker && child.material && child.material.blending === THREE.AdditiveBlending);
       if (glow) {
@@ -1366,7 +1368,7 @@ class FootprintsGlobe {
 
   updateHover() {
     if (!this.points || this.points.length === 0) return;
-    if (this.isCoarsePointer) {
+    if (this.activePointerType === "touch" || this.activePointerType === "pen") {
       this.hovered = null;
       return;
     }
@@ -1863,6 +1865,7 @@ async function submitAnonymousMessage(globeInstance) {
   }
   const location = anonymousMessagePreviewState?.place;
   messageSending = true;
+  messageRequest += 1;
   setComposerFeedback('');
   setMessageState('sending');
   try {
@@ -1922,11 +1925,13 @@ function initFootprintsOverlay(globeInstance) {
     const request = ++messageRequest;
     clearTimeout(messageResetTimer);
     setComposerFeedback('');
-    setMessageState('locating');
+    setMessageState('editing');
+    clearAnonymousMessagePreview(globeInstance);
+    ui.text.focus({ preventScroll: true });
     globeInstance.clearPinnedTooltip();
     try {
       const location = await fetchApproximateLocation();
-      if (request !== messageRequest) return;
+      if (request !== messageRequest || messageSending || ui.entry.dataset.state === 'sent') return;
       await prepareAnonymousMessagePreview(globeInstance, location);
       setMessageState('editing');
       if (globeInstance.story.phase === 2) ui.text.focus({ preventScroll: true });

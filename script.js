@@ -2280,10 +2280,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Successful turns remain available throughout this page session.
+    const chatHistory = [];
+    let chatRequestPending = false;
+
     // 发送消息事件处理
     function sendMessage() {
         const message = chatInput.value.trim();
-        if (message) {
+        if (message && !chatRequestPending) {
             // 添加用户消息到聊天界面
             addUserMessage(message);
             chatInput.value = '';
@@ -2464,13 +2468,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 通过Cloudflare Worker代理调用AI接口，避免在前端暴露密钥
     async function fetchAIResponse(message) {
+        chatRequestPending = true;
+        sendButton.disabled = true;
         try {
             const response = await fetch(getChatApiUrl(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message })
+                body: JSON.stringify({ message, history: chatHistory.slice(-16) }),
+                signal: AbortSignal.timeout(45000)
             });
 
             const data = await response.json();
@@ -2482,6 +2489,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.reply) {
                 const aiResponse = data.reply;
+                chatHistory.push({ role: 'user', content: message.slice(0, 2000) }, { role: 'assistant', content: aiResponse.slice(0, 4000) });
+                if (chatHistory.length > 16) chatHistory.splice(0, chatHistory.length - 16);
                 addAIMessage(aiResponse);
             } else {
                 addAIMessage("I'm sorry, I couldn't generate a response at this time. Please try again later.");
@@ -2490,7 +2499,10 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error fetching AI response:', error);
             removeTypingIndicator();
 
-            addAIMessage('Thank you for your message! I\'m Travis\'s AI assistant. I\'m currently in development and having trouble connecting to my backend. Please try again later or contact Travis directly through the social media links at the bottom of the page.');
+            addAIMessage(/[\u3400-\u9fff]/.test(message) ? '这次请求没有完成，请稍后重试。之前的对话仍然保留。' : 'This request did not complete. Please try again; your earlier conversation is still available.');
+        } finally {
+            chatRequestPending = false;
+            sendButton.disabled = false;
         }
     }
 
