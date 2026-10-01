@@ -471,7 +471,9 @@ class FootprintsStory {
     }
     g.controls.enabled = phase === 2;
     g.controls.autoRotate = phase === 2 && !reduced && g.autoRotate;
-    g.controls.minDistance = this.radiusFor(innerWidth > 767 ? .94 : .82);
+    // Allow exactly two additional + steps beyond the previous button limit.
+    const previousZoomLimit = this.radiusFor(innerWidth > 767 ? .94 : .82);
+    g.controls.minDistance = Math.max(1.1, (previousZoomLimit + .02) * Math.pow(.86, 2) - .02);
     g.controls.maxDistance = this.radiusFor(.24);
     if (phase === 2) {
       g.camera.position.clampLength(g.controls.minDistance, g.controls.maxDistance);
