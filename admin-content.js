@@ -735,7 +735,32 @@ function deleteExperience(id) {
 }
 
 // 初始化设置部分
+function initTravisAIStyleSetting() {
+    const select = document.getElementById('travis-ai-style');
+    const button = document.getElementById('save-travis-ai-style');
+    const status = document.getElementById('travis-ai-style-message');
+    if (!select || !button || !status) return;
+    select.value = websiteData.settings?.travisAIStyle === 'purple' ? 'purple' : 'blue';
+    button.onclick = async () => {
+        const previous = websiteData.settings?.travisAIStyle;
+        websiteData.settings = websiteData.settings || {};
+        websiteData.settings.travisAIStyle = select.value === 'purple' ? 'purple' : 'blue';
+        button.disabled = true;
+        try {
+            if (!await saveWebsiteData()) throw new Error('Save failed');
+            status.textContent = 'Travis AI 样式已保存';
+            status.className = 'password-message text-success';
+        } catch (_) {
+            if (previous === undefined) delete websiteData.settings.travisAIStyle;
+            else websiteData.settings.travisAIStyle = previous;
+            status.textContent = '保存失败，请重试';
+            status.className = 'password-message text-danger';
+        } finally { button.disabled = false; }
+    };
+}
+
 function initSettingsSection() {
+    initTravisAIStyleSetting();
     // 显示模式（强制深浅色）
     try {
         const themeSelect = document.getElementById('theme-mode');

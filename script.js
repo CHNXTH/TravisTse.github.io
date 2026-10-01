@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    window.addEventListener('storage', event => {
+        if (event.key === 'websiteData') checkDarkMode();
+    });
+
     // 供后台/同步脚本在数据更新后主动触发
     window.applyThemePreferenceFromStorage = function () {
         checkDarkMode();
@@ -245,6 +249,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 检测系统深色模式并适配
     function checkDarkMode() {
+        let chatStyle = 'blue';
+        try {
+            const data = JSON.parse(localStorage.getItem('websiteData') || '{}');
+            if (data.settings?.travisAIStyle === 'purple') chatStyle = 'purple';
+        } catch (_) {}
+        document.documentElement.dataset.travisAiStyle = chatStyle;
+
         const forcedMode = getThemeModeFromStorage();
         ensureForcedThemeStyles();
 
