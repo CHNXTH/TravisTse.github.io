@@ -3171,7 +3171,7 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 
 .ai-chat-container {
     position: fixed;
-    bottom: 100px;
+    bottom: 30px;
     right: 30px;
     width: 350px;
     height: 500px;
