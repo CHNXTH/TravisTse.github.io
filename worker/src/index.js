@@ -618,6 +618,14 @@ function buildDerivedCardsFromContent(content) {
             expTags.add('NIO');
             expTags.add('蔚来');
         }
+        if (/bytedance|字节/.test(companyLower)) {
+            ['ByteDance', '字节', '字节跳动'].forEach(tag => expTags.add(tag));
+            // Route product names only when they occur in this actual experience.
+            if (/douyin|抖音/i.test(detailsText + ' ' + company)) {
+                ['Douyin', '抖音', '抖音电商'].forEach(tag => expTags.add(tag));
+            }
+            if (/doudou farm|抖抖农场/i.test(detailsText)) expTags.add('抖抖农场');
+        }
         if (companyLower.includes('ikea')) {
             expTags.add('IKEA');
             expTags.add('宜家');
