@@ -3679,3 +3679,5 @@ html.dark-mode .experience-logo img[data-invert-on-dark="true"] {
 :root:not([data-travis-ai-style="purple"]) #ai-chat-input:focus { border-color: rgba(131, 180, 244, .5) !important; box-shadow: none; }
 :root:not([data-travis-ai-style="purple"]) #ai-chat-send { background: #0171e3; box-shadow: none; }
 :root:not([data-travis-ai-style="purple"]) #ai-chat-container .typing-dots span { background: #83baff; }
+
+.travis-ai-target-highlight { outline: 2px solid rgba(70,155,255,.65); outline-offset: 8px; border-radius: 12px; background-color: rgba(40,130,245,.06); }

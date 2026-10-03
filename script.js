@@ -2472,6 +2472,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function getChatApiUrl() {
+        if (window.TRAVIS_AI_CHAT_ENDPOINT) return window.TRAVIS_AI_CHAT_ENDPOINT;
         const configuredBase = window.TRAVIS_AI_API_URL || '';
         const normalizedBase = configuredBase.replace(/\/+$/, '');
         return normalizedBase ? `${normalizedBase}/api/chat` : '/api/chat';
@@ -2479,6 +2480,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 通过Cloudflare Worker代理调用AI接口，避免在前端暴露密钥
     async function fetchAIResponse(message) {
+        const navigation = window.travisChatNavigation?.begin(message);
         chatRequestPending = true;
         sendButton.disabled = true;
         try {
@@ -2487,7 +2489,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message, history: chatHistory.slice(-16) }),
+                body: JSON.stringify({ message, history: chatHistory.slice(-16), navigationTargets: navigation?.targets || [] }),
                 signal: AbortSignal.timeout(45000)
             });
 
@@ -2503,6 +2505,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 chatHistory.push({ role: 'user', content: message.slice(0, 2000) }, { role: 'assistant', content: aiResponse.slice(0, 4000) });
                 if (chatHistory.length > 16) chatHistory.splice(0, chatHistory.length - 16);
                 addAIMessage(aiResponse);
+                window.travisChatNavigation?.apply(data.targetId, navigation);
             } else {
                 addAIMessage("I'm sorry, I couldn't generate a response at this time. Please try again later.");
             }
