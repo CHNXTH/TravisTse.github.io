@@ -1669,6 +1669,23 @@ html:not(.dark-mode) #map-container {
   margin-bottom: 12px;
 }
 
+@media (max-width: 768px) {
+  .globe-overlay-controls {
+    top: calc(96px + env(safe-area-inset-top, 0px));
+    right: max(14px, env(safe-area-inset-right, 0px));
+    bottom: auto;
+    left: auto;
+  }
+
+  .globe-layer-panel {
+    top: 0;
+    bottom: auto;
+    left: auto;
+    right: calc(100% + 12px);
+    width: min(232px, calc(100vw - 80px));
+  }
+}
+
 .globe-layer-option {
   display: flex;
   align-items: center;
