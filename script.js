@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 从websiteData.settings读取“强制深浅色”配置
     function getThemeModeFromStorage() {
         try {
-            const raw = localStorage.getItem('websiteData');
+            const raw = window.travisStorage.getItem('websiteData');
             if (!raw) return 'system';
             const data = JSON.parse(raw);
             const settings = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.addEventListener('storage', event => {
-        if (event.key === 'websiteData') checkDarkMode();
+        if (event.key === window.travisStorage.physicalKey('websiteData')) checkDarkMode();
     });
 
     // 供后台/同步脚本在数据更新后主动触发
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkDarkMode() {
         let chatStyle = 'blue';
         try {
-            const data = JSON.parse(localStorage.getItem('websiteData') || '{}');
+            const data = JSON.parse(window.travisStorage.getItem('websiteData') || '{}');
             if (data.settings?.travisAIStyle === 'purple') chatStyle = 'purple';
         } catch (_) {}
         document.documentElement.dataset.travisAiStyle = chatStyle;
@@ -1584,7 +1584,7 @@ function initWorldMap() {
     
     try {
         // 优先从localStorage获取数据
-        const savedData = localStorage.getItem('websiteData');
+        const savedData = window.travisStorage.getItem('websiteData');
         if (savedData) {
             websiteData = JSON.parse(savedData);
             
@@ -1732,7 +1732,7 @@ function initWorldMap() {
             // 更新websiteData并保存
             websiteData.footprints = defaultFootprintsForStorage;
             websiteData.anonymousMessages = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages : [];
-            localStorage.setItem('websiteData', JSON.stringify(websiteData));
+            window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
             console.log('已将默认足迹数据保存到localStorage');
         } catch (e) {
             console.error('保存默认足迹数据失败:', e);

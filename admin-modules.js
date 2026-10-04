@@ -1073,7 +1073,7 @@ function normalizeFootprintIntensities(target = 1) {
     if (!changed) return;
 
     try {
-        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+        window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
     } catch (error) {
         console.warn('Failed to normalize footprint intensities in localStorage:', error);
     }
@@ -1541,7 +1541,7 @@ function normalizeAnonymousMessages(targetIntensity = 1) {
     if (!changed) return;
 
     try {
-        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+        window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
     } catch (error) {
         console.warn('Failed to normalize anonymous messages in localStorage:', error);
     }
@@ -1719,7 +1719,7 @@ function openAnonymousMessageModal(entry = null) {
     modal.classList.add('active');
 }
 
-function saveAnonymousMessage() {
+async function saveAnonymousMessage() {
     const displayName = document.getElementById('anonymous-message-place-displayName').value.trim() || document.getElementById('anonymous-message-place-query').value.trim();
     const city = document.getElementById('anonymous-message-place-city').value.trim();
     const country = document.getElementById('anonymous-message-place-country').value.trim();
@@ -1777,7 +1777,7 @@ function saveAnonymousMessage() {
         websiteData.anonymousMessages.push(entry);
     }
 
-    saveWebsiteData();
+    if (!await saveWebsiteData()) return;
     loadAnonymousMessageItems();
     document.getElementById('anonymous-message-modal').classList.remove('active');
     showMessage(existingIndex >= 0 ? '匿名留言已更新' : '匿名留言已添加', 'success');
@@ -1788,9 +1788,9 @@ function editAnonymousMessage(id) {
     if (entry) openAnonymousMessageModal(entry);
 }
 
-function deleteAnonymousMessage(id) {
+async function deleteAnonymousMessage(id) {
     websiteData.anonymousMessages = (websiteData.anonymousMessages || []).filter((item) => item.id !== id);
-    saveWebsiteData();
+    if (!await saveWebsiteData()) return;
     loadAnonymousMessageItems();
     showMessage('匿名留言已删除', 'success');
 }

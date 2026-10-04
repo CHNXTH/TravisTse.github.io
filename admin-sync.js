@@ -50,10 +50,10 @@ function normalizeWebsiteData(data) {
 
 function loadWebsiteDataFromStorage() {
     try {
-        const raw = localStorage.getItem('websiteData');
+        const raw = window.travisStorage.getItem('websiteData');
         websiteData = normalizeWebsiteData(raw ? JSON.parse(raw) : {});
     } catch (e) {
-        console.warn('读取localStorage.websiteData失败，使用空数据回退:', e);
+        console.warn('读取window.travisStorage.websiteData失败，使用空数据回退:', e);
         websiteData = normalizeWebsiteData({});
     }
     return websiteData;
@@ -103,9 +103,9 @@ function calculateDynamicAge() {
             const remoteData = await window.cloudflareApi.getPublicContent();
             if (remoteData && remoteData.content && isMeaningfulPublicContent(remoteData.content)) {
                 websiteData = normalizeWebsiteData(remoteData.content);
-                localStorage.setItem('websiteData', JSON.stringify(remoteData.content));
-                localStorage.setItem('websiteDataSync', Date.now().toString());
-                localStorage.setItem('websiteDataSyncSource', 'cloudflare_public_content');
+                window.travisStorage.setItem('websiteData', JSON.stringify(remoteData.content));
+                window.travisStorage.setItem('websiteDataSync', Date.now().toString());
+                window.travisStorage.setItem('websiteDataSyncSource', 'cloudflare_public_content');
                 window.frontendDataExtracted = true;
                 console.debug('已从 Cloudflare 拉取公开网站内容');
                 // 尝试立即刷新前端展示（同一页内不会触发storage事件）
@@ -125,7 +125,7 @@ function calculateDynamicAge() {
     
     // 先检查localStorage中是否已有数据
     try {
-        const existingData = localStorage.getItem('websiteData');
+        const existingData = window.travisStorage.getItem('websiteData');
         if (existingData) {
             try {
                 // 解析数据并验证完整性
@@ -202,7 +202,7 @@ function extractFrontendData() {
         return;
     }
     
-    console.log('提取前端数据到localStorage...');
+    console.log('提取前端数据到window.travisStorage...');
     
     try {
         // 获取当前websiteData（如果存在）
@@ -269,14 +269,14 @@ function extractFrontendData() {
         
         // 将提取的数据保存到localStorage
         websiteData = normalizeWebsiteData(dataObj);
-        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+        window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
         
         console.log('前端数据提取完成，已保存到localStorage');
         
         // 触发同步事件通知其他页面
         try {
-            localStorage.setItem('websiteDataSync', Date.now().toString());
-            localStorage.setItem('websiteDataSyncSource', 'frontend_extract_' + Math.random().toString(36).substring(2));
+            window.travisStorage.setItem('websiteDataSync', Date.now().toString());
+            window.travisStorage.setItem('websiteDataSyncSource', 'frontend_extract_' + Math.random().toString(36).substring(2));
         } catch (e) {
             console.error('触发同步事件失败:', e);
         }
@@ -443,7 +443,7 @@ function extractExperienceData(dataObj) {
         // 查看原有数据是否存在
         let existingData = [];
         try {
-            const websiteData = JSON.parse(localStorage.getItem('websiteData')) || {};
+            const websiteData = JSON.parse(window.travisStorage.getItem('websiteData')) || {};
             if (websiteData.experience && Array.isArray(websiteData.experience) && websiteData.experience.length > 0) {
                 existingData = websiteData.experience;
                 console.log('localStorage中已存在工作经历数据:', existingData.length);

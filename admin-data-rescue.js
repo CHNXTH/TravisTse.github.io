@@ -12,11 +12,11 @@ function restoreFromBackups() {
     
     // 收集所有备份
     try {
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
+        for (let i = 0; i < window.travisStorage.length; i++) {
+            const key = window.travisStorage.key(i);
             if (key && key.startsWith('websiteData_backup_')) {
                 try {
-                    const data = JSON.parse(localStorage.getItem(key));
+                    const data = JSON.parse(window.travisStorage.getItem(key));
                     const timestamp = key.split('_backup_')[1];
                     
                     backups.push({
@@ -59,9 +59,9 @@ function restoreFromBackups() {
     try {
         // 保存当前数据（如果有）
         try {
-            const currentData = localStorage.getItem('websiteData');
+            const currentData = window.travisStorage.getItem('websiteData');
             if (currentData) {
-                localStorage.setItem('websiteData_before_restore', currentData);
+                window.travisStorage.setItem('websiteData_before_restore', currentData);
                 console.log('已保存当前数据为 websiteData_before_restore');
             }
         } catch (e) {
@@ -69,7 +69,7 @@ function restoreFromBackups() {
         }
         
         // 恢复备份
-        localStorage.setItem('websiteData', JSON.stringify(latestBackup.data));
+        window.travisStorage.setItem('websiteData', JSON.stringify(latestBackup.data));
         console.log('已恢复数据');
         
         console.groupEnd();
@@ -97,7 +97,7 @@ function emergencyDataRepair() {
         // 获取当前数据
         let currentData = null;
         try {
-            const dataStr = localStorage.getItem('websiteData');
+            const dataStr = window.travisStorage.getItem('websiteData');
             if (dataStr) {
                 currentData = JSON.parse(dataStr);
             }
@@ -163,13 +163,13 @@ function emergencyDataRepair() {
         }
         
         // 保存修复后的数据
-        localStorage.setItem('websiteData', JSON.stringify(currentData));
+        window.travisStorage.setItem('websiteData', JSON.stringify(currentData));
         console.log('数据修复完成并已保存');
         
         // 立即创建一个备份
         const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
         const backupKey = `websiteData_backup_repaired_${timestamp}`;
-        localStorage.setItem(backupKey, JSON.stringify(currentData));
+        window.travisStorage.setItem(backupKey, JSON.stringify(currentData));
         console.log(`已创建修复后的备份: ${backupKey}`);
         
         console.groupEnd();
@@ -194,7 +194,7 @@ function autoDetectAndRepair() {
     
     try {
         // 首先检查是否存在websiteData
-        const dataStr = localStorage.getItem('websiteData');
+        const dataStr = window.travisStorage.getItem('websiteData');
         if (!dataStr) {
             console.warn('未找到websiteData，尝试从备份恢复...');
             return restoreFromBackups();

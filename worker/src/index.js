@@ -34,7 +34,7 @@ ${knowledgeText}
 `.trim();
 }
 
-export default {
+const worker = {
     async fetch(request, env) {
         try {
             if (request.method === 'OPTIONS') {
@@ -45,6 +45,17 @@ export default {
             }
 
             const url = new URL(request.url);
+            if (!env.CONTENT_SERIALIZED && env.CONTENT_COORDINATOR &&
+                (['/api/admin/content', '/api/admin/login', '/api/admin/password', '/api/anonymous-messages'].includes(url.pathname))) {
+                const id = env.CONTENT_COORDINATOR.idFromName('travis-content-v1');
+                return env.CONTENT_COORDINATOR.get(id).fetch(request);
+            }
+            if (!env.CONTENT_SERIALIZED && !env.CONTENT_COORDINATOR &&
+                ((url.pathname === '/api/admin/content' && request.method === 'PUT') ||
+                 (url.pathname === '/api/anonymous-messages' && request.method === 'POST'))) {
+                return jsonResponse(request, { error: 'Safe content storage is not configured' }, 503);
+            }
+
 
             if (url.pathname === '/api/chat') {
                 return handleChat(request, env);
@@ -195,9 +206,13 @@ async function handleAnonymousMessageSubmit(request, env) {
 
     let content = await readWebsiteContent(env);
     if (!content) {
-        content = normalizeWebsiteContent({});
+        return jsonResponse(request, { error: 'Website content is not initialized' }, 503);
     }
     content = normalizeWebsiteContent(content);
+    const requestId = typeof body.requestId === 'string' && /^[a-zA-Z0-9-]{16,80}$/.test(body.requestId) ? body.requestId : null;
+    const messageId = requestId ? `msg_${requestId}` : `msg_${crypto.randomUUID()}`;
+    const previous = content.anonymousMessages.find(item => item.id === messageId);
+    if (previous) return jsonResponse(request, { success: true, entry: previous }, 200);
 
     const place = body.place && typeof body.place === 'object' ? structuredClone(body.place) : null;
     let resolvedPlace = {
@@ -230,7 +245,7 @@ async function handleAnonymousMessageSubmit(request, env) {
     if (!hasLocation) resolvedPlace = null;
 
     const entry = {
-        id: `msg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+        id: messageId,
         place: resolvedPlace,
         message,
         intensity: 1,
@@ -250,7 +265,7 @@ async function handleAnonymousMessageSubmit(request, env) {
 
     await env.SITE_DATA.put(CONTENT_KEY, JSON.stringify(content));
 
-    return jsonResponse(request, { success: true, entry, content: sanitizePublicContent(content) }, 200);
+    return jsonResponse(request, { success: true, entry }, 200);
 }
 
 async function handleChat(request, env) {
@@ -572,6 +587,7 @@ async function handleAdminContent(request, env) {
 
         return jsonResponse(request, {
             content: sanitizeAdminContent(content),
+            revision: await contentRevision(content),
             bootstrapRequired: false
         }, 200);
     }
@@ -587,6 +603,16 @@ async function handleAdminContent(request, env) {
     }
 
     const previousContent = await readWebsiteContent(env);
+    if (!body.expectedRevision || body.expectedRevision !== await contentRevision(previousContent)) {
+        return jsonResponse(request, { error: '云端内容已变化或页面版本过旧。请先导出当前编辑，再刷新核对；没有覆盖任何云端数据。' }, 409);
+    }
+    const profile = content.profile || {};
+    if (profile.nameEn !== 'Travis Tse' && !String(profile.nameZh || '').includes('谢堂华')) {
+        return jsonResponse(request, { error: '个人资料不属于 Travis，已阻止跨站数据覆盖。' }, 422);
+    }
+    if (/cristy|樊语响/i.test(String(profile.nameEn || '') + String(profile.nameZh || ''))) {
+        return jsonResponse(request, { error: '检测到其他站点的个人资料，已阻止保存。' }, 422);
+    }
     if (previousContent) {
         await env.SITE_DATA.put(`${BACKUP_PREFIX}${Date.now()}`, JSON.stringify(previousContent));
     }
@@ -595,10 +621,11 @@ async function handleAdminContent(request, env) {
     content.meta.version = content.meta.version || '2.0-cloudflare';
     content.meta.lastModified = new Date().toISOString();
     content.meta.savedBy = 'cloudflare-admin';
+    content.meta.storageRevision = crypto.randomUUID();
 
     await env.SITE_DATA.put(CONTENT_KEY, JSON.stringify(content));
 
-    return jsonResponse(request, { success: true, content: sanitizeAdminContent(content) }, 200);
+    return jsonResponse(request, { success: true, content: sanitizeAdminContent(content), revision: await contentRevision(content) }, 200);
 }
 
 async function handleAdminPassword(request, env) {
@@ -785,6 +812,13 @@ function base64ToUint8Array(base64) {
 }
 
 async function readWebsiteContent(env) {
+    if (!env.CONTENT_SERIALIZED && env.CONTENT_COORDINATOR) {
+        const id = env.CONTENT_COORDINATOR.idFromName('travis-content-v1');
+        const response = await env.CONTENT_COORDINATOR.get(id).fetch('https://content.internal/snapshot');
+        if (!response.ok) throw new Error('Unable to read authoritative content');
+        return response.json();
+    }
+
     if (!env.SITE_DATA) {
         return null;
     }
@@ -1289,3 +1323,60 @@ function base64UrlDecode(input) {
 function base64UrlDecodeToString(input) {
     return new TextDecoder().decode(base64UrlDecode(input));
 }
+
+
+async function contentRevision(content) {
+    const bytes = new TextEncoder().encode(JSON.stringify(content));
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// One authoritative coordinator serializes reads/modifications. Existing KV content
+// is copied verbatim on first access and is NEVER deleted or overwritten by this
+// adapter. Every subsequent version has a durable backup before replacement.
+export class ContentCoordinator {
+    constructor(ctx, env) {
+        this.ctx = ctx;
+        this.env = env;
+    }
+    async fetch(request) {
+        return this.ctx.blockConcurrencyWhile(async () => {
+            try {
+                let raw = await this.ctx.storage.get('content');
+                if (raw === undefined) {
+                    const legacy = await this.env.SITE_DATA.get(CONTENT_KEY);
+                    if (legacy) {
+                        JSON.parse(legacy); // Fail closed on corrupt data; never initialize defaults.
+                        await this.ctx.storage.put({ content: legacy, 'migration:original-kv': legacy });
+                        raw = legacy;
+                    }
+                }
+                if (new URL(request.url).pathname === '/snapshot') {
+                    return Response.json(raw ? JSON.parse(raw) : null);
+                }
+                const kv = this.env.SITE_DATA;
+                const storage = this.ctx.storage;
+                const env = {
+                    ...this.env,
+                    CONTENT_SERIALIZED: true,
+                    SITE_DATA: {
+                        get: async (key, ...args) => key === CONTENT_KEY ? (await storage.get('content')) ?? null : kv.get(key, ...args),
+                        put: async (key, value, ...args) => {
+                            if (key !== CONTENT_KEY) return kv.put(key, value, ...args);
+                            const before = await storage.get('content');
+                            await storage.transaction(async tx => {
+                                if (before !== undefined) await tx.put(`backup:${Date.now()}:${crypto.randomUUID()}`, before);
+                                await tx.put('content', value);
+                            });
+                        }
+                    }
+                };
+                return await worker.fetch(request, env);
+            } catch (_) {
+                return jsonResponse(request, { error: 'Safe storage operation failed; please retry with the same request.' }, 503);
+            }
+        });
+    }
+}
+
+export default worker;

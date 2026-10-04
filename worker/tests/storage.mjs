@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source=await readFile(new URL('../src/index.js',import.meta.url),'utf8');
+const {default:worker,ContentCoordinator,createSessionToken}=await import('data:text/javascript;base64,'+Buffer.from(source+'\nexport {createSessionToken};').toString('base64'));
+const original={profile:{nameEn:'Travis Tse',nameZh:'谢堂华'},education:[{id:'education'}],footprints:[{id:'old-place'}],anonymousMessages:[{id:'old-message',message:'retain',isVisible:false}],meta:{lastModified:'original'},unknownField:{preserve:true}};
+const originalRaw=JSON.stringify(original);
+const kv=new Map([['website_content_v1',originalRaw]]),data=new Map();
+let queue=Promise.resolve();
+const ctx={storage:{get:async k=>data.get(k),put:async (k,v)=>{if(typeof k==='string')data.set(k,v);else for(const [a,b]of Object.entries(k))data.set(a,b)},transaction:async fn=>{const before=new Map(data);try{return await fn(ctx.storage)}catch(e){data.clear();for(const x of before)data.set(...x);throw e}}},blockConcurrencyWhile(fn){const job=queue.then(fn);queue=job.catch(()=>{});return job}};
+const env={ADMIN_SESSION_SECRET:'local-test-only',SITE_DATA:{get:async k=>kv.get(k)??null,put:async(k,v)=>kv.set(k,v)}};
+let object=new ContentCoordinator(ctx,env);
+env.CONTENT_COORDINATOR={idFromName:()=> 'test',get:()=>({fetch:r=>object.fetch(typeof r==='string'?new Request(r):r)})};
+const token=await createSessionToken({scope:'admin',exp:Math.floor(Date.now()/1000)+3600},env.ADMIN_SESSION_SECRET);
+async function call(path,body,auth=false,method=body?'POST':'GET') {return worker.fetch(new Request('https://test'+path,{method,headers:{...(auth?{Authorization:'Bearer '+token}:{}),'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),env)}
+const read=async()=>{const r=await call('/api/admin/content',null,true);assert.equal(r.status,200);return r.json()};
+const before=await read();assert.deepEqual(before.content,original);assert.equal(data.get('migration:original-kv'),originalRaw);
+const responses=await Promise.all(Array.from({length:12},(_,i)=>call('/api/anonymous-messages',{message:'message '+i,requestId:'request-00000000-'+i})));
+assert(responses.every(r=>r.status===200));let current=await read();assert.equal(current.content.anonymousMessages.length,13);assert.deepEqual(current.content.footprints,original.footprints);
+const retry=await call('/api/anonymous-messages',{message:'message 1',requestId:'request-00000000-1'});assert.equal(retry.status,200);assert.equal((await read()).content.anonymousMessages.length,13);
+let r=await call('/api/admin/content',{content:before.content,expectedRevision:before.revision},true,'PUT');assert.equal(r.status,409);assert.equal((await read()).content.anonymousMessages.length,13);
+r=await call('/api/admin/content',{content:current.content},true,'PUT');assert.equal(r.status,409);
+const wrong=structuredClone(current.content);wrong.profile={nameEn:'Cristy Fan',nameZh:'樊语响'};
+r=await call('/api/admin/content',{content:wrong,expectedRevision:current.revision},true,'PUT');assert.equal(r.status,422);
+const edited=structuredClone(current.content);edited.projects=[{id:'new-project'}];
+r=await call('/api/admin/content',{content:edited,expectedRevision:current.revision},true,'PUT');assert.equal(r.status,200);
+current=await read();assert.deepEqual(current.content.projects,edited.projects);assert.equal(current.content.anonymousMessages.length,13);assert.deepEqual(current.content.unknownField,original.unknownField);
+// Two editor tabs saving the same revision: only one can win.
+const two=await Promise.all([call('/api/admin/content',{content:current.content,expectedRevision:current.revision},true,'PUT'),call('/api/admin/content',{content:current.content,expectedRevision:current.revision},true,'PUT')]);
+assert.deepEqual(two.map(x=>x.status).sort(),[200,409]);
+assert.equal(kv.get('website_content_v1'),originalRaw);assert([...data.keys()].some(k=>k.startsWith('backup:')));
+object=new ContentCoordinator(ctx,env);assert.equal((await read()).content.anonymousMessages.length,13);
+assert.equal((await call('/api/admin/content',null,false)).status,401);
+console.log('PASS original KV unchanged, migration exact, unknown fields retained, concurrent submissions, deduplication, stale/missing revisions blocked, foreign identity blocked, backup/restart, authentication');

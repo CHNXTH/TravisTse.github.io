@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
         try {
             // 先从localStorage读取数据
-            const savedData = localStorage.getItem('websiteData');
+            const savedData = window.travisStorage.getItem('websiteData');
             if (savedData && typeof updateFrontend === 'function') {
                 console.log('页面加载完成，从localStorage强制更新数据...');
                 updateFrontend();
@@ -62,11 +62,11 @@ function initSyncBridge() {
         const now = new Date();
         
         // 检查是否是websiteData或同步标志的变化
-        if (event.key === 'websiteData' || event.key === 'websiteDataSync') {
+        if (event.key === window.travisStorage.physicalKey('websiteData') || event.key === window.travisStorage.physicalKey('websiteDataSync')) {
             console.log(`[${now.toLocaleTimeString()}] 检测到${event.key}变更，准备更新页面...`);
             
             // 获取事件来源以避免循环更新
-            const syncSource = localStorage.getItem('websiteDataSyncSource');
+            const syncSource = window.travisStorage.getItem('websiteDataSyncSource');
             if (syncSource && syncSource.includes(syncState.syncSource)) {
                 console.log('忽略自身触发的更新事件');
                 return;
@@ -195,7 +195,7 @@ function checkForUpdates() {
         console.log('检查数据更新...');
         
         // 获取当前localStorage中的数据
-        const currentData = localStorage.getItem('websiteData');
+        const currentData = window.travisStorage.getItem('websiteData');
         if (!currentData) {
             console.log('localStorage中没有数据，跳过更新检查');
             return;
@@ -232,7 +232,7 @@ function getSyncStatus() {
 // 获取数据大小
 function getDataSize() {
     try {
-        const data = localStorage.getItem('websiteData');
+        const data = window.travisStorage.getItem('websiteData');
         if (data) {
             const bytes = new Blob([data]).size;
             if (bytes < 1024) return bytes + ' bytes';
@@ -276,9 +276,9 @@ function forceSaveAndSync() {
         
         // 设置同步标志触发storage事件
         const timestamp = new Date().getTime();
-        localStorage.setItem(SYNC_FLAG_KEY, timestamp.toString());
-        localStorage.setItem('websiteDataSync', timestamp.toString());
-        localStorage.setItem('websiteDataSyncSource', 'manual_sync_' + Math.random().toString(36).substring(2));
+        window.travisStorage.setItem(SYNC_FLAG_KEY, timestamp.toString());
+        window.travisStorage.setItem('websiteDataSync', timestamp.toString());
+        window.travisStorage.setItem('websiteDataSyncSource', 'manual_sync_' + Math.random().toString(36).substring(2));
         console.log('同步标志已设置:', timestamp);
         
         console.groupEnd();
@@ -294,7 +294,7 @@ function checkSyncState() {
     const state = {
         ...getSyncStatus(),
         currentPage: window.location.pathname,
-        dataExists: !!localStorage.getItem('websiteData'),
+        dataExists: !!window.travisStorage.getItem('websiteData'),
         websiteDataUpdated: window.websiteDataUpdated || false,
         frontendDataExtracted: window.frontendDataExtracted || false
     };
@@ -395,7 +395,7 @@ async function refreshFromCloudflarePublicContent({ reason } = {}) {
             return false;
         }
 
-        const localRaw = localStorage.getItem('websiteData');
+        const localRaw = window.travisStorage.getItem('websiteData');
         let local = null;
         try { local = localRaw ? JSON.parse(localRaw) : null; } catch (e) { local = null; }
 
@@ -405,9 +405,9 @@ async function refreshFromCloudflarePublicContent({ reason } = {}) {
             return false;
         }
 
-        localStorage.setItem('websiteData', JSON.stringify(remoteContent));
-        localStorage.setItem('websiteDataSync', String(Date.now()));
-        localStorage.setItem('websiteDataSyncSource', `cloudflare_refresh_${reason || 'unknown'}`);
+        window.travisStorage.setItem('websiteData', JSON.stringify(remoteContent));
+        window.travisStorage.setItem('websiteDataSync', String(Date.now()));
+        window.travisStorage.setItem('websiteDataSyncSource', `cloudflare_refresh_${reason || 'unknown'}`);
         console.log('已从Cloudflare刷新公开内容:', reason || 'unknown');
 
         if (typeof updateFrontend === 'function') {

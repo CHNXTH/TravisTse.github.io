@@ -3,10 +3,10 @@
 
     function safeSessionGet(key) {
         try {
-            return sessionStorage.getItem(key);
+            return window.travisSessionStorage.getItem(key);
         } catch (e) {
             try {
-                return localStorage.getItem(FALLBACK_PREFIX + key);
+                return window.travisStorage.getItem(FALLBACK_PREFIX + key);
             } catch (_) {
                 return null;
             }
@@ -15,11 +15,11 @@
 
     function safeSessionSet(key, value) {
         try {
-            sessionStorage.setItem(key, value);
+            window.travisSessionStorage.setItem(key, value);
             return;
         } catch (e) {
             try {
-                localStorage.setItem(FALLBACK_PREFIX + key, value);
+                window.travisStorage.setItem(FALLBACK_PREFIX + key, value);
             } catch (_) {
                 // ignore
             }
@@ -28,10 +28,10 @@
 
     function safeSessionRemove(key) {
         try {
-            sessionStorage.removeItem(key);
+            window.travisSessionStorage.removeItem(key);
         } catch (e) {
             try {
-                localStorage.removeItem(FALLBACK_PREFIX + key);
+                window.travisStorage.removeItem(FALLBACK_PREFIX + key);
             } catch (_) {
                 // ignore
             }
@@ -114,11 +114,13 @@
         return request('/api/admin/content', { method: 'GET' });
     }
 
-    async function saveAdminContent(content) {
-        return request('/api/admin/content', {
+    async function saveAdminContent(content, expectedRevision) {
+        if (!expectedRevision) throw new Error('请先重新读取云端数据，获取安全保存版本。');
+        const data = await request('/api/admin/content', {
             method: 'PUT',
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ content, expectedRevision }),
         });
+        return data;
     }
 
     async function updateAdminPassword(newPassword) {

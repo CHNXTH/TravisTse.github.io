@@ -15,3 +15,12 @@ id = "5344b320707c4bcb84e6524217cdb7f2"
 
 # Note: This project stores uploaded images in Workers KV (SITE_DATA) by default
 # so it works even when R2 is not enabled on the account.
+
+# Copy-on-first-read storage; the original KV content and uploaded assets remain intact.
+[[durable_objects.bindings]]
+name = "CONTENT_COORDINATOR"
+class_name = "ContentCoordinator"
+
+[[migrations]]
+tag = "v1-content-coordinator"
+new_sqlite_classes = ["ContentCoordinator"]

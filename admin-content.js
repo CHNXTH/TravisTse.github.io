@@ -907,13 +907,13 @@ function initSettingsSection() {
     // 清除缓存
     document.getElementById('clear-cache').addEventListener('click', function() {
         if (confirm('确定要清除网站缓存吗？这将删除所有本地存储的数据，包括您的设置和内容。')) {
-            localStorage.removeItem('websiteData');
+            window.travisStorage.removeItem('websiteData');
             try {
-                sessionStorage.removeItem('adminLoggedIn');
+                window.travisSessionStorage.removeItem('adminLoggedIn');
             } catch (e) {
                 try {
-                    localStorage.removeItem('admin_session_fallback_adminLoggedIn');
-                    localStorage.removeItem('cf_fallback_adminLoggedIn');
+                    window.travisStorage.removeItem('admin_session_fallback_adminLoggedIn');
+                    window.travisStorage.removeItem('cf_fallback_adminLoggedIn');
                 } catch (_) {
                     // ignore
                 }

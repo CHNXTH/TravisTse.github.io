@@ -11,7 +11,7 @@ function checkSyncStatus() {
     // 检查localStorage中的数据
     let websiteDataObj = null;
     try {
-        const websiteDataStr = localStorage.getItem('websiteData');
+        const websiteDataStr = window.travisStorage.getItem('websiteData');
         if (websiteDataStr) {
             websiteDataObj = JSON.parse(websiteDataStr);
             console.log('✅ localStorage中存在websiteData');
@@ -191,7 +191,7 @@ function forceSync() {
 // 清除同步数据
 function clearSyncData() {
     if (confirm('确定要清除所有同步数据吗？这将删除您在后台管理中的所有更改。')) {
-        localStorage.removeItem('websiteData');
+        window.travisStorage.removeItem('websiteData');
         console.log('同步数据已清除');
         
         if (confirm('是否要刷新页面？')) {
@@ -208,7 +208,7 @@ function addSampleExperiences() {
         // 获取当前数据
         let websiteData = {};
         try {
-            const storedData = localStorage.getItem('websiteData');
+            const storedData = window.travisStorage.getItem('websiteData');
             if (storedData) {
                 websiteData = JSON.parse(storedData);
             }
@@ -273,7 +273,7 @@ function addSampleExperiences() {
         });
         
         // 保存回localStorage
-        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+        window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
         
         console.log(`添加完成。新增: ${added}, 总计: ${websiteData.experience.length}`);
         

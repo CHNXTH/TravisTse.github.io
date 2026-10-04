@@ -90,7 +90,7 @@ function normalizeWebsiteDataForGlobe(data) {
 
 function readWebsiteDataFromStorage() {
   try {
-    const raw = localStorage.getItem('websiteData');
+    const raw = window.travisStorage.getItem('websiteData');
     if (!raw) return normalizeWebsiteDataForGlobe({});
     return normalizeWebsiteDataForGlobe(JSON.parse(raw));
   } catch (e) {
@@ -1722,9 +1722,9 @@ function escapeHtml(str) {
 
 function writeWebsiteDataToStorage(data) {
   const normalized = normalizeWebsiteDataForGlobe(data);
-  localStorage.setItem('websiteData', JSON.stringify(normalized));
-  localStorage.setItem('websiteDataSync', String(Date.now()));
-  localStorage.setItem('websiteDataSyncSource', `anonymous_message_${Math.random().toString(36).slice(2)}`);
+  window.travisStorage.setItem('websiteData', JSON.stringify(normalized));
+  window.travisStorage.setItem('websiteDataSync', String(Date.now()));
+  window.travisStorage.setItem('websiteDataSyncSource', `anonymous_message_${Math.random().toString(36).slice(2)}`);
   return normalized;
 }
 
@@ -1855,6 +1855,8 @@ async function locateCurrentCity(globeInstance) {
   return location;
 }
 
+let pendingMessageSubmission = null;
+
 async function submitAnonymousMessage(globeInstance) {
   const ui = getMapUiElements();
   const rawText = ui.text.value.trim();
@@ -1870,12 +1872,12 @@ async function submitAnonymousMessage(globeInstance) {
   setMessageState('sending');
   try {
     const response = await window.cloudflareApi.submitAnonymousMessage({
-      message: rawText, ...(location ? { lat: location.lat, lng: location.lng, place: location } : {}), source: 'frontend'
+      requestId: pendingMessageSubmission.requestId, message: rawText, ...(location ? { lat: location.lat, lng: location.lng, place: location } : {}), source: 'frontend'
     });
     if (!response?.success || (!response.content && !response.entry)) throw new Error('Please try sending again.');
     const websiteData = response.content ? normalizeWebsiteDataForGlobe(response.content) : readWebsiteDataFromStorage();
-    if (!response.content && response.entry) websiteData.anonymousMessages.push(response.entry);
-    writeWebsiteDataToStorage(websiteData);
+    if (!response.content && response.entry && !websiteData.anonymousMessages.some(item => item.id === response.entry.id)) websiteData.anonymousMessages.push(response.entry);
+    try { writeWebsiteDataToStorage(websiteData); } catch (_) { /* Server receipt is authoritative. */ }
     if (anonymousMessagePreviewState) {
       anonymousMessagePreviewState.message = rawText;
       anonymousMessagePreviewState.isSubmitted = true;
@@ -1890,6 +1892,7 @@ async function submitAnonymousMessage(globeInstance) {
         globeInstance.showTooltip(marker.userData, { pinned: true, marker });
       }
     }
+    pendingMessageSubmission = null;
     ui.text.value = '';
     ui.counter.textContent = '0/100';
     setMessageState('sent');

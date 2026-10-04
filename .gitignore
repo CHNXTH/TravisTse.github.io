@@ -136,3 +136,6 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Private site-content audit and recovery snapshots
+.local-backups/

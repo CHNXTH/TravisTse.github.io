@@ -5,7 +5,11 @@ let websiteData = {}; // 网站数据对象
 let adminSectionsInitialized = false;
 const USE_CLOUDFLARE_ADMIN = typeof window.cloudflareApi !== 'undefined';
 let cloudBootstrapRequired = false;
-let cloudAutoSeedAttempted = false;
+let adminLoadedSnapshot = null;
+let adminContentRevision = null;
+let adminCloudReady = false;
+let adminFormDirty = false;
+let adminSaveQueue = Promise.resolve();
 let cloudRefreshListenersBound = false;
 let cloudRefreshIntervalId = null;
 
@@ -13,10 +17,10 @@ const ADMIN_SESSION_FALLBACK_PREFIX = 'admin_session_fallback_';
 
 function safeSessionGet(key) {
     try {
-        return sessionStorage.getItem(key);
+        return window.travisSessionStorage.getItem(key);
     } catch (e) {
         try {
-            return localStorage.getItem(ADMIN_SESSION_FALLBACK_PREFIX + key);
+            return window.travisStorage.getItem(ADMIN_SESSION_FALLBACK_PREFIX + key);
         } catch (_) {
             return null;
         }
@@ -25,11 +29,11 @@ function safeSessionGet(key) {
 
 function safeSessionSet(key, value) {
     try {
-        sessionStorage.setItem(key, value);
+        window.travisSessionStorage.setItem(key, value);
         return;
     } catch (e) {
         try {
-            localStorage.setItem(ADMIN_SESSION_FALLBACK_PREFIX + key, value);
+            window.travisStorage.setItem(ADMIN_SESSION_FALLBACK_PREFIX + key, value);
         } catch (_) {
             // ignore
         }
@@ -38,10 +42,10 @@ function safeSessionSet(key, value) {
 
 function safeSessionRemove(key) {
     try {
-        sessionStorage.removeItem(key);
+        window.travisSessionStorage.removeItem(key);
     } catch (e) {
         try {
-            localStorage.removeItem(ADMIN_SESSION_FALLBACK_PREFIX + key);
+            window.travisStorage.removeItem(ADMIN_SESSION_FALLBACK_PREFIX + key);
         } catch (_) {
             // ignore
         }
@@ -50,6 +54,12 @@ function safeSessionRemove(key) {
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener('input', event => {
+        if (event.target.closest('.admin-section, .modal')) adminFormDirty = true;
+    });
+    document.addEventListener('change', event => {
+        if (event.target.closest('.admin-section, .modal')) adminFormDirty = true;
+    });
     initLoginSystem();
     initNavigationSystem();
     initSidebarToggle();
@@ -63,6 +73,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // 加载网站数据
 async function loadWebsiteData() {
+    adminCloudReady = false;
     if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken()) {
         try {
             const remoteData = await window.cloudflareApi.getAdminContent();
@@ -75,7 +86,10 @@ async function loadWebsiteData() {
 
             cloudBootstrapRequired = false;
             websiteData = normalizeWebsiteData(remoteData.content);
-            localStorage.setItem('websiteData', JSON.stringify(websiteData));
+            adminLoadedSnapshot = JSON.stringify(websiteData);
+            adminCloudReady = true;
+            adminContentRevision = remoteData.revision ?? null;
+            window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
             return;
         } catch (error) {
             console.error('从 Cloudflare 加载数据失败，回退到本地数据:', error);
@@ -88,7 +102,7 @@ async function loadWebsiteData() {
 
 function loadWebsiteDataFromLocal() {
     try {
-        const savedData = localStorage.getItem('websiteData');
+        const savedData = window.travisStorage.getItem('websiteData');
         if (savedData) {
             websiteData = normalizeWebsiteData(JSON.parse(savedData));
         } else {
@@ -105,7 +119,7 @@ function initDefaultData() {
     // 首先检查是否已存在网站数据
     console.log('检查现有网站数据...');
     try {
-        const existingData = localStorage.getItem('websiteData');
+        const existingData = window.travisStorage.getItem('websiteData');
         if (existingData) {
             // 如果已有数据，则解析它
             console.log('发现现有数据，正在加载...');
@@ -143,7 +157,6 @@ function initDefaultData() {
             console.log('数据加载完成，发现工作经历数量:', websiteData.experience.length);
             
             // 保存回localStorage以确保结构完整
-            saveWebsiteData();
             return;
         }
     } catch (error) {
@@ -186,75 +199,44 @@ function initDefaultData() {
     
     console.log('默认数据创建完成');
     
-    // 保存到localStorage
-    saveWebsiteData();
+    // Defaults remain in memory until a deliberate, authenticated save.
     
     // 同时创建一个备份
     createBackup();
 }
 
 // 保存网站数据
-async function saveWebsiteData() {
+function saveWebsiteData() {
+    const draft = structuredClone(normalizeWebsiteData(websiteData));
+    const job = adminSaveQueue.then(() => persistWebsiteDraft(draft));
+    adminSaveQueue = job.catch(() => false);
+    return job;
+}
+
+async function persistWebsiteDraft(draft) {
     try {
-        console.log('正在保存网站数据...');
-        
-        // 确保每个数据数组都存在
-        websiteData = normalizeWebsiteData(websiteData);
-        
-        // 更新元数据
-        if (!websiteData.meta) {
-            websiteData.meta = {
-                version: '1.0',
-                created: new Date().toISOString()
-            };
+        if (!USE_CLOUDFLARE_ADMIN || !window.cloudflareApi.getAdminToken() || !adminCloudReady) {
+            window.travisStorage.setItem('websiteData_unsaved_draft', JSON.stringify(draft));
+            throw new Error('尚未成功读取云端数据。草稿未发布，请重新登录并读取云端后再保存；不要清理浏览器缓存。');
         }
-        websiteData.meta.lastModified = new Date().toISOString();
-        
-        // 计算简单的数据哈希（用于验证数据完整性）
-        websiteData.meta.dataHash = calculateDataHash(websiteData);
-        
-        // 转换为JSON字符串
-        const dataStr = JSON.stringify(websiteData);
-        
-        // 检查数据大小
-        const dataSize = new Blob([dataStr]).size;
-        const maxSize = 5 * 1024 * 1024; // 5MB (localStorage理论上限)
-        const warningSize = 4 * 1024 * 1024; // 4MB (警告阈值)
-        
-        if (dataSize > maxSize) {
-            throw new Error(`数据大小 ${formatSize(dataSize)} 超过了localStorage限制 ${formatSize(maxSize)}`);
-        }
-        
-        if (dataSize > warningSize) {
-            showMessage(`警告：数据大小 ${formatSize(dataSize)} 接近localStorage限制 ${formatSize(maxSize)}，请导出备份`, 'warning');
-        }
-        
-        // 保留本地缓存，作为离线回退与导出来源
-        const syncId = Date.now().toString(36) + Math.random().toString(36).substring(2);
-        localStorage.setItem('websiteData', dataStr);
-        
-        console.log('本地缓存保存成功，大小:', formatSize(dataSize));
-        
-        // 在保存完数据后设置一个标志，表示数据已经更改
+        const result = await window.cloudflareApi.saveAdminContent(draft, adminContentRevision);
+        adminContentRevision = result.revision;
+        const saved = normalizeWebsiteData(result.content || draft);
+        // Do not replace edits made while the network request was pending.
+        if (JSON.stringify(websiteData) === JSON.stringify(draft)) websiteData = saved;
+        adminLoadedSnapshot = JSON.stringify(saved);
+        const dataStr = JSON.stringify(saved);
+        window.travisStorage.setItem('websiteData', dataStr);
+        window.travisStorage.setItem('websiteDataSync', String(Date.now()));
+        window.travisStorage.setItem('websiteDataSyncSource', 'admin_save');
         window.websiteDataUpdated = true;
-        
-        // 自动创建每日备份（限制为最多7个备份）
         createBackup();
-        
-        localStorage.setItem('websiteDataSync', syncId);
-        localStorage.setItem('websiteDataSyncSource', 'admin_save_' + syncId);
-
-        if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken()) {
-            await window.cloudflareApi.saveAdminContent(websiteData);
-            showMessage('数据已保存到 Cloudflare', 'success');
-        } else {
-            showMessage('数据已保存到本地缓存', 'success');
-        }
-
+        showMessage(window.travisStorage.persistent ? '数据已保存到 Cloudflare' : '数据已保存到 Cloudflare；浏览器缓存不可用，不影响云端保存。', 'success');
         return true;
     } catch (error) {
-        console.error('保存数据时出错:', error);
-        showMessage('数据保存失败: ' + error.message, 'error');
+        adminCloudReady = false;
+        window.travisStorage.setItem('websiteData_unsaved_draft', JSON.stringify(draft));
+        showMessage('云端保存未完成：' + error.message + ' 当前编辑已保留，请先导出备份。', 'error');
         return false;
     }
 }
@@ -269,8 +251,8 @@ function createBackup() {
         
         // 检查是否今天已经有备份
         let backupExists = false;
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
+        for (let i = 0; i < window.travisStorage.length; i++) {
+            const key = window.travisStorage.key(i);
             if (key === backupKey) {
                 backupExists = true;
                 break;
@@ -280,7 +262,7 @@ function createBackup() {
         // 如果今天还没有备份，创建一个
         if (!backupExists) {
             const dataStr = JSON.stringify(websiteData);
-            localStorage.setItem(backupKey, dataStr);
+            window.travisStorage.setItem(backupKey, dataStr);
             console.log(`创建了每日备份: ${backupKey}`);
             
             // 清理旧备份，只保留最近7天的
@@ -297,8 +279,8 @@ function cleanupOldBackups() {
         const backups = [];
         
         // 收集所有备份
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
+        for (let i = 0; i < window.travisStorage.length; i++) {
+            const key = window.travisStorage.key(i);
             if (key && key.startsWith('websiteData_backup_')) {
                 backups.push(key);
             }
@@ -311,7 +293,7 @@ function cleanupOldBackups() {
         const maxBackups = 7;
         if (backups.length > maxBackups) {
             for (let i = maxBackups; i < backups.length; i++) {
-                localStorage.removeItem(backups[i]);
+                window.travisStorage.removeItem(backups[i]);
                 console.log(`删除了旧备份: ${backups[i]}`);
             }
         }
@@ -356,7 +338,7 @@ function formatSize(bytes) {
 // 从备份恢复数据
 function restoreFromBackup(backupKey) {
     try {
-        const backupData = localStorage.getItem(backupKey);
+        const backupData = window.travisStorage.getItem(backupKey);
         if (!backupData) {
             showMessage(`找不到备份: ${backupKey}`, 'error');
             return false;
@@ -366,7 +348,7 @@ function restoreFromBackup(backupKey) {
         const parsedData = JSON.parse(backupData);
         
         // 创建当前数据的备份
-        localStorage.setItem('websiteData_before_restore', JSON.stringify(websiteData));
+        window.travisStorage.setItem('websiteData_before_restore', JSON.stringify(websiteData));
         
         // 恢复数据
         websiteData = parsedData;
@@ -487,16 +469,9 @@ async function checkLoginStatus() {
 async function prepareAdminPanel() {
     await loadWebsiteData();
 
-    if (USE_CLOUDFLARE_ADMIN && cloudBootstrapRequired) {
-        await bootstrapCloudflareContentFromStaticSite();
-        await loadWebsiteData();
-    }
-
-    if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken() && !cloudBootstrapRequired && !cloudAutoSeedAttempted) {
-        cloudAutoSeedAttempted = true;
-        await forceCloudSyncFromSiteIfEmpty();
-        await saveWebsiteData();
-        await loadWebsiteData();
+    // Loading the admin panel must never publish cached/default data automatically.
+    if (cloudBootstrapRequired) {
+        showMessage('云端内容为空，已禁止自动初始化，避免旧缓存覆盖数据。请先导出并核对备份。', 'warning');
     }
 
     if (!adminSectionsInitialized) {
@@ -521,6 +496,7 @@ async function prepareAdminPanel() {
 }
 
 async function refreshAnonymousMessagesFromCloud({ silent = false } = {}) {
+    if (adminFormDirty || JSON.stringify(websiteData) !== adminLoadedSnapshot) return false;
     if (!USE_CLOUDFLARE_ADMIN || !window.cloudflareApi.getAdminToken()) {
         return false;
     }
@@ -531,6 +507,7 @@ async function refreshAnonymousMessagesFromCloud({ silent = false } = {}) {
             return false;
         }
 
+        if (adminFormDirty || JSON.stringify(websiteData) !== adminLoadedSnapshot) return false;
         const normalizedRemote = normalizeWebsiteData(remoteData.content);
         const localCount = Array.isArray(websiteData.anonymousMessages) ? websiteData.anonymousMessages.length : 0;
         const remoteCount = Array.isArray(normalizedRemote.anonymousMessages) ? normalizedRemote.anonymousMessages.length : 0;
@@ -541,8 +518,11 @@ async function refreshAnonymousMessagesFromCloud({ silent = false } = {}) {
             return false;
         }
 
+        adminContentRevision = remoteData.revision ?? null;
         websiteData = normalizedRemote;
-        localStorage.setItem('websiteData', JSON.stringify(websiteData));
+        adminLoadedSnapshot = JSON.stringify(websiteData);
+        adminCloudReady = true;
+        window.travisStorage.setItem('websiteData', JSON.stringify(websiteData));
         refreshAdminSections();
         if (!silent) {
             showMessage('匿名留言已同步到后台列表', 'success');
@@ -572,7 +552,7 @@ function bindCloudRefreshListeners() {
     });
 
     window.addEventListener('storage', (event) => {
-        if (event.key === 'websiteDataSync' || event.key === 'websiteData') {
+        if (event.key === window.travisStorage.physicalKey('websiteDataSync') || event.key === window.travisStorage.physicalKey('websiteData')) {
             refreshAnonymousMessagesFromCloud({ silent: true });
         }
     });
@@ -1121,11 +1101,8 @@ function initDataMonitorPanel() {
     // 强制同步
     forceSync.addEventListener('click', async function() {
         try {
-            if (USE_CLOUDFLARE_ADMIN && window.cloudflareApi.getAdminToken()) {
-                await forceCloudSyncFromSiteIfEmpty();
-            }
-
-            await saveWebsiteData();
+            // Never fill empty content from a static page or discard a conflicted draft.
+            if (!await saveWebsiteData()) return;
             await loadWebsiteData();
             refreshAdminSections();
             updateMonitorPanel();
@@ -1151,7 +1128,7 @@ function initDataMonitorPanel() {
             const backupKey = `websiteData_backup_manual_${timestamp}`;
             
             // 保存当前数据
-            localStorage.setItem(backupKey, JSON.stringify(websiteData));
+            window.travisStorage.setItem(backupKey, JSON.stringify(websiteData));
             
             showMessage(`备份已创建: ${backupKey}`, 'success');
             updateMonitorPanel();
@@ -1202,7 +1179,7 @@ function updateMonitorPanel() {
         }
         
         // 计算本地缓存使用量（localStorage上限通常约5MB，图片base64很容易占满）
-        const dataStr = localStorage.getItem('websiteData');
+        const dataStr = window.travisStorage.getItem('websiteData');
         if (dataStr) {
             const bytes = new Blob([dataStr]).size;
             if (bytes < 1024) storageUsage.textContent = bytes + ' bytes';
