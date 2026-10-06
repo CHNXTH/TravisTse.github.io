@@ -3,7 +3,7 @@
       xmlns:og="http://ogp.me/ns#" 
       xmlns:fb="http://www.facebook.com/2008/fbml">
 <head>
-    <script src="site-storage.js?v=20261005-storage-isolation"></script>
+    <script src="site-storage.js?v=20261006-i18n"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
@@ -663,19 +663,21 @@
         </div>
     </div>
 
+    <script src="vendor/opencc/cn2t.js?v=1.4.0"></script>
+    <script src="site-i18n.js?v=20261006"></script>
     <script src="chat-config.js"></script>
-    <script src="cloudflare-api.js?v=20261005-storage-isolation"></script>
+    <script src="cloudflare-api.js?v=20261006-i18n"></script>
 
     <!-- Footprints 3D globe (Three.js, local-vendored) -->
-    <script type="module" src="footprints-globe.js?v=20261005-storage-isolation"></script>
+    <script type="module" src="footprints-globe.js?v=20261006-i18n"></script>
 
     <!-- 先加载数据同步脚本，确保数据处理函数可用 -->
-    <script src="admin-sync.js?v=20261005-storage-isolation"></script>
-    <script src="sync-bridge.js?v=20261005-storage-isolation"></script>
+    <script src="admin-sync.js?v=20261006-i18n"></script>
+    <script src="sync-bridge.js?v=20261006-i18n"></script>
 
     <!-- 主要脚本文件 -->
     <script src="chat-navigation.js"></script>
-    <script src="script.js?v=20261005-storage-isolation"></script>
+    <script src="script.js?v=20261006-i18n"></script>
 
     <!-- 添加后台访问相关的脚本 -->
     <script>
@@ -864,7 +866,7 @@
     </script>
 
     <!-- 同步检查工具 (需要时取消注释) -->
-    <script src="admin-sync-check.js?v=20261005-storage-isolation"></script>
+    <script src="admin-sync-check.js?v=20261006-i18n"></script>
     
     <!-- 添加结构化数据，帮助搜索引擎更好理解网站内容 -->
     <script type="application/ld+json">

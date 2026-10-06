@@ -613,7 +613,7 @@ function reorganizeHeroLayout() {
     if (existingHeroContent) {
         const summary = existingHeroContent.querySelector('.hero-summary');
         if (summary) {
-            setHeroSummaryHighlighted(summary, document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en');
+            setHeroSummaryHighlighted(summary, document.documentElement.lang);
         }
         return;
     }
@@ -923,14 +923,14 @@ function initHeroSummaryTypingOnce() {
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
         summaryEl.removeAttribute('data-typing-pending');
-        setHeroSummaryHighlighted(summaryEl, document.documentElement.lang === 'zh' ? 'zh' : 'en');
+        setHeroSummaryHighlighted(summaryEl, document.documentElement.lang);
         return;
     }
 
     // Start after synchronous initialization, without exposing the complete text first.
     heroSummaryTypingActive = true;
     heroSummaryTypingLock = true;
-    const lang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
+    const lang = document.documentElement.lang;
 
     summaryEl.textContent = '';
     heroSummaryTypingTimerId = window.setTimeout(() => {
@@ -968,43 +968,8 @@ function initLanguageToggle() {
             'section_social': 'Connect With Me',
             
             // 教育经历
-            'education_cityu': 'City University of Hong Kong',
-            'education_cityu_meta': 'QS Ranking: 62',
-            'education_cityu_details': 'College of Innovation | MSc in Venture Creation (Offer Received)',
-            
-            'education_ecust': 'East China University of Science and Technology',
-            'education_ecust_meta': 'Top 211 (Cross-Major Admission)',
-            'education_ecust_details': 'School of Design | Design (Intelligent Product Interaction Design)',
-            'education_ecust_time': '2025.09 - 2028.06',
-            'education_ecust_research': 'Research Focus: Intelligent Product Design, Industrial Design Engineering, AIGC Design, Large Model Training, Service Design',
-            
-            'education_sju': 'Shandong Jianzhu University',
-            'education_sju_meta': 'National First-Class Undergraduate Program / SoftScience Evaluation A',
-            'education_sju_details': 'School of Architecture and Urban Planning | Architecture (Green Building Design Direction)',
-            'education_sju_time': '2021.09 - 2025.06',
-            'education_sju_stats': 'GPA: 3.91/5 | Rank: 2/159',
-            'education_sju_awards': 'Awards: National Scholarship (1‰), First-Class Outstanding Student Scholarship (1%), Outstanding Student Pacesetter (1%), etc. Total of 12 national awards, 25 provincial awards, 6 university-level awards',
             
             // 工作经历
-            'exp_nio_title': 'NIO Headquarters (Shanghai) - Intelligent Cockpit - Media & Entertainment Ecosystem',
-            'exp_nio_meta': 'AI Product Manager for Intelligent Cockpit',
-            'exp_nio_time': '2025.10 - 2026.02',
-
-            'exp_ikea_title': 'IKEA China - Digital Innovation Center (IKEA Digital Hub)',
-            'exp_ikea_meta': 'Shanghai | Global Product Collage (GPC) Team | Product Manager, Interaction Designer',
-            'exp_ikea_time': '2024.07 - 2024.12',
-            
-            'exp_smartsite_title': 'Smart Site360 Mini Program',
-            'exp_smartsite_meta': 'Project Lead, Product Manager, UX Designer',
-            'exp_smartsite_time': '2024.05 - 2025.05',
-            
-            'exp_matconstruct_title': 'Matconstruct Mini Program',
-            'exp_matconstruct_meta': 'Project Lead, Product Manager, UX Designer',
-            'exp_matconstruct_time': '2023.05 - 2023.09',
-            
-            'exp_google_title': 'Google China Developer Conference',
-            'exp_google_meta': 'Shanghai | Gemini AI',
-            'exp_google_time': '2025.04',
             
             // 技能
             'skill_prototype': 'Prototype Design',
@@ -1016,8 +981,6 @@ function initLanguageToggle() {
             'footer_copyright': '© 2024 Travis Tse. All Rights Reserved.',
             
             // 论文
-            'paper_title_1': 'Research on Interactive Service System Design for Traditional Village Cultural Heritage under the Background of "Cultural Innovation"',
-            'paper_authors_1': 'Travis Tse, Jiang Wang. 2024 Computational Design Academic Forum Annual Conference Proceedings [C]. Tongji University Press',
             
             // 位置
             'location': 'Shanghai'
@@ -1040,43 +1003,8 @@ function initLanguageToggle() {
             'section_social': '社交媒体',
             
             // 教育经历
-            'education_cityu': '香港城市大学',
-            'education_cityu_meta': 'QS排名: 62',
-            'education_cityu_details': '创新学院 | 创新创业理学硕士 (MSc Venture Creation) (已获录取)',
-            
-            'education_ecust': '华东理工大学',
-            'education_ecust_meta': '211高校 (跨专业保送)',
-            'education_ecust_details': '设计学院 | 设计学（智能产品交互设计）',
-            'education_ecust_time': '2025.09 - 2028.06',
-            'education_ecust_research': '重点研究方向: 智能产品设计、工业设计工程、AIGC设计、大模型训练、服务设计',
-            
-            'education_sju': '山东建筑大学',
-            'education_sju_meta': '国家一流本科专业/软科评估A',
-            'education_sju_details': '建筑城规学院 | 建筑学(绿色建筑设计方向)',
-            'education_sju_time': '2021.09 - 2025.06',
-            'education_sju_stats': 'GPA: 3.91/5 | 专业排名: 2/159',
-            'education_sju_awards': '获奖经历: 国家奖学金(1‰)、优秀学生一等奖学金(1%)、优秀学生标兵(1%) 等共计12项国家级奖项，25项省级奖项，6项校级奖项',
             
             // 工作经历
-            'exp_nio_title': '蔚来汽车总部(上海) - 座舱智能化 - 媒体娱乐生态业务',
-            'exp_nio_meta': '智能座舱AI产品经理',
-            'exp_nio_time': '2025.10 - 2026.02',
-
-            'exp_ikea_title': '宜家中国 - 数字创新中心(IKEA Digital Hub)',
-            'exp_ikea_meta': '上海 | Global Product Collage(GPC)组 | 产品经理、交互设计师',
-            'exp_ikea_time': '2024.07 - 2024.12',
-            
-            'exp_smartsite_title': 'Smart Site360 小程序',
-            'exp_smartsite_meta': '项目负责人、产品经理、UX设计师',
-            'exp_smartsite_time': '2024.05 - 2025.05',
-            
-            'exp_matconstruct_title': 'Matconstruct 小程序',
-            'exp_matconstruct_meta': '项目负责人、产品经理、UX设计师',
-            'exp_matconstruct_time': '2023.05 - 2023.09',
-            
-            'exp_google_title': '谷歌中国开发者大会',
-            'exp_google_meta': '上海 | Gemini AI',
-            'exp_google_time': '2025.04',
             
             // 技能
             'skill_prototype': '原型设计',
@@ -1088,8 +1016,6 @@ function initLanguageToggle() {
             'footer_copyright': '© 2024 谢堂华 Travis Tse. 版权所有。',
             
             // 论文
-            'paper_title_1': '"文化双创"背景下传统村落文化遗产交互服务系统设计研究',
-            'paper_authors_1': '谢堂华, 王江. 2024计算性设计学术论坛年会论文集[C]. 同济大学出版社',
             
             // 位置
             'location': '上海'
@@ -1112,43 +1038,8 @@ function initLanguageToggle() {
             'section_social': '社交媒體',
             
             // 教育經歷
-            'education_cityu': '香港城市大學',
-            'education_cityu_meta': 'QS排名: 62',
-            'education_cityu_details': '創新學院 | 創新創業理學碩士 (MSc Venture Creation) (已獲錄取)',
-            
-            'education_ecust': '華東理工大學',
-            'education_ecust_meta': '211高校 (跨專業保送)',
-            'education_ecust_details': '設計學院 | 設計學（智能產品交互設計）',
-            'education_ecust_time': '2025.09 - 2028.06',
-            'education_ecust_research': '重點研究方向: 智能產品設計、工業設計工程、AIGC設計、大模型訓練、服務設計',
-            
-            'education_sju': '山東建築大學',
-            'education_sju_meta': '國家一流本科專業/軟科評估A',
-            'education_sju_details': '建築城規學院 | 建築學(綠色建築設計方向)',
-            'education_sju_time': '2021.09 - 2025.06',
-            'education_sju_stats': 'GPA: 3.91/5 | 專業排名: 2/159',
-            'education_sju_awards': '獲獎經歷: 國家獎學金(1‰)、優秀學生一等獎學金(1%)、優秀學生標兵(1%) 等共計12項國家級獎項，25項省級獎項，6項校級獎項',
             
             // 工作經歷
-            'exp_nio_title': '蔚來汽車總部(上海) - 座艙智能化 - 媒體娛樂生態業務',
-            'exp_nio_meta': '智能座艙AI產品經理',
-            'exp_nio_time': '2025.10 - 2026.02',
-
-            'exp_ikea_title': '宜家中國 - 數字創新中心(IKEA Digital Hub)',
-            'exp_ikea_meta': '上海 | Global Product Collage(GPC)組 | 產品經理、交互設計師',
-            'exp_ikea_time': '2024.07 - 2024.12',
-            
-            'exp_smartsite_title': 'Smart Site360 小程序',
-            'exp_smartsite_meta': '項目負責人、產品經理、UX設計師',
-            'exp_smartsite_time': '2024.05 - 2025.05',
-            
-            'exp_matconstruct_title': 'Matconstruct 小程序',
-            'exp_matconstruct_meta': '項目負責人、產品經理、UX設計師',
-            'exp_matconstruct_time': '2023.05 - 2023.09',
-            
-            'exp_google_title': '谷歌中國開發者大會',
-            'exp_google_meta': '上海 | Gemini AI',
-            'exp_google_time': '2025.04',
             
             // 技能
             'skill_prototype': '原型設計',
@@ -1160,8 +1051,6 @@ function initLanguageToggle() {
             'footer_copyright': '© 2024 謝堂華 Travis Tse. 版權所有。',
             
             // 論文
-            'paper_title_1': '"文化雙創"背景下傳統村落文化遺產交互服務系統設計研究',
-            'paper_authors_1': '謝堂華, 王江. 2024計算性設計學術論壇年會論文集[C]. 同濟大學出版社',
             
             // 位置
             'location': '上海'
@@ -1182,7 +1071,9 @@ function initLanguageToggle() {
             currentLang = 'en';
         }
         
-        // 更新页面语言
+        // Cancel the English typing animation before changing the visible language.
+        stopHeroSummaryTyping();
+        document.querySelector('.hero-summary')?.removeAttribute('data-typing-pending');
         updatePageLanguage();
     }
     
@@ -1208,11 +1099,6 @@ function initLanguageToggle() {
             }
         });
         
-	        // 更新姓名显示
-	        if (nameElement) {
-	            nameElement.textContent = nameElement.getAttribute(`data-${currentLang}`);
-	        }
-
 	        // 更新Hero文案（桌面端展示）
 	        const heroKicker = document.querySelector('.hero-kicker');
 	        if (heroKicker) {
@@ -1239,74 +1125,7 @@ function initLanguageToggle() {
 	            if (links[1]) links[1].textContent = t2;
 	        }
 
-	        // 更新Hero位置
-	        const locationEl = document.querySelector('.location-info');
-	        if (locationEl && translations[currentLang]['location']) {
-	            locationEl.innerHTML = `<i class="fas fa-map-marker-alt"></i>${translations[currentLang]['location']}`;
-	        }
-	        
-	        // 更新教育经历
-	        const educationItems = document.querySelectorAll('.education-item');
-	        if(educationItems.length >= 3) {
-	            // 香港城市大学
-            const cityU = educationItems[0];
-            cityU.querySelector('h3').textContent = translations[currentLang]['education_cityu'];
-            cityU.querySelector('.education-meta').textContent = translations[currentLang]['education_cityu_meta'];
-            cityU.querySelector('.education-details').textContent = translations[currentLang]['education_cityu_details'];
-            
-            // 华东理工大学
-            const ecust = educationItems[1];
-            ecust.querySelector('h3').textContent = translations[currentLang]['education_ecust'];
-            ecust.querySelector('.education-meta').textContent = translations[currentLang]['education_ecust_meta'];
-            ecust.querySelector('.education-details').textContent = translations[currentLang]['education_ecust_details'];
-            ecust.querySelector('.education-time').textContent = translations[currentLang]['education_ecust_time'];
-            ecust.querySelector('.education-research').textContent = translations[currentLang]['education_ecust_research'];
-            
-            // 山东建筑大学
-            const sju = educationItems[2];
-            sju.querySelector('h3').textContent = translations[currentLang]['education_sju'];
-            sju.querySelector('.education-meta').textContent = translations[currentLang]['education_sju_meta'];
-            sju.querySelector('.education-details').textContent = translations[currentLang]['education_sju_details'];
-            sju.querySelector('.education-time').textContent = translations[currentLang]['education_sju_time'];
-            sju.querySelector('.education-stats').textContent = translations[currentLang]['education_sju_stats'];
-            sju.querySelector('.education-awards').textContent = translations[currentLang]['education_sju_awards'];
-        }
-        
-        // 更新工作经历
-        const experienceItems = document.querySelectorAll('.experience-item');
-        if(experienceItems.length >= 5) {
-            // 蔚来
-            const nio = experienceItems[0];
-            nio.querySelector('h3').textContent = translations[currentLang]['exp_nio_title'];
-            nio.querySelector('.experience-meta').textContent = translations[currentLang]['exp_nio_meta'];
-            nio.querySelector('.experience-time').textContent = translations[currentLang]['exp_nio_time'];
-
-            // 宜家
-            const ikea = experienceItems[1];
-            ikea.querySelector('h3').textContent = translations[currentLang]['exp_ikea_title'];
-            ikea.querySelector('.experience-meta').textContent = translations[currentLang]['exp_ikea_meta'];
-            ikea.querySelector('.experience-time').textContent = translations[currentLang]['exp_ikea_time'];
-
-            // Smart Site360
-            const smartSite = experienceItems[2];
-            smartSite.querySelector('h3').textContent = translations[currentLang]['exp_smartsite_title'];
-            smartSite.querySelector('.experience-meta').textContent = translations[currentLang]['exp_smartsite_meta'];
-            smartSite.querySelector('.experience-time').textContent = translations[currentLang]['exp_smartsite_time'];
-
-            // Matconstruct
-            const matConstruct = experienceItems[3];
-            matConstruct.querySelector('h3').textContent = translations[currentLang]['exp_matconstruct_title'];
-            matConstruct.querySelector('.experience-meta').textContent = translations[currentLang]['exp_matconstruct_meta'];
-            matConstruct.querySelector('.experience-time').textContent = translations[currentLang]['exp_matconstruct_time'];
-
-            // Google
-            const google = experienceItems[4];
-            google.querySelector('h3').textContent = translations[currentLang]['exp_google_title'];
-            google.querySelector('.experience-meta').textContent = translations[currentLang]['exp_google_meta'];
-            google.querySelector('.experience-time').textContent = translations[currentLang]['exp_google_time'];
-        }
-        
-        // 更新技能
+	        // 更新技能
         const skillCategories = document.querySelectorAll('.skill-category');
         if(skillCategories.length >= 4) {
             skillCategories[0].querySelector('h3').textContent = translations[currentLang]['skill_prototype'];
@@ -1324,15 +1143,15 @@ function initLanguageToggle() {
         // 更新语言切换按钮文本
         langText.textContent = translations[currentLang]['lang_toggle'];
         
-        // 更新论文
-        const paperLinks = document.querySelectorAll('.paper-link');
-        if (paperLinks.length > 0) {
-            paperLinks[0].textContent = translations[currentLang]['paper_title_1'];
-            const paperAuthors = paperLinks[0].closest('.timeline-content').querySelector('p');
-            if (paperAuthors) {
-                paperAuthors.textContent = translations[currentLang]['paper_authors_1'];
-            }
+        document.documentElement.lang = currentLang;
+        if (typeof updateProfileFrontend === 'function') {
+            updateProfileFrontend();
+            updateEducationFrontend();
+            updateExperienceFrontend();
+            updatePapersFrontend();
+            updateAwardsFrontend();
         }
+
     }
     
     // 注册语言切换事件

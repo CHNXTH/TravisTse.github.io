@@ -736,13 +736,14 @@ function updateFrontend() {
 
 // 更新个人资料前端
 function updateProfileFrontend() {
-    const profile = websiteData.profile || {};
+    const sourceProfile = websiteData.profile || {};
+    const profile = SiteI18n.view('profile', sourceProfile);
     
     // 更新姓名
     const nameElements = document.querySelectorAll('.name');
     nameElements.forEach(element => {
         element.textContent = profile.nameEn || 'Travis Tse';
-        element.setAttribute('data-en', profile.nameEn || 'Travis Tse');
+        element.setAttribute('data-en', sourceProfile.nameEn || 'Travis Tse');
         element.setAttribute('data-zh', profile.nameZh || '谢堂华 Travis Tse');
     });
     
@@ -785,10 +786,11 @@ function updateProfileFrontend() {
     // 更新 Hero 简介内容（并保持代码高亮）
     const heroSummary = document.querySelector('.hero-summary');
     if (heroSummary) {
-        if (profile.summaryEn) heroSummary.setAttribute('data-en', profile.summaryEn);
+        if (sourceProfile.summaryEn) heroSummary.setAttribute('data-en', sourceProfile.summaryEn);
         if (profile.summaryZh) heroSummary.setAttribute('data-zh', profile.summaryZh);
 
-        const currentLang = document.documentElement.getAttribute('lang') === 'zh' ? 'zh' : 'en';
+        const currentLang = document.documentElement.lang;
+        heroSummary.setAttribute(`data-${currentLang}`, profile.summaryEn || '');
         if (typeof window.setHeroSummaryHighlighted === 'function') {
             window.setHeroSummaryHighlighted(heroSummary, currentLang);
         }
@@ -799,7 +801,7 @@ function updateProfileFrontend() {
 
 // 更新教育经历前端
 function updateEducationFrontend() {
-    const educations = websiteData.education || [];
+    const educations = (websiteData.education || []).map(record => SiteI18n.view('education', record));
     const container = document.querySelector('#education .container');
     if (!container) return;
     
@@ -839,7 +841,7 @@ function updateEducationFrontend() {
 // 更新工作经历前端
 function updateExperienceFrontend() {
     try {
-        const experiences = websiteData.experience || [];
+        const experiences = (websiteData.experience || []).map(record => SiteI18n.view('experience', record));
         const container = document.querySelector('#experience .container');
         if (!container) {
             console.error('找不到工作经历容器 #experience .container');
@@ -1034,7 +1036,7 @@ function updateCarouselDots() {
 
 // 更新论文与专利前端
 function updatePapersFrontend() {
-    const papers = websiteData.papers || [];
+    const papers = (websiteData.papers || []).map(record => SiteI18n.view('papers', record));
     const container = document.querySelector('#papers .timeline');
     if (!container) return;
     
@@ -1060,7 +1062,7 @@ function updatePapersFrontend() {
 
 // 更新奖项荣誉前端
 function updateAwardsFrontend() {
-    const awards = websiteData.awards || [];
+    const awards = (websiteData.awards || []).map(record => SiteI18n.view('awards', record));
     const container = document.querySelector('#awards .timeline');
     if (!container) return;
     
